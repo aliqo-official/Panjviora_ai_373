@@ -102,8 +102,11 @@ export default function AdminOrdersPage() {
       setOrders(data);
 
       const drafts: Record<string, OrderStatus> = {};
+
       data.forEach((order: Order) => {
-        drafts[order.id] = STATUSES.includes(order.status as OrderStatus)
+        drafts[order.id] = STATUSES.includes(
+          order.status as OrderStatus
+        )
           ? (order.status as OrderStatus)
           : "pending";
       });
@@ -127,6 +130,20 @@ export default function AdminOrdersPage() {
 
     if (!newStatus || newStatus === order.status) return;
 
+    if (order.status === "cancelled") {
+      setError("Cancelled orders cannot be modified.");
+      return;
+    }
+
+    if (
+      newStatus === "cancelled" &&
+      !window.confirm(
+        "Are you sure you want to cancel this order and restore its stock?"
+      )
+    ) {
+      return;
+    }
+
     setUpdatingId(order.id);
     setError("");
 
@@ -149,6 +166,17 @@ export default function AdminOrdersPage() {
         throw new Error(data.error || "Order status update failed.");
       }
 
+      if (newStatus === "cancelled") {
+        if (!data || data.success !== true) {
+          throw new Error(
+            "Order cancellation was not confirmed."
+          );
+        }
+
+        await loadOrders();
+        return;
+      }
+
       if (!Array.isArray(data) || data.length === 0) {
         throw new Error("No order was updated.");
       }
@@ -164,6 +192,7 @@ export default function AdminOrdersPage() {
       setError(
         err instanceof Error ? err.message : "Status update failed."
       );
+
       await loadOrders();
     } finally {
       setUpdatingId(null);
@@ -179,7 +208,9 @@ export default function AdminOrdersPage() {
         order.customer_name,
         order.customer_phone,
         order.delivery_address,
-      ].some((value) => (value || "").toLowerCase().includes(query));
+      ].some((value) =>
+        (value || "").toLowerCase().includes(query)
+      );
 
       const matchesStatus =
         filter === "all" || order.status === filter;
@@ -203,7 +234,6 @@ export default function AdminOrdersPage() {
   return (
     <main className="min-h-screen bg-[#080D0A] px-4 py-10 text-[#F5F5F0] sm:px-6">
       <div className="mx-auto max-w-6xl">
-
         <header className="mb-10 text-center">
           <h1 className="text-4xl font-black tracking-tight">
             ALI<span className="text-[#D4AF37]">QO</span>{" "}
@@ -227,7 +257,7 @@ export default function AdminOrdersPage() {
 
           <button
             onClick={loadOrders}
-            disabled={loading}
+            disabled={loading || updatingId !== null}
             className="rounded-lg bg-[#D4AF37] px-4 py-2 font-bold text-[#080D0A] hover:bg-[#E5C65B] disabled:opacity-50"
           >
             {loading ? "Loading..." : "Refresh Orders"}
@@ -287,6 +317,7 @@ export default function AdminOrdersPage() {
             className="w-full rounded-lg border border-[#D4AF37]/30 bg-[#101813] p-3 text-white outline-none focus:border-[#D4AF37]"
           >
             <option value="all">All Orders</option>
+
             {STATUSES.map((status) => (
               <option key={status} value={status}>
                 {status.charAt(0).toUpperCase() + status.slice(1)}
@@ -344,7 +375,9 @@ export default function AdminOrdersPage() {
                   </p>
 
                   <p className="sm:col-span-2">
-                    <span className="text-gray-400">Delivery Address:</span>{" "}
+                    <span className="text-gray-400">
+                      Delivery Address:
+                    </span>{" "}
                     {order.delivery_address}
                   </p>
                 </div>
@@ -396,13 +429,17 @@ export default function AdminOrdersPage() {
                 <div className="mt-5 flex flex-wrap items-center gap-3">
                   <select
                     value={draftStatuses[order.id] || "pending"}
+                    disabled={
+                      order.status === "cancelled" ||
+                      updatingId !== null
+                    }
                     onChange={(e) =>
                       setDraftStatuses((current) => ({
                         ...current,
                         [order.id]: e.target.value as OrderStatus,
                       }))
                     }
-                    className="min-w-40 rounded-lg border border-[#D4AF37]/30 bg-[#080D0A] p-3 text-white outline-none focus:border-[#D4AF37]"
+                    className="min-w-40 rounded-lg border border-[#D4AF37]/30 bg-[#080D0A] p-3 text-white outline-none focus:border-[#D4AF37] disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {STATUSES.map((status) => (
                       <option key={status} value={status}>
@@ -414,16 +451,23 @@ export default function AdminOrdersPage() {
                   <button
                     onClick={() => updateStatus(order)}
                     disabled={
-                      updatingId === order.id ||
+                      updatingId !== null ||
+                      order.status === "cancelled" ||
                       draftStatuses[order.id] === order.status
                     }
-                    className="rounded-lg bg-[#D4AF37] px-4 py-3 font-bold text-[#080D0A] hover:bg-[#E5C65B] disabled:opacity-40"
+                    className="rounded-lg bg-[#D4AF37] px-4 py-3 font-bold text-[#080D0A] hover:bg-[#E5C65B] disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     {updatingId === order.id
                       ? "Updating..."
                       : "Update Status"}
                   </button>
                 </div>
+
+                {order.status === "cancelled" && (
+                  <p className="mt-3 text-sm text-red-300">
+                    This order is cancelled and can no longer be modified.
+                  </p>
+                )}
               </article>
             ))}
           </div>
