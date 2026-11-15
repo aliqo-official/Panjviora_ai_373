@@ -3,6 +3,44 @@ import { NextRequest, NextResponse } from "next/server";
 
 const ADMIN_EMAIL = "aliqo37311011@gmail.com";
 
+const ALLOWED_STATUSES = [
+  "pending",
+  "confirmed",
+  "shipped",
+  "delivered",
+  "cancelled",
+] as const;
+
+type OrderStatus = (typeof ALLOWED_STATUSES)[number];
+
+type SupabaseError = {
+  message?: string;
+  details?: string;
+  hint?: string;
+  code?: string;
+};
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function getErrorMessage(data: unknown, fallback: string) {
+  if (!isRecord(data)) return fallback;
+
+  return (
+    (typeof data.message === "string" && data.message) ||
+    (typeof data.details === "string" && data.details) ||
+    (typeof data.hint === "string" && data.hint) ||
+    fallback
+  );
+}
+
+function getErrorCode(data: unknown) {
+  if (!isRecord(data)) return null;
+
+  return typeof data.code === "string" ? data.code : null;
+}
+
 async function verifyAdmin(request: NextRequest) {
   const token = request.cookies.get("aliqo_admin_session")?.value;
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -22,13 +60,15 @@ async function verifyAdmin(request: NextRequest) {
       cache: "no-store",
     });
 
-    if (!response.ok) {
-      return null;
-    }
+    if (!response.ok) return null;
 
-    const user = await response.json();
+    const user: unknown = await response.json();
 
-    if (user.email?.toLowerCase() !== ADMIN_EMAIL) {
+    if (
+      !isRecord(user) ||
+      typeof user.email !== "string" ||
+      user.email.toLowerCase() !== ADMIN_EMAIL
+    ) {
       return null;
     }
 
@@ -43,6 +83,29 @@ async function verifyAdmin(request: NextRequest) {
 
 function isSameOrigin(request: NextRequest) {
   return request.headers.get("origin") === request.nextUrl.origin;
+}
+
+function isOrderStatus(value: unknown): value is OrderStatus {
+  return (
+    typeof value === "string" &&
+    ALLOWED_STATUSES.includes(value as OrderStatus)
+  );
+}
+
+async function supabaseRequest(
+  url: string,
+  secretKey: string,
+  options: RequestInit = {}
+) {
+  return fetch(url, {
+    ...options,
+    headers: {
+      apikey: secretKey,
+      Authorization: `Bearer ${secretKey}`,
+      ...options.headers,
+    },
+    cache: "no-store",
+  });
 }
 
 export async function GET(request: NextRequest) {
@@ -63,28 +126,21 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const response = await fetch(
+    const response = await supabaseRequest(
       `${admin.url}/rest/v1/orders?select=*,order_items(*)&order=created_at.desc`,
-      {
-        headers: {
-          apikey: admin.secretKey,
-          Authorization: `Bearer ${admin.secretKey}`,
-        },
-        cache: "no-store",
-      }
+      admin.secretKey
     );
 
-    const data = await response.json();
+    const data: unknown = await response.json();
 
     if (!response.ok) {
       return NextResponse.json(
         {
-          error:
-            data.message ||
-            data.details ||
-            data.hint ||
-            "Supabase database request failed.",
-          code: data.code || null,
+          error: getErrorMessage(
+            data,
+            "Supabase database request failed."
+          ),
+          code: getErrorCode(data),
         },
         { status: response.status }
       );
@@ -102,7 +158,7 @@ export async function GET(request: NextRequest) {
 export async function PATCH(request: NextRequest) {
   if (!isSameOrigin(request)) {
     return NextResponse.json(
-      { error: "Invalid request origin" },
+      { error: "Invalid request origin." },
       { status: 403 }
     );
   }
@@ -124,15 +180,16 @@ export async function PATCH(request: NextRequest) {
   }
 
   try {
-    const { id, status, reason } = await request.json();
+    const body: unknown = await request.json();
 
-    const allowedStatuses = [
-      "pending",
-      "confirmed",
-      "shipped",
-      "delivered",
-      "cancelled",
-    ];
+    if (!isRecord(body)) {
+      return NextResponse.json(
+        { error: "Invalid request body." },
+        { status: 400 }
+      );
+    }
+
+    const { id, status, reason } = body;
 
     const uuidRegex =
       /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -140,7 +197,7 @@ export async function PATCH(request: NextRequest) {
     if (
       typeof id !== "string" ||
       !uuidRegex.test(id) ||
-      !allowedStatuses.includes(status)
+      !isOrderStatus(status)
     ) {
       return NextResponse.json(
         { error: "Invalid order ID or status." },
@@ -148,7 +205,7 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
-    // Cancellation must use the secure database function.
+    // Cancellation uses the secure database RPC.
     if (status === "cancelled") {
       if (
         reason !== undefined &&
@@ -161,25 +218,27 @@ export async function PATCH(request: NextRequest) {
         );
       }
 
-      const response = await fetch(
+      const response = await supabaseRequest(
         `${admin.url}/rest/v1/rpc/admin_cancel_order`,
+        admin.secretKey,
         {
           method: "POST",
           headers: {
-            apikey: admin.secretKey,
-            Authorization: `Bearer ${admin.secretKey}`,
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
             p_order_id: id,
-            p_reason: reason || null,
+            p_reason:
+              typeof reason === "string" && reason.trim()
+                ? reason.trim()
+                : null,
           }),
-          cache: "no-store",
         }
       );
 
       const responseText = await response.text();
-      let data: any = null;
+
+      let data: unknown = null;
 
       try {
         data = responseText ? JSON.parse(responseText) : null;
@@ -190,58 +249,122 @@ export async function PATCH(request: NextRequest) {
       if (!response.ok) {
         return NextResponse.json(
           {
-            error:
-              data.message ||
-              data.details ||
-              "Order cancellation failed.",
-            code: data.code || null,
+            error: getErrorMessage(
+              data,
+              "Order cancellation failed."
+            ),
+            code: getErrorCode(data),
           },
           { status: response.status }
+        );
+      }
+
+      if (!isRecord(data) || data.success !== true) {
+        return NextResponse.json(
+          { error: "Cancellation was not confirmed." },
+          { status: 500 }
         );
       }
 
       return NextResponse.json(data);
     }
 
-    // Other status updates retain the existing database update method.
-    // A cancelled order cannot be reactivated through this route.
-    const response = await fetch(
-      `${admin.url}/rest/v1/orders?id=eq.${encodeURIComponent(id)}&status=neq.cancelled`,
-      {
-        method: "PATCH",
-        headers: {
-          apikey: admin.secretKey,
-          Authorization: `Bearer ${admin.secretKey}`,
-          "Content-Type": "application/json",
-          Prefer: "return=representation",
-        },
-        body: JSON.stringify({ status }),
-        cache: "no-store",
-      }
+    // Read the current order status before allowing a transition.
+    const currentResponse = await supabaseRequest(
+      `${admin.url}/rest/v1/orders?id=eq.${encodeURIComponent(
+        id
+      )}&select=id,status`,
+      admin.secretKey
     );
 
-    const data = await response.json();
+    const currentData: unknown = await currentResponse.json();
 
-    if (!response.ok) {
+    if (!currentResponse.ok) {
       return NextResponse.json(
         {
-          error: data.message || "Order update failed.",
-          code: data.code || null,
+          error: getErrorMessage(
+            currentData,
+            "Could not verify current order status."
+          ),
+          code: getErrorCode(currentData),
         },
-        { status: response.status }
+        { status: currentResponse.status }
       );
     }
 
-    if (!Array.isArray(data) || data.length === 0) {
+    if (
+      !Array.isArray(currentData) ||
+      currentData.length === 0 ||
+      !isRecord(currentData[0]) ||
+      typeof currentData[0].status !== "string"
+    ) {
+      return NextResponse.json(
+        { error: "Order not found." },
+        { status: 404 }
+      );
+    }
+
+    const currentStatus = currentData[0].status;
+
+    // Only forward status transitions are allowed.
+    const allowedTransitions: Record<string, OrderStatus[]> = {
+      pending: ["confirmed"],
+      confirmed: ["shipped"],
+      shipped: ["delivered"],
+      delivered: [],
+      cancelled: [],
+    };
+
+    const nextStatuses = allowedTransitions[currentStatus];
+
+    if (!nextStatuses || !nextStatuses.includes(status)) {
       return NextResponse.json(
         {
-          error: "Order not found or already cancelled.",
+          error: `Invalid status transition: ${currentStatus} to ${status}.`,
         },
         { status: 409 }
       );
     }
 
-    return NextResponse.json(data);
+    // Include the old status in the filter to protect against
+    // concurrent updates between the read and the update.
+    const updateResponse = await supabaseRequest(
+      `${admin.url}/rest/v1/orders?id=eq.${encodeURIComponent(
+        id
+      )}&status=eq.${encodeURIComponent(currentStatus)}`,
+      admin.secretKey,
+      {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Prefer: "return=representation",
+        },
+        body: JSON.stringify({ status }),
+      }
+    );
+
+    const updateData: unknown = await updateResponse.json();
+
+    if (!updateResponse.ok) {
+      return NextResponse.json(
+        {
+          error: getErrorMessage(updateData, "Order update failed."),
+          code: getErrorCode(updateData),
+        },
+        { status: updateResponse.status }
+      );
+    }
+
+    if (!Array.isArray(updateData) || updateData.length === 0) {
+      return NextResponse.json(
+        {
+          error: "Order status changed or order was not found. Refresh orders.",
+        },
+        { status: 409 }
+      );
+    }
+
+    return NextResponse.json(updateData);
   } catch {
     return NextResponse.json(
       { error: "Order update failed." },
