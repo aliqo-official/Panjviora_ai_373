@@ -124,7 +124,7 @@ export async function PATCH(request: NextRequest) {
   }
 
   try {
-    const { id, status } = await request.json();
+    const { id, status, reason } = await request.json();
 
     const allowedStatuses = [
       "pending",
@@ -148,8 +148,65 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
+    // Cancellation must use the secure database function.
+    if (status === "cancelled") {
+      if (
+        reason !== undefined &&
+        reason !== null &&
+        (typeof reason !== "string" || reason.length > 500)
+      ) {
+        return NextResponse.json(
+          { error: "Invalid cancellation reason." },
+          { status: 400 }
+        );
+      }
+
+      const response = await fetch(
+        `${admin.url}/rest/v1/rpc/admin_cancel_order`,
+        {
+          method: "POST",
+          headers: {
+            apikey: admin.secretKey,
+            Authorization: `Bearer ${admin.secretKey}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            p_order_id: id,
+            p_reason: reason || null,
+          }),
+          cache: "no-store",
+        }
+      );
+
+      const responseText = await response.text();
+      let data: any = null;
+
+      try {
+        data = responseText ? JSON.parse(responseText) : null;
+      } catch {
+        data = { message: responseText };
+      }
+
+      if (!response.ok) {
+        return NextResponse.json(
+          {
+            error:
+              data.message ||
+              data.details ||
+              "Order cancellation failed.",
+            code: data.code || null,
+          },
+          { status: response.status }
+        );
+      }
+
+      return NextResponse.json(data);
+    }
+
+    // Other status updates retain the existing database update method.
+    // A cancelled order cannot be reactivated through this route.
     const response = await fetch(
-      `${admin.url}/rest/v1/orders?id=eq.${encodeURIComponent(id)}`,
+      `${admin.url}/rest/v1/orders?id=eq.${encodeURIComponent(id)}&status=neq.cancelled`,
       {
         method: "PATCH",
         headers: {
@@ -172,6 +229,15 @@ export async function PATCH(request: NextRequest) {
           code: data.code || null,
         },
         { status: response.status }
+      );
+    }
+
+    if (!Array.isArray(data) || data.length === 0) {
+      return NextResponse.json(
+        {
+          error: "Order not found or already cancelled.",
+        },
+        { status: 409 }
       );
     }
 
