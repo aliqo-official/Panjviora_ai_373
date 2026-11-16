@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState } from "react";
+import { useState, type FormEvent } from "react";
 
 type TransportType = "bus" | "train" | "airline";
 
@@ -20,10 +20,25 @@ const cities = [
   "Bahawalpur",
 ];
 
-const transportOptions = [
-  { id: "bus", name: "Bus", icon: "🚌", description: "Explore bus routes across Pakistan" },
-  { id: "train", name: "Train", icon: "🚆", description: "Explore railway journeys" },
-  { id: "airline", name: "Airline", icon: "✈️", description: "Explore domestic and international flights" },
+const options = [
+  {
+    id: "bus",
+    name: "Bus",
+    icon: "🚌",
+    description: "Explore bus journeys across Pakistan",
+  },
+  {
+    id: "train",
+    name: "Train",
+    icon: "🚆",
+    description: "Explore railway journeys",
+  },
+  {
+    id: "airline",
+    name: "Airline",
+    icon: "✈️",
+    description: "Explore domestic and international flights",
+  },
 ] as const;
 
 export default function TransportPage() {
@@ -33,23 +48,25 @@ export default function TransportPage() {
   const [date, setDate] = useState("");
   const [passengers, setPassengers] = useState("1");
   const [message, setMessage] = useState("");
+  const [searchDetails, setSearchDetails] = useState("");
 
   function swapCities() {
     setFrom(to);
     setTo(from);
   }
 
-  function handleSearch(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
+  function handleSearch(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
     setMessage("");
-
-    if (!from || !to || !date) {
-      setMessage("Please select your departure city, destination and travel date.");
-      return;
-    }
+    setSearchDetails("");
 
     if (from === to) {
       setMessage("Departure and destination cities must be different.");
+      return;
+    }
+
+    if (!date) {
+      setMessage("Please select your travel date.");
       return;
     }
 
@@ -62,88 +79,115 @@ export default function TransportPage() {
       return;
     }
 
-    const params = new URLSearchParams({
-      type: transport,
-      from,
-      to,
-      date,
-      passengers,
-    });
+    const typeName =
+      transport === "bus"
+        ? "Bus"
+        : transport === "train"
+          ? "Train"
+          : "Airline";
 
-    window.location.href = `/transport/search?${params.toString()}`;
+    setSearchDetails(
+      `${typeName} journey: ${from} to ${to} | Date: ${date} | Passengers: ${passengers}`
+    );
   }
 
   return (
-    <main className="min-h-screen bg-[#f7faf7] text-gray-900">
-      <header className="bg-[#073b2a] text-white">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-5 py-5">
-          <a href="/" className="text-3xl font-extrabold tracking-wide">
-            ALIQO<span className="text-[#d5ad45]">.</span>
+    <main className="min-h-screen bg-[#F3F6F1] text-[#10271D]">
+      <header className="border-b border-[#D9E2D8] bg-[#10271D] px-5 py-5 text-white">
+        <div className="mx-auto flex max-w-6xl items-center justify-between">
+          <a href="/" className="text-2xl font-black">
+            ALI<span className="text-[#E4C35D]">QO</span>
           </a>
 
-          <nav className="flex items-center gap-5 text-sm font-medium">
-            <a href="/" className="hover:text-[#e5c36a]">Home</a>
-            <a href="/marketplace" className="hover:text-[#e5c36a]">Marketplace</a>
-            <a href="/contact" className="hover:text-[#e5c36a]">Contact</a>
+          <nav className="flex items-center gap-4 text-sm font-semibold sm:gap-6">
+            <a href="/" className="transition hover:text-[#E4C35D]">
+              Home
+            </a>
+            <a href="/marketplace" className="transition hover:text-[#E4C35D]">
+              Marketplace
+            </a>
+            <a href="/advertisements" className="transition hover:text-[#E4C35D]">
+              Advertisements
+            </a>
           </nav>
         </div>
       </header>
 
-      <section className="bg-gradient-to-br from-[#073b2a] to-[#126044] px-5 py-16 text-center text-white">
-        <p className="mb-3 font-semibold uppercase tracking-[0.25em] text-[#e5c36a]">
-          ALIQO Travel
-        </p>
+      <section className="px-5 py-16">
+        <div className="mx-auto max-w-6xl text-center">
+          <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#A17C26]">
+            ALIQO TRAVEL SERVICES
+          </p>
 
-        <h1 className="text-4xl font-extrabold md:text-5xl">
-          Your Journey Starts Here
-        </h1>
+          <h1 className="mt-4 text-4xl font-black sm:text-5xl">
+            Travel Across Your World
+          </h1>
 
-        <p className="mx-auto mt-4 max-w-2xl text-base text-green-100 md:text-lg">
-          Explore bus, train and airline travel options from one convenient platform.
-        </p>
+          <p className="mx-auto mt-4 max-w-xl text-sm leading-7 text-[#647468]">
+            Discover bus, train and airline travel options through one
+            convenient platform.
+          </p>
+        </div>
       </section>
 
-      <section className="mx-auto -mt-8 max-w-6xl px-4 pb-16">
-        <div className="rounded-2xl bg-white p-5 shadow-xl md:p-8">
-          <div className="mb-7 grid grid-cols-3 gap-3">
-            {transportOptions.map((option) => (
+      <section className="mx-auto max-w-6xl px-5 pb-16">
+        <div className="rounded-3xl border border-[#D9E2D8] bg-white p-6 shadow-sm sm:p-9">
+          <div className="grid gap-4 sm:grid-cols-3">
+            {options.map((option) => (
               <button
                 key={option.id}
                 type="button"
                 onClick={() => {
                   setTransport(option.id);
                   setMessage("");
+                  setSearchDetails("");
                 }}
-                className={`rounded-xl border-2 p-4 text-center transition ${
+                className={`rounded-2xl border p-5 text-left transition ${
                   transport === option.id
-                    ? "border-[#0b6849] bg-[#eaf5ee] text-[#075638]"
-                    : "border-gray-200 hover:border-[#0b6849]"
+                    ? "border-[#C49A32] bg-[#F7F0D9]"
+                    : "border-[#D9E2D8] bg-white hover:border-[#C49A32]"
                 }`}
               >
-                <span className="block text-3xl">{option.icon}</span>
-                <span className="mt-2 block font-bold">{option.name}</span>
-                <span className="mt-1 hidden text-xs text-gray-500 md:block">
+                <span className="text-3xl">{option.icon}</span>
+                <h2 className="mt-3 text-lg font-extrabold text-[#173B2B]">
+                  {option.name} Booking
+                </h2>
+                <p className="mt-2 text-sm leading-6 text-[#647468]">
                   {option.description}
-                </span>
+                </p>
+                {transport === option.id && (
+                  <span className="mt-3 inline-flex rounded-full bg-[#173B2B] px-3 py-1 text-xs font-bold text-[#F3D77C]">
+                    Selected
+                  </span>
+                )}
               </button>
             ))}
           </div>
 
-          <h2 className="mb-5 text-2xl font-bold text-[#073b2a]">
-            Search Your Journey
-          </h2>
+          <div className="mb-6 mt-9">
+            <h2 className="text-2xl font-black text-[#173B2B]">
+              Find Your Journey
+            </h2>
+            <p className="mt-2 text-sm text-[#647468]">
+              Select your travel details to get started.
+            </p>
+          </div>
 
-          <form onSubmit={handleSearch} className="space-y-5">
+          <form onSubmit={handleSearch} className="space-y-6">
             <div className="grid gap-4 md:grid-cols-[1fr_auto_1fr] md:items-end">
               <label className="block">
-                <span className="mb-2 block text-sm font-semibold">From</span>
+                <span className="mb-2 block text-sm font-bold">
+                  Departure City
+                </span>
                 <select
                   value={from}
-                  onChange={(e) => setFrom(e.target.value)}
-                  className="w-full rounded-xl border border-gray-300 bg-white p-4 outline-none focus:border-[#0b6849]"
+                  onChange={(event) => setFrom(event.target.value)}
+                  className="w-full rounded-xl border border-[#D9E2D8] bg-white p-4 text-[#10271D] outline-none focus:border-[#C49A32]"
                 >
                   {cities.map((city) => (
-                    <option key={city} value={city}>{city}</option>
+                    <option key={city} value={city}>
+                      {city}
+                    </option>
                   ))}
                 </select>
               </label>
@@ -152,44 +196,52 @@ export default function TransportPage() {
                 type="button"
                 onClick={swapCities}
                 aria-label="Swap departure and destination"
-                className="rounded-xl border border-[#d5ad45] px-5 py-3 text-xl text-[#806116] hover:bg-yellow-50"
+                className="rounded-full border border-[#D4AF37] px-5 py-3 text-xl font-bold text-[#85631B] transition hover:bg-[#F7F0D9]"
               >
                 ⇄
               </button>
 
               <label className="block">
-                <span className="mb-2 block text-sm font-semibold">To</span>
+                <span className="mb-2 block text-sm font-bold">
+                  Destination City
+                </span>
                 <select
                   value={to}
-                  onChange={(e) => setTo(e.target.value)}
-                  className="w-full rounded-xl border border-gray-300 bg-white p-4 outline-none focus:border-[#0b6849]"
+                  onChange={(event) => setTo(event.target.value)}
+                  className="w-full rounded-xl border border-[#D9E2D8] bg-white p-4 text-[#10271D] outline-none focus:border-[#C49A32]"
                 >
                   {cities.map((city) => (
-                    <option key={city} value={city}>{city}</option>
+                    <option key={city} value={city}>
+                      {city}
+                    </option>
                   ))}
                 </select>
               </label>
             </div>
 
-            <div className="grid gap-4 md:grid-cols-2">
+            <div className="grid gap-5 md:grid-cols-2">
               <label className="block">
-                <span className="mb-2 block text-sm font-semibold">Travel Date</span>
+                <span className="mb-2 block text-sm font-bold">
+                  Travel Date
+                </span>
                 <input
                   type="date"
                   value={date}
                   min={new Date().toLocaleDateString("en-CA")}
-                  onChange={(e) => setDate(e.target.value)}
-                  className="w-full rounded-xl border border-gray-300 p-4 outline-none focus:border-[#0b6849]"
+                  onChange={(event) => setDate(event.target.value)}
                   required
+                  className="w-full rounded-xl border border-[#D9E2D8] bg-white p-4 outline-none focus:border-[#C49A32]"
                 />
               </label>
 
               <label className="block">
-                <span className="mb-2 block text-sm font-semibold">Passengers</span>
+                <span className="mb-2 block text-sm font-bold">
+                  Passengers
+                </span>
                 <select
                   value={passengers}
-                  onChange={(e) => setPassengers(e.target.value)}
-                  className="w-full rounded-xl border border-gray-300 bg-white p-4 outline-none focus:border-[#0b6849]"
+                  onChange={(event) => setPassengers(event.target.value)}
+                  className="w-full rounded-xl border border-[#D9E2D8] bg-white p-4 outline-none focus:border-[#C49A32]"
                 >
                   {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((number) => (
                     <option key={number} value={number}>
@@ -201,54 +253,78 @@ export default function TransportPage() {
             </div>
 
             {message && (
-              <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-700">
+              <p role="alert" className="rounded-xl bg-red-50 p-4 text-sm font-semibold text-red-700">
                 {message}
               </p>
             )}
 
             <button
               type="submit"
-              className="w-full rounded-xl bg-[#0b6849] px-6 py-4 text-lg font-bold text-white transition hover:bg-[#084d36]"
+              className="w-full rounded-full bg-[#173B2B] px-6 py-4 text-sm font-bold text-[#F3D77C] transition hover:bg-[#10271D]"
             >
-              Search {transport === "airline" ? "Flights" : transport === "train" ? "Trains" : "Buses"}
+              Search {transport === "bus" ? "Buses" : transport === "train" ? "Trains" : "Flights"}
             </button>
           </form>
 
-          <p className="mt-4 text-center text-xs text-gray-500">
-            Search interface preview. Live schedules, prices and seat availability will appear after provider integration.
-          </p>
+          {searchDetails && (
+            <div className="mt-6 rounded-2xl border border-[#D9E2D8] bg-[#F3F6F1] p-5">
+              <h3 className="font-extrabold text-[#173B2B]">
+                Your Search Details
+              </h3>
+              <p className="mt-2 text-sm leading-7 text-[#647468]">
+                {searchDetails}
+              </p>
+              <p className="mt-3 text-xs leading-6 text-[#85631B]">
+                Live schedules, fares and seat availability will be connected
+                after operator and booking-provider integration.
+              </p>
+            </div>
+          )}
         </div>
       </section>
 
       <section className="mx-auto max-w-6xl px-5 pb-16">
-        <h2 className="mb-6 text-center text-2xl font-bold text-[#073b2a]">
-          Travel With ALIQO
-        </h2>
+        <div className="mb-8 text-center">
+          <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#A17C26]">
+            EXPLORE ALIQO
+          </p>
+          <h2 className="mt-3 text-3xl font-black text-[#173B2B]">
+            Travel Made Convenient
+          </h2>
+        </div>
 
-        <div className="grid gap-5 md:grid-cols-3">
-          {transportOptions.map((option) => (
-            <button
+        <div className="grid gap-6 sm:grid-cols-3">
+          {options.map((option) => (
+            <article
               key={option.id}
-              type="button"
-              onClick={() => {
-                setTransport(option.id);
-                window.scrollTo({ top: 300, behavior: "smooth" });
-              }}
-              className="rounded-2xl border border-gray-200 bg-white p-6 text-left shadow-sm transition hover:-translate-y-1 hover:shadow-lg"
+              className="rounded-3xl border border-[#D9E2D8] bg-white p-7 shadow-sm transition hover:-translate-y-1 hover:border-[#C49A32] hover:shadow-xl"
             >
               <span className="text-4xl">{option.icon}</span>
-              <h3 className="mt-4 text-xl font-bold text-[#073b2a]">
-                {option.name} Booking
+              <h3 className="mt-5 text-xl font-extrabold text-[#173B2B]">
+                {option.name} Travel
               </h3>
-              <p className="mt-2 text-sm text-gray-600">{option.description}</p>
-            </button>
+              <p className="mt-3 text-sm leading-7 text-[#647468]">
+                {option.description}.
+              </p>
+              <button
+                type="button"
+                onClick={() => {
+                  setTransport(option.id);
+                  setSearchDetails("");
+                  setMessage("");
+                  window.scrollTo({ top: 300, behavior: "smooth" });
+                }}
+                className="mt-5 rounded-full bg-[#D4AF37] px-5 py-3 text-sm font-bold text-[#10271D] transition hover:bg-[#E4C35D]"
+              >
+                Select {option.name}
+              </button>
+            </article>
           ))}
         </div>
       </section>
 
-      <footer className="bg-[#073b2a] px-5 py-8 text-center text-sm text-green-100">
-        © {new Date().getFullYear()} ALIQO. All rights reserved.
-        <p className="mt-2 text-[#e5c36a]">Your World, One Platform.</p>
+      <footer className="bg-[#090F0B] px-5 py-8 text-center text-sm text-[#A9B7AA]">
+        © 2026 ALIQO. All rights reserved.
       </footer>
     </main>
   );
