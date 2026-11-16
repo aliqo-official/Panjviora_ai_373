@@ -2,10 +2,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
-export const dynamic = "force-dynamic";
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
 type RoomInput = {
   room_type?: string;
@@ -19,11 +17,20 @@ type RoomInput = {
 };
 
 async function authenticate(request: NextRequest) {
+  if (!supabaseUrl || !supabaseAnonKey) {
+    return {
+      user: null,
+      token: null,
+      error: "Supabase configuration is missing.",
+    };
+  }
+
   const authorization = request.headers.get("authorization");
 
   if (!authorization?.startsWith("Bearer ")) {
     return {
       user: null,
+      token: null,
       error: "Authentication required.",
     };
   }
@@ -33,28 +40,49 @@ async function authenticate(request: NextRequest) {
   if (!token) {
     return {
       user: null,
+      token: null,
       error: "Invalid authentication token.",
     };
   }
 
-  const supabase = createClient(supabaseUrl, supabaseAnonKey);
+  try {
+    const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-  const {
-    data: { user },
-    error,
-  } = await supabase.auth.getUser(token);
+    const {
+      data: { user },
+      error,
+    } = await supabase.auth.getUser(token);
 
-  if (error || !user) {
+    if (error || !user) {
+      return {
+        user: null,
+        token: null,
+        error: "Invalid or expired login session.",
+      };
+    }
+
+    return {
+      user,
+      token,
+      error: null,
+    };
+  } catch {
     return {
       user: null,
-      error: "Invalid or expired login session.",
+      token: null,
+      error: "Authentication failed.",
     };
   }
+}
 
-  return {
-    user,
-    error: null,
-  };
+function getSupabaseForUser(token: string) {
+  return createClient(supabaseUrl!, supabaseAnonKey!, {
+    global: {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    },
+  });
 }
 
 function validateRoom(data: RoomInput) {
@@ -108,10 +136,7 @@ function validateRoom(data: RoomInput) {
     return "Invalid room amenities.";
   }
 
-  if (
-    data.image_url !== undefined &&
-    data.image_url !== null
-  ) {
+  if (data.image_url !== undefined && data.image_url !== null) {
     if (typeof data.image_url !== "string") {
       return "Invalid room image URL.";
     }
@@ -139,6 +164,7 @@ function validateRoom(data: RoomInput) {
 
 async function getOwnerHotel(userId: string, token: string) {
   const supabase = getSupabaseForUser(token);
+
   const { data, error } = await supabase
     .from("hotel_profiles")
     .select("id, status")
@@ -165,34 +191,19 @@ async function getOwnerHotel(userId: string, token: string) {
   };
 }
 
-function getSupabaseForUser(token: string) {
-  return createClient(supabaseUrl, supabaseAnonKey, {
-    global: {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    },
-  });
-}
-
 // GET: View rooms belonging to the authenticated hotel owner.
 export async function GET(request: NextRequest) {
   try {
     const auth = await authenticate(request);
 
-    if (!auth.user) {
+    if (!auth.user || !auth.token) {
       return NextResponse.json(
         { success: false, message: auth.error },
         { status: 401 }
       );
     }
 
-   const token = request.headers
-  .get("authorization")!
-  .slice(7)
-  .trim();
-
-const result = await getOwnerHotel(auth.user.id, token);
+    const result = await getOwnerHotel(auth.user.id, auth.token);
 
     if (!result.hotel) {
       return NextResponse.json(
@@ -201,9 +212,7 @@ const result = await getOwnerHotel(auth.user.id, token);
       );
     }
 
-    const authorization = request.headers.get("authorization")!;
-    const token = authorization.slice(7).trim();
-    const supabase = getSupabaseForUser(token);
+    const supabase = getSupabaseForUser(auth.token);
 
     const { data, error } = await supabase
       .from("hotel_rooms")
@@ -235,19 +244,15 @@ export async function POST(request: NextRequest) {
   try {
     const auth = await authenticate(request);
 
-    if (!auth.user) {
+    if (!auth.user || !auth.token) {
       return NextResponse.json(
         { success: false, message: auth.error },
         { status: 401 }
       );
     }
 
-    const token = request.headers
-  .get("authorization")!
-  .slice(7)
-  .trim();
+    const result = await getOwnerHotel(auth.user.id, auth.token);
 
-const result = await getOwnerHotel(auth.user.id, token);
     if (!result.hotel) {
       return NextResponse.json(
         { success: false, message: result.error },
@@ -256,7 +261,6 @@ const result = await getOwnerHotel(auth.user.id, token);
     }
 
     const body = await request.json();
-
     const validationError = validateRoom(body);
 
     if (validationError) {
@@ -266,9 +270,7 @@ const result = await getOwnerHotel(auth.user.id, token);
       );
     }
 
-    const authorization = request.headers.get("authorization")!;
-    const token = authorization.slice(7).trim();
-    const supabase = getSupabaseForUser(token);
+    const supabase = getSupabaseForUser(auth.token);
 
     const { data, error } = await supabase
       .from("hotel_rooms")
@@ -314,19 +316,14 @@ export async function PATCH(request: NextRequest) {
   try {
     const auth = await authenticate(request);
 
-    if (!auth.user) {
+    if (!auth.user || !auth.token) {
       return NextResponse.json(
         { success: false, message: auth.error },
         { status: 401 }
       );
     }
 
-    const token = request.headers
-  .get("authorization")!
-  .slice(7)
-  .trim();
-
-const result = await getOwnerHotel(auth.user.id, token);
+    const result = await getOwnerHotel(auth.user.id, auth.token);
 
     if (!result.hotel) {
       return NextResponse.json(
@@ -337,7 +334,11 @@ const result = await getOwnerHotel(auth.user.id, token);
 
     const body = await request.json();
 
-    if (typeof body.id !== "string" || !body.id.trim()) {
+    if (
+      !body ||
+      typeof body.id !== "string" ||
+      !body.id.trim()
+    ) {
       return NextResponse.json(
         { success: false, message: "Room ID is required." },
         { status: 400 }
@@ -386,12 +387,7 @@ const result = await getOwnerHotel(auth.user.id, token);
       );
     }
 
-    const token = request.headers
-      .get("authorization")!
-      .slice(7)
-      .trim();
-
-    const supabase = getSupabaseForUser(token);
+    const supabase = getSupabaseForUser(auth.token);
 
     const { data, error } = await supabase
       .from("hotel_rooms")
@@ -428,24 +424,19 @@ const result = await getOwnerHotel(auth.user.id, token);
   }
 }
 
-// DELETE: Delete a room belonging to the authenticated hotel.
+// DELETE: Safely remove a room or deactivate it if bookings exist.
 export async function DELETE(request: NextRequest) {
   try {
     const auth = await authenticate(request);
 
-    if (!auth.user) {
+    if (!auth.user || !auth.token) {
       return NextResponse.json(
         { success: false, message: auth.error },
         { status: 401 }
       );
     }
 
-   const token = request.headers
-  .get("authorization")!
-  .slice(7)
-  .trim();
-
-const result = await getOwnerHotel(auth.user.id, token);
+    const result = await getOwnerHotel(auth.user.id, auth.token);
 
     if (!result.hotel) {
       return NextResponse.json(
@@ -464,13 +455,55 @@ const result = await getOwnerHotel(auth.user.id, token);
       );
     }
 
-    const token = request.headers
-      .get("authorization")!
-      .slice(7)
-      .trim();
+    const supabase = getSupabaseForUser(auth.token);
 
-    const supabase = getSupabaseForUser(token);
+    // Check whether this room has booking history.
+    const { data: booking, error: bookingError } = await supabase
+      .from("hotel_bookings")
+      .select("id")
+      .eq("room_id", roomId)
+      .eq("hotel_id", result.hotel.id)
+      .limit(1)
+      .maybeSingle();
 
+    if (bookingError) {
+      return NextResponse.json(
+        { success: false, message: "Unable to verify room bookings." },
+        { status: 500 }
+      );
+    }
+
+    // Preserve rooms with booking history by deactivating them.
+    if (booking) {
+      const { data, error } = await supabase
+        .from("hotel_rooms")
+        .update({ is_active: false })
+        .eq("id", roomId)
+        .eq("hotel_id", result.hotel.id)
+        .select("id")
+        .maybeSingle();
+
+      if (error) {
+        return NextResponse.json(
+          { success: false, message: "Unable to deactivate room." },
+          { status: 500 }
+        );
+      }
+
+      if (!data) {
+        return NextResponse.json(
+          { success: false, message: "Room not found or access denied." },
+          { status: 404 }
+        );
+      }
+
+      return NextResponse.json({
+        success: true,
+        message: "Room deactivated. Existing booking history has been preserved.",
+      });
+    }
+
+    // No bookings exist, so permanent deletion is allowed.
     const { data, error } = await supabase
       .from("hotel_rooms")
       .delete()
@@ -483,7 +516,7 @@ const result = await getOwnerHotel(auth.user.id, token);
       return NextResponse.json(
         {
           success: false,
-          message: "Unable to delete room. It may have existing bookings.",
+          message: "Unable to delete room. Please check whether bookings exist.",
         },
         { status: 500 }
       );
