@@ -109,7 +109,10 @@ export async function POST(request: NextRequest) {
           }
         } catch {
           return NextResponse.json(
-            { error: "Website and image URLs must be valid HTTP or HTTPS URLs." },
+            {
+              error:
+                "Website and image URLs must be valid HTTP or HTTPS URLs.",
+            },
             { status: 400 }
           );
         }
@@ -149,12 +152,23 @@ export async function POST(request: NextRequest) {
     const result = await response.json();
 
     if (!response.ok) {
+      console.error("ALIQO HOTEL REGISTRATION DATABASE ERROR:", {
+        status: response.status,
+        code: result?.code,
+        message: result?.message,
+        details: result?.details,
+        hint: result?.hint,
+      });
+
       if (
         response.status === 409 ||
         result.code === "23505"
       ) {
         return NextResponse.json(
-          { error: "You have already submitted a hotel registration." },
+          {
+            error:
+              "You have already submitted a hotel registration.",
+          },
           { status: 409 }
         );
       }
@@ -181,7 +195,9 @@ export async function POST(request: NextRequest) {
       },
       { status: 201 }
     );
-  } catch {
+  } catch (error) {
+    console.error("ALIQO HOTEL REGISTRATION SERVER ERROR:", error);
+
     return NextResponse.json(
       { error: "Invalid request or database connection failed." },
       { status: 500 }
