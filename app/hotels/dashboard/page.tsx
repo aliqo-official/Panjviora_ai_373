@@ -100,17 +100,11 @@ export default function HotelOwnerDashboard() {
       const [roomsResponse, bookingsResponse] = await Promise.all([
         fetch(
           `${supabaseUrl}/rest/v1/hotel_rooms?select=*&hotel_id=eq.${encodeURIComponent(currentHotel.id)}&order=created_at.desc`,
-          {
-            headers,
-            cache: "no-store",
-          }
+          { headers, cache: "no-store" }
         ),
         fetch(
           `${supabaseUrl}/rest/v1/hotel_bookings?select=*&hotel_id=eq.${encodeURIComponent(currentHotel.id)}&order=created_at.desc`,
-          {
-            headers,
-            cache: "no-store",
-          }
+          { headers, cache: "no-store" }
         ),
       ]);
 
@@ -144,45 +138,59 @@ export default function HotelOwnerDashboard() {
       case "confirmed":
       case "paid":
         return "bg-green-100 text-green-800";
-
       case "rejected":
       case "cancelled":
       case "failed":
         return "bg-red-100 text-red-800";
-
       default:
         return "bg-amber-100 text-amber-800";
     }
   };
 
+  const cardStyle =
+    "rounded-2xl border border-[#D9C58B]/40 bg-white p-5 shadow-sm";
+
   if (loading) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-gray-50">
-        <p className="text-gray-600">Loading hotel dashboard...</p>
+      <main className="flex min-h-screen items-center justify-center bg-[#F3F6F1]">
+        <div className="text-center">
+          <div className="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-4 border-[#D9BD72] border-t-[#173B2B]" />
+          <p className="font-semibold text-[#173B2B]">
+            Loading ALIQO Hotel Dashboard...
+          </p>
+        </div>
       </main>
     );
   }
 
   return (
-    <main className="min-h-screen bg-gray-50 p-4 md:p-8">
+    <main className="min-h-screen bg-[#F3F6F1] p-4 md:p-8">
       <div className="mx-auto max-w-7xl">
-        <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">
-              Hotel Owner Dashboard
-            </h1>
-            <p className="mt-2 text-gray-600">
-              Manage your hotel, rooms and customer bookings.
-            </p>
-          </div>
 
-          <button
-            onClick={loadDashboard}
-            className="rounded-lg bg-green-700 px-5 py-3 font-semibold text-white hover:bg-green-800"
-          >
-            Refresh Dashboard
-          </button>
-        </div>
+        <header className="mb-8 overflow-hidden rounded-2xl bg-[#173B2B] p-6 text-white shadow-lg md:p-8">
+          <div className="flex flex-wrap items-center justify-between gap-5">
+            <div>
+              <p className="mb-2 text-sm font-bold uppercase tracking-[0.25em] text-[#D9BD72]">
+                ALIQO Accommodation
+              </p>
+
+              <h1 className="text-3xl font-extrabold md:text-4xl">
+                Hotel Owner Dashboard
+              </h1>
+
+              <p className="mt-2 text-green-100">
+                Manage your hotel, rooms and customer bookings.
+              </p>
+            </div>
+
+            <button
+              onClick={loadDashboard}
+              className="rounded-xl border border-[#D9BD72] bg-[#D9BD72] px-5 py-3 font-bold text-[#173B2B] transition hover:bg-[#E9D69E]"
+            >
+              ↻ Refresh Dashboard
+            </button>
+          </div>
+        </header>
 
         {error && (
           <div className="mb-6 rounded-xl border border-red-200 bg-red-50 p-4 text-red-700">
@@ -191,10 +199,10 @@ export default function HotelOwnerDashboard() {
         )}
 
         {!hotel ? (
-          <div className="rounded-2xl border bg-white p-8 text-center shadow-sm">
+          <section className={cardStyle + " text-center"}>
             <div className="mb-4 text-5xl">🏨</div>
 
-            <h2 className="text-2xl font-bold text-gray-900">
+            <h2 className="text-2xl font-bold text-[#173B2B]">
               No Hotel Registered
             </h2>
 
@@ -205,48 +213,44 @@ export default function HotelOwnerDashboard() {
 
             <a
               href="/hotels/register"
-              className="mt-6 inline-block rounded-lg bg-green-700 px-6 py-3 font-semibold text-white hover:bg-green-800"
+              className="mt-6 inline-block rounded-lg bg-[#173B2B] px-6 py-3 font-bold text-white hover:bg-[#24513D]"
             >
               Register Your Hotel
             </a>
-          </div>
+          </section>
         ) : (
           <>
-            <section className="mb-6 rounded-2xl border bg-white p-6 shadow-sm">
+            <section className="mb-6 rounded-2xl border border-[#D9BD72]/50 bg-white p-6 shadow-sm">
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div>
-                  <h2 className="text-2xl font-bold text-gray-900">
+                  <p className="mb-2 text-xs font-bold uppercase tracking-widest text-[#A18438]">
+                    Your Registered Property
+                  </p>
+
+                  <h2 className="text-2xl font-extrabold text-[#173B2B]">
                     {hotel.hotel_name}
                   </h2>
 
-                  <p className="mt-1 text-gray-600">
-                    {hotel.city} · {hotel.address}
+                  <p className="mt-2 text-gray-600">
+                    📍 {hotel.city} · {hotel.address}
                   </p>
 
-                  <p className="mt-3 text-sm text-gray-500">
-                    Owner: {hotel.owner_name}
-                  </p>
-
-                  <p className="text-sm text-gray-500">
-                    Email: {hotel.email}
-                  </p>
-
-                  <p className="text-sm text-gray-500">
-                    Phone: {hotel.phone}
-                  </p>
+                  <div className="mt-4 space-y-1 text-sm text-gray-600">
+                    <p>Owner: {hotel.owner_name}</p>
+                    <p>Email: {hotel.email}</p>
+                    <p>Phone: {hotel.phone}</p>
+                  </div>
                 </div>
 
                 <span
-                  className={`rounded-full px-4 py-2 text-sm font-bold capitalize ${statusStyle(
-                    hotel.status
-                  )}`}
+                  className={`rounded-full px-4 py-2 text-sm font-bold capitalize ${statusStyle(hotel.status)}`}
                 >
                   {hotel.status}
                 </span>
               </div>
 
               {hotel.status === "pending" && (
-                <div className="mt-5 rounded-xl bg-amber-50 p-4 text-sm text-amber-800">
+                <div className="mt-5 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
                   Your hotel registration is waiting for admin approval.
                   Room listings and public hotel visibility will be available
                   after approval.
@@ -254,15 +258,15 @@ export default function HotelOwnerDashboard() {
               )}
 
               {hotel.status === "rejected" && (
-                <div className="mt-5 rounded-xl bg-red-50 p-4 text-sm text-red-700">
+                <div className="mt-5 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
                   Your hotel application has been rejected.
                   Please contact ALIQO support for further information.
                 </div>
               )}
 
               {hotel.status === "approved" && (
-                <div className="mt-5 rounded-xl bg-green-50 p-4 text-sm text-green-800">
-                  Congratulations! Your hotel has been approved.
+                <div className="mt-5 rounded-xl border border-[#D9BD72]/50 bg-[#F8F3E5] p-4 text-sm font-semibold text-[#66501C]">
+                  ✓ Congratulations! Your hotel has been approved.
                 </div>
               )}
             </section>
@@ -294,133 +298,165 @@ export default function HotelOwnerDashboard() {
               ].map((item) => (
                 <div
                   key={item.title}
-                  className="rounded-xl border bg-white p-5 shadow-sm"
+                  className="rounded-2xl border border-[#D9BD72]/50 bg-white p-5 shadow-sm transition hover:-translate-y-1 hover:shadow-md"
                 >
-                  <p className="text-2xl">{item.icon}</p>
-                  <p className="mt-3 text-sm text-gray-500">
+                  <div className="mb-3 flex items-center justify-between">
+                    <span className="text-3xl">{item.icon}</span>
+                    <span className="text-xs font-bold uppercase tracking-wider text-[#A18438]">
+                      ALIQO
+                    </span>
+                  </div>
+
+                  <p className="text-sm font-medium text-gray-500">
                     {item.title}
                   </p>
-                  <p className="mt-1 text-3xl font-bold text-gray-900">
+
+                  <p className="mt-1 text-3xl font-extrabold text-[#173B2B]">
                     {item.value}
                   </p>
                 </div>
               ))}
             </section>
 
-            <section className="mb-8 rounded-2xl border bg-white p-6 shadow-sm">
-              <h2 className="mb-5 text-xl font-bold text-gray-900">
-                Room Management
-              </h2>
-
-              {hotel.status !== "approved" ? (
-                <p className="text-sm text-gray-500">
-                  Room management will become available after hotel approval.
+            <section className="mb-8 overflow-hidden rounded-2xl border border-[#D9BD72]/50 bg-white shadow-sm">
+              <div className="border-b border-[#D9BD72]/40 bg-[#173B2B] px-6 py-5">
+                <h2 className="text-xl font-bold text-white">
+                  🛏️ Room Management
+                </h2>
+                <p className="mt-1 text-sm text-green-100">
+                  Manage your available hotel rooms.
                 </p>
-              ) : rooms.length === 0 ? (
-                <p className="text-gray-500">
-                  No rooms have been added yet.
-                </p>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-sm">
-                    <thead>
-                      <tr className="border-b bg-gray-50">
-                        <th className="p-3">Room Type</th>
-                        <th className="p-3">Price / Night</th>
-                        <th className="p-3">Capacity</th>
-                        <th className="p-3">Total Rooms</th>
-                        <th className="p-3">Status</th>
-                      </tr>
-                    </thead>
+              </div>
 
-                    <tbody>
-                      {rooms.map((room) => (
-                        <tr key={room.id} className="border-b">
-                          <td className="p-3 font-medium">
-                            {room.room_type}
-                          </td>
-                          <td className="p-3">
-                            Rs. {Number(room.price_per_night).toLocaleString()}
-                          </td>
-                          <td className="p-3">{room.capacity}</td>
-                          <td className="p-3">{room.total_rooms}</td>
-                          <td className="p-3">
-                            <span
-                              className={`rounded-full px-3 py-1 text-xs ${
-                                room.is_active
-                                  ? "bg-green-100 text-green-800"
-                                  : "bg-gray-100 text-gray-700"
-                              }`}
-                            >
-                              {room.is_active ? "Active" : "Inactive"}
-                            </span>
-                          </td>
+              <div className="p-6">
+                {hotel.status !== "approved" ? (
+                  <p className="text-sm text-gray-500">
+                    Room management will become available after hotel approval.
+                  </p>
+                ) : rooms.length === 0 ? (
+                  <div className="rounded-xl border border-dashed border-[#D9BD72] bg-[#FBFAF5] p-8 text-center">
+                    <div className="text-4xl">🛏️</div>
+                    <p className="mt-3 font-semibold text-[#173B2B]">
+                      No rooms have been added yet.
+                    </p>
+                    <p className="mt-1 text-sm text-gray-500">
+                      Your room inventory will appear here when rooms are added.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-sm">
+                      <thead>
+                        <tr className="border-b bg-[#F3F6F1] text-[#173B2B]">
+                          <th className="p-3">Room Type</th>
+                          <th className="p-3">Price / Night</th>
+                          <th className="p-3">Capacity</th>
+                          <th className="p-3">Total Rooms</th>
+                          <th className="p-3">Status</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
+                      </thead>
+
+                      <tbody>
+                        {rooms.map((room) => (
+                          <tr key={room.id} className="border-b">
+                            <td className="p-3 font-semibold text-[#173B2B]">
+                              {room.room_type}
+                            </td>
+                            <td className="p-3">
+                              Rs. {Number(room.price_per_night).toLocaleString()}
+                            </td>
+                            <td className="p-3">{room.capacity}</td>
+                            <td className="p-3">{room.total_rooms}</td>
+                            <td className="p-3">
+                              <span
+                                className={`rounded-full px-3 py-1 text-xs font-bold ${
+                                  room.is_active
+                                    ? "bg-green-100 text-green-800"
+                                    : "bg-gray-100 text-gray-700"
+                                }`}
+                              >
+                                {room.is_active ? "Active" : "Inactive"}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
             </section>
 
-            <section className="rounded-2xl border bg-white p-6 shadow-sm">
-              <h2 className="mb-5 text-xl font-bold text-gray-900">
-                Customer Bookings
-              </h2>
-
-              {bookings.length === 0 ? (
-                <p className="text-gray-500">
-                  No customer bookings received yet.
+            <section className="overflow-hidden rounded-2xl border border-[#D9BD72]/50 bg-white shadow-sm">
+              <div className="border-b border-[#D9BD72]/40 bg-[#173B2B] px-6 py-5">
+                <h2 className="text-xl font-bold text-white">
+                  📋 Customer Bookings
+                </h2>
+                <p className="mt-1 text-sm text-green-100">
+                  Review and manage customer booking information.
                 </p>
-              ) : (
-                <div className="space-y-4">
-                  {bookings.map((booking) => (
-                    <div
-                      key={booking.id}
-                      className="rounded-xl border p-4"
-                    >
-                      <div className="flex flex-wrap items-start justify-between gap-3">
-                        <div>
-                          <h3 className="font-bold text-gray-900">
-                            {booking.guest_name}
-                          </h3>
+              </div>
 
-                          <p className="mt-1 text-xs text-gray-500">
-                            Reference: {booking.booking_reference}
-                          </p>
+              <div className="p-6">
+                {bookings.length === 0 ? (
+                  <div className="rounded-xl border border-dashed border-[#D9BD72] bg-[#FBFAF5] p-8 text-center">
+                    <div className="text-4xl">📋</div>
+                    <p className="mt-3 font-semibold text-[#173B2B]">
+                      No customer bookings received yet.
+                    </p>
+                    <p className="mt-1 text-sm text-gray-500">
+                      New customer bookings will appear here.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {bookings.map((booking) => (
+                      <div
+                        key={booking.id}
+                        className="rounded-xl border border-[#D9BD72]/40 p-4"
+                      >
+                        <div className="flex flex-wrap items-start justify-between gap-3">
+                          <div>
+                            <h3 className="font-bold text-[#173B2B]">
+                              {booking.guest_name}
+                            </h3>
+                            <p className="mt-1 text-xs text-gray-500">
+                              Reference: {booking.booking_reference}
+                            </p>
+                          </div>
+
+                          <span
+                            className={`rounded-full px-3 py-1 text-xs font-semibold capitalize ${statusStyle(booking.status)}`}
+                          >
+                            {booking.status}
+                          </span>
                         </div>
 
-                        <span
-                          className={`rounded-full px-3 py-1 text-xs font-semibold capitalize ${statusStyle(
-                            booking.status
-                          )}`}
-                        >
-                          {booking.status}
-                        </span>
+                        <div className="mt-4 grid grid-cols-1 gap-2 text-sm text-gray-600 sm:grid-cols-2">
+                          <p>Phone: {booking.guest_phone}</p>
+                          <p>Email: {booking.guest_email}</p>
+                          <p>Check-in: {booking.check_in}</p>
+                          <p>Check-out: {booking.check_out}</p>
+                          <p>Guests: {booking.guests}</p>
+                          <p>Rooms: {booking.rooms_booked}</p>
+                          <p>
+                            Total: Rs.{" "}
+                            {Number(booking.total_amount).toLocaleString()}
+                          </p>
+                          <p>Payment: {booking.payment_status}</p>
+                        </div>
                       </div>
-
-                      <div className="mt-4 grid grid-cols-1 gap-2 text-sm text-gray-600 sm:grid-cols-2">
-                        <p>Phone: {booking.guest_phone}</p>
-                        <p>Email: {booking.guest_email}</p>
-                        <p>Check-in: {booking.check_in}</p>
-                        <p>Check-out: {booking.check_out}</p>
-                        <p>Guests: {booking.guests}</p>
-                        <p>Rooms: {booking.rooms_booked}</p>
-                        <p>
-                          Total: Rs.{" "}
-                          {Number(booking.total_amount).toLocaleString()}
-                        </p>
-                        <p>
-                          Payment: {booking.payment_status}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
+                    ))}
+                  </div>
+                )}
+              </div>
             </section>
           </>
         )}
+
+        <footer className="mt-8 text-center text-sm text-gray-500">
+          © 2026 ALIQO. Explore more. Discover more.
+        </footer>
       </div>
     </main>
   );
