@@ -137,9 +137,8 @@ function validateRoom(data: RoomInput) {
   return null;
 }
 
-async function getOwnerHotel(userId: string) {
-  const supabase = createClient(supabaseUrl, supabaseAnonKey);
-
+async function getOwnerHotel(userId: string, token: string) {
+  const supabase = getSupabaseForUser(token);
   const { data, error } = await supabase
     .from("hotel_profiles")
     .select("id, status")
@@ -188,7 +187,12 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const result = await getOwnerHotel(auth.user.id);
+   const token = request.headers
+  .get("authorization")!
+  .slice(7)
+  .trim();
+
+const result = await getOwnerHotel(auth.user.id, token);
 
     if (!result.hotel) {
       return NextResponse.json(
@@ -238,8 +242,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const result = await getOwnerHotel(auth.user.id);
+    const token = request.headers
+  .get("authorization")!
+  .slice(7)
+  .trim();
 
+const result = await getOwnerHotel(auth.user.id, token);
     if (!result.hotel) {
       return NextResponse.json(
         { success: false, message: result.error },
@@ -313,7 +321,12 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
-    const result = await getOwnerHotel(auth.user.id);
+    const token = request.headers
+  .get("authorization")!
+  .slice(7)
+  .trim();
+
+const result = await getOwnerHotel(auth.user.id, token);
 
     if (!result.hotel) {
       return NextResponse.json(
@@ -427,7 +440,12 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    const result = await getOwnerHotel(auth.user.id);
+   const token = request.headers
+  .get("authorization")!
+  .slice(7)
+  .trim();
+
+const result = await getOwnerHotel(auth.user.id, token);
 
     if (!result.hotel) {
       return NextResponse.json(
