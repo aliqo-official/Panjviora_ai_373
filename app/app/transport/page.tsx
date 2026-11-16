@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 
 type TransportType = "bus" | "train" | "airline";
 
@@ -46,6 +46,18 @@ export default function TransportPage() {
   const [from, setFrom] = useState("Karachi");
   const [to, setTo] = useState("Lahore");
   const [date, setDate] = useState("");
+  const [minDate, setMinDate] = useState("");
+
+useEffect(() => {
+  const today = new Date();
+  const localDate = [
+    today.getFullYear(),
+    String(today.getMonth() + 1).padStart(2, "0"),
+    String(today.getDate()).padStart(2, "0"),
+  ].join("-");
+
+  setMinDate(localDate);
+}, []);
   const [passengers, setPassengers] = useState("1");
   const [message, setMessage] = useState("");
   const [searchDetails, setSearchDetails] = useState("");
@@ -227,7 +239,7 @@ export default function TransportPage() {
                 <input
                   type="date"
                   value={date}
-                  min={new Date().toLocaleDateString("en-CA")}
+                  min={minDate}
                   onChange={(event) => setDate(event.target.value)}
                   required
                   className="w-full rounded-xl border border-[#D9E2D8] bg-white p-4 outline-none focus:border-[#C49A32]"
