@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { createClient } from "@supabase/supabase-js";
 
 const supabase = createClient(
@@ -23,10 +23,14 @@ type Hotel = {
 
 type Room = {
   id: string;
+  hotel_id?: string;
   room_type: string;
+  description: string | null;
   price_per_night: number;
   capacity: number;
   total_rooms: number;
+  amenities: string[];
+  image_url: string | null;
   is_active: boolean;
 };
 
@@ -45,12 +49,41 @@ type Booking = {
   payment_status: string;
 };
 
+type RoomForm = {
+  room_type: string;
+  description: string;
+  price_per_night: string;
+  capacity: string;
+  total_rooms: string;
+  amenities: string;
+  image_url: string;
+  is_active: boolean;
+};
+
+const emptyForm: RoomForm = {
+  room_type: "",
+  description: "",
+  price_per_night: "",
+  capacity: "2",
+  total_rooms: "1",
+  amenities: "",
+  image_url: "",
+  is_active: true,
+};
+
 export default function HotelOwnerDashboard() {
   const [hotel, setHotel] = useState<Hotel | null>(null);
   const [rooms, setRooms] = useState<Room[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+
+  const [showForm, setShowForm] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [editingRoomId, setEditingRoomId] = useState<string | null>(null);
+  const [deletingRoomId, setDeletingRoomId] = useState<string | null>(null);
+  const [form, setForm] = useState<RoomForm>(emptyForm);
 
   const loadDashboard = useCallback(async () => {
     setLoading(true);
@@ -75,10 +108,7 @@ export default function HotelOwnerDashboard() {
 
       const hotelResponse = await fetch(
         `${supabaseUrl}/rest/v1/hotel_profiles?select=*&owner_user_id=eq.${encodeURIComponent(session.user.id)}&limit=1`,
-        {
-          headers,
-          cache: "no-store",
-        }
+        { headers, cache: "no-store" }
       );
 
       if (!hotelResponse.ok) {
@@ -108,8 +138,12 @@ export default function HotelOwnerDashboard() {
         ),
       ]);
 
-      if (!roomsResponse.ok || !bookingsResponse.ok) {
-        throw new Error("Unable to load rooms or booking information.");
+      if (!roomsResponse.ok) {
+        throw new Error("Unable to load hotel rooms.");
+      }
+
+      if (!bookingsResponse.ok) {
+        throw new Error("Unable to load customer bookings.");
       }
 
       const [roomsData, bookingsData] = await Promise.all([
@@ -132,6 +166,179 @@ export default function HotelOwnerDashboard() {
     loadDashboard();
   }, [loadDashboard]);
 
+  const resetForm = () => {
+    setForm(emptyForm);
+    setEditingRoomId(null);
+    setShowForm(false);
+  };
+
+  const startEdit = (room: Room) => {
+    setEditingRoomId(room.id);
+    setForm({
+      room_type: room.room_type,
+      description: room.description || "",
+      price_per_night: String(room.price_per_night),
+      capacity: String(room.capacity),
+      total_rooms: String(room.total_rooms),
+      amenities: (room.amenities || []).join(", "),
+      image_url: room.image_url || "",
+      is_active: room.is_active,
+    });
+    setShowForm(true);
+    setError("");
+    setSuccess("");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const saveRoom = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    if (!hotel || hotel.status !== "approved") {
+      setError("Only approved hotels can manage rooms.");
+      return;
+    }
+
+    const price = Number(form.price_per_night);
+    const capacity = Number(form.capacity);
+    const totalRooms = Number(form.total_rooms);
+
+    if (!form.room_type.trim()) {
+      setError("Please enter a room type.");
+      return;
+    }
+
+    if (!Number.isFinite(price) || price <= 0) {
+      setError("Please enter a valid room price.");
+      return;
+    }
+
+    if (!Number.isInteger(capacity) || capacity < 1) {
+      setError("Capacity must be at least 1 guest.");
+      return;
+    }
+
+    if (!Number.isInteger(totalRooms) || totalRooms < 1) {
+      setError("Total rooms must be at least 1.");
+      return;
+    }
+
+    const roomData = {
+      hotel_id: hotel.id,
+      room_type: form.room_type.trim(),
+      description: form.description.trim() || null,
+      price_per_night: price,
+      capacity,
+      total_rooms: totalRooms,
+      amenities: form.amenities
+        .split(",")
+        .map((item) => item.trim())
+        .filter(Boolean),
+      image_url: form.image_url.trim() || null,
+      is_active: form.is_active,
+      updated_at: new Date().toISOString(),
+    };
+
+    setSaving(true);
+    setError("");
+    setSuccess("");
+
+    try {
+      if (editingRoomId) {
+        const { error: updateError } = await supabase
+          .from("hotel_rooms")
+          .update(roomData)
+          .eq("id", editingRoomId)
+          .eq("hotel_id", hotel.id);
+
+        if (updateError) throw updateError;
+
+        setSuccess("Room updated successfully.");
+      } else {
+        const { error: insertError } = await supabase
+          .from("hotel_rooms")
+          .insert(roomData);
+
+        if (insertError) throw insertError;
+
+        setSuccess("New room added successfully.");
+      }
+
+      resetForm();
+      await loadDashboard();
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Unable to save room."
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const deleteRoom = async (room: Room) => {
+    if (!hotel) return;
+
+    const confirmed = window.confirm(
+      `Are you sure you want to delete "${room.room_type}"? This action cannot be undone.`
+    );
+
+    if (!confirmed) return;
+
+    setDeletingRoomId(room.id);
+    setError("");
+    setSuccess("");
+
+    try {
+      const { error: deleteError } = await supabase
+        .from("hotel_rooms")
+        .delete()
+        .eq("id", room.id)
+        .eq("hotel_id", hotel.id);
+
+      if (deleteError) throw deleteError;
+
+      setSuccess("Room deleted successfully.");
+      await loadDashboard();
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Unable to delete room."
+      );
+    } finally {
+      setDeletingRoomId(null);
+    }
+  };
+
+  const toggleRoomStatus = async (room: Room) => {
+    if (!hotel) return;
+
+    setError("");
+    setSuccess("");
+
+    try {
+      const { error: updateError } = await supabase
+        .from("hotel_rooms")
+        .update({
+          is_active: !room.is_active,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", room.id)
+        .eq("hotel_id", hotel.id);
+
+      if (updateError) throw updateError;
+
+      setSuccess(
+        room.is_active
+          ? "Room deactivated successfully."
+          : "Room activated successfully."
+      );
+
+      await loadDashboard();
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Unable to update room status."
+      );
+    }
+  };
+
   const statusStyle = (status: string) => {
     switch (status) {
       case "approved":
@@ -149,6 +356,15 @@ export default function HotelOwnerDashboard() {
 
   const cardStyle =
     "rounded-2xl border border-[#D9C58B]/40 bg-white p-5 shadow-sm";
+
+  const totalRooms = rooms.reduce(
+    (total, room) => total + Number(room.total_rooms || 0),
+    0
+  );
+
+  const activeRooms = rooms
+    .filter((room) => room.is_active)
+    .reduce((total, room) => total + Number(room.total_rooms || 0), 0);
 
   if (loading) {
     return (
@@ -173,11 +389,9 @@ export default function HotelOwnerDashboard() {
               <p className="mb-2 text-sm font-bold uppercase tracking-[0.25em] text-[#D9BD72]">
                 ALIQO Accommodation
               </p>
-
               <h1 className="text-3xl font-extrabold md:text-4xl">
                 Hotel Owner Dashboard
               </h1>
-
               <p className="mt-2 text-green-100">
                 Manage your hotel, rooms and customer bookings.
               </p>
@@ -193,24 +407,27 @@ export default function HotelOwnerDashboard() {
         </header>
 
         {error && (
-          <div className="mb-6 rounded-xl border border-red-200 bg-red-50 p-4 text-red-700">
+          <div className="mb-5 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
             {error}
+          </div>
+        )}
+
+        {success && (
+          <div className="mb-5 rounded-xl border border-green-200 bg-green-50 p-4 text-sm text-green-800">
+            ✓ {success}
           </div>
         )}
 
         {!hotel ? (
           <section className={cardStyle + " text-center"}>
             <div className="mb-4 text-5xl">🏨</div>
-
             <h2 className="text-2xl font-bold text-[#173B2B]">
               No Hotel Registered
             </h2>
-
             <p className="mx-auto mt-3 max-w-lg text-gray-600">
               You have not submitted a hotel registration yet.
               Register your hotel to start using ALIQO accommodation services.
             </p>
-
             <a
               href="/hotels/register"
               className="mt-6 inline-block rounded-lg bg-[#173B2B] px-6 py-3 font-bold text-white hover:bg-[#24513D]"
@@ -226,15 +443,12 @@ export default function HotelOwnerDashboard() {
                   <p className="mb-2 text-xs font-bold uppercase tracking-widest text-[#A18438]">
                     Your Registered Property
                   </p>
-
                   <h2 className="text-2xl font-extrabold text-[#173B2B]">
                     {hotel.hotel_name}
                   </h2>
-
                   <p className="mt-2 text-gray-600">
                     📍 {hotel.city} · {hotel.address}
                   </p>
-
                   <div className="mt-4 space-y-1 text-sm text-gray-600">
                     <p>Owner: {hotel.owner_name}</p>
                     <p>Email: {hotel.email}</p>
@@ -252,15 +466,14 @@ export default function HotelOwnerDashboard() {
               {hotel.status === "pending" && (
                 <div className="mt-5 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
                   Your hotel registration is waiting for admin approval.
-                  Room listings and public hotel visibility will be available
-                  after approval.
+                  Room management will be available after approval.
                 </div>
               )}
 
               {hotel.status === "rejected" && (
                 <div className="mt-5 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
                   Your hotel application has been rejected.
-                  Please contact ALIQO support for further information.
+                  Please contact ALIQO support.
                 </div>
               )}
 
@@ -273,26 +486,12 @@ export default function HotelOwnerDashboard() {
 
             <section className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
               {[
-                {
-                  title: "Total Rooms",
-                  value: rooms.length,
-                  icon: "🛏️",
-                },
-                {
-                  title: "Active Rooms",
-                  value: rooms.filter((room) => room.is_active).length,
-                  icon: "🏨",
-                },
-                {
-                  title: "Total Bookings",
-                  value: bookings.length,
-                  icon: "📋",
-                },
+                { title: "Total Rooms", value: totalRooms, icon: "🛏️" },
+                { title: "Active Rooms", value: activeRooms, icon: "🏨" },
+                { title: "Total Bookings", value: bookings.length, icon: "📋" },
                 {
                   title: "Pending Bookings",
-                  value: bookings.filter(
-                    (booking) => booking.status === "pending"
-                  ).length,
+                  value: bookings.filter((b) => b.status === "pending").length,
                   icon: "⏳",
                 },
               ].map((item) => (
@@ -306,11 +505,9 @@ export default function HotelOwnerDashboard() {
                       ALIQO
                     </span>
                   </div>
-
                   <p className="text-sm font-medium text-gray-500">
                     {item.title}
                   </p>
-
                   <p className="mt-1 text-3xl font-extrabold text-[#173B2B]">
                     {item.value}
                   </p>
@@ -319,13 +516,30 @@ export default function HotelOwnerDashboard() {
             </section>
 
             <section className="mb-8 overflow-hidden rounded-2xl border border-[#D9BD72]/50 bg-white shadow-sm">
-              <div className="border-b border-[#D9BD72]/40 bg-[#173B2B] px-6 py-5">
-                <h2 className="text-xl font-bold text-white">
-                  🛏️ Room Management
-                </h2>
-                <p className="mt-1 text-sm text-green-100">
-                  Manage your available hotel rooms.
-                </p>
+              <div className="flex flex-wrap items-center justify-between gap-4 border-b border-[#D9BD72]/40 bg-[#173B2B] px-6 py-5">
+                <div>
+                  <h2 className="text-xl font-bold text-white">
+                    🛏️ Room Management
+                  </h2>
+                  <p className="mt-1 text-sm text-green-100">
+                    Add, edit and manage your available hotel rooms.
+                  </p>
+                </div>
+
+                {hotel.status === "approved" && (
+                  <button
+                    onClick={() => {
+                      setEditingRoomId(null);
+                      setForm(emptyForm);
+                      setShowForm(!showForm);
+                      setError("");
+                      setSuccess("");
+                    }}
+                    className="rounded-xl bg-[#D9BD72] px-5 py-3 font-bold text-[#173B2B] hover:bg-[#E9D69E]"
+                  >
+                    {showForm ? "✕ Close Form" : "+ Add New Room"}
+                  </button>
+                )}
               </div>
 
               <div className="p-6">
@@ -333,56 +547,244 @@ export default function HotelOwnerDashboard() {
                   <p className="text-sm text-gray-500">
                     Room management will become available after hotel approval.
                   </p>
-                ) : rooms.length === 0 ? (
-                  <div className="rounded-xl border border-dashed border-[#D9BD72] bg-[#FBFAF5] p-8 text-center">
-                    <div className="text-4xl">🛏️</div>
-                    <p className="mt-3 font-semibold text-[#173B2B]">
-                      No rooms have been added yet.
-                    </p>
-                    <p className="mt-1 text-sm text-gray-500">
-                      Your room inventory will appear here when rooms are added.
-                    </p>
-                  </div>
                 ) : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left text-sm">
-                      <thead>
-                        <tr className="border-b bg-[#F3F6F1] text-[#173B2B]">
-                          <th className="p-3">Room Type</th>
-                          <th className="p-3">Price / Night</th>
-                          <th className="p-3">Capacity</th>
-                          <th className="p-3">Total Rooms</th>
-                          <th className="p-3">Status</th>
-                        </tr>
-                      </thead>
+                  <>
+                    {showForm && (
+                      <form
+                        onSubmit={saveRoom}
+                        className="mb-8 rounded-2xl border border-[#D9BD72]/50 bg-[#FBFAF5] p-5"
+                      >
+                        <h3 className="mb-5 text-xl font-bold text-[#173B2B]">
+                          {editingRoomId ? "Edit Room" : "Add New Room"}
+                        </h3>
 
-                      <tbody>
-                        {rooms.map((room) => (
-                          <tr key={room.id} className="border-b">
-                            <td className="p-3 font-semibold text-[#173B2B]">
-                              {room.room_type}
-                            </td>
-                            <td className="p-3">
-                              Rs. {Number(room.price_per_night).toLocaleString()}
-                            </td>
-                            <td className="p-3">{room.capacity}</td>
-                            <td className="p-3">{room.total_rooms}</td>
-                            <td className="p-3">
-                              <span
-                                className={`rounded-full px-3 py-1 text-xs font-bold ${
-                                  room.is_active
-                                    ? "bg-green-100 text-green-800"
-                                    : "bg-gray-100 text-gray-700"
-                                }`}
-                              >
-                                {room.is_active ? "Active" : "Inactive"}
-                              </span>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+                        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                          <label className="text-sm font-semibold text-gray-700">
+                            Room Type *
+                            <input
+                              required
+                              maxLength={100}
+                              value={form.room_type}
+                              onChange={(e) =>
+                                setForm({ ...form, room_type: e.target.value })
+                              }
+                              placeholder="e.g. Deluxe Double Room"
+                              className="mt-2 w-full rounded-lg border border-gray-300 bg-white p-3 font-normal outline-none focus:border-[#173B2B]"
+                            />
+                          </label>
+
+                          <label className="text-sm font-semibold text-gray-700">
+                            Price Per Night (PKR) *
+                            <input
+                              required
+                              type="number"
+                              min="1"
+                              step="0.01"
+                              value={form.price_per_night}
+                              onChange={(e) =>
+                                setForm({
+                                  ...form,
+                                  price_per_night: e.target.value,
+                                })
+                              }
+                              placeholder="e.g. 5000"
+                              className="mt-2 w-full rounded-lg border border-gray-300 bg-white p-3 font-normal outline-none focus:border-[#173B2B]"
+                            />
+                          </label>
+
+                          <label className="text-sm font-semibold text-gray-700">
+                            Guest Capacity *
+                            <input
+                              required
+                              type="number"
+                              min="1"
+                              step="1"
+                              value={form.capacity}
+                              onChange={(e) =>
+                                setForm({ ...form, capacity: e.target.value })
+                              }
+                              className="mt-2 w-full rounded-lg border border-gray-300 bg-white p-3 font-normal outline-none focus:border-[#173B2B]"
+                            />
+                          </label>
+
+                          <label className="text-sm font-semibold text-gray-700">
+                            Total Rooms *
+                            <input
+                              required
+                              type="number"
+                              min="1"
+                              step="1"
+                              value={form.total_rooms}
+                              onChange={(e) =>
+                                setForm({
+                                  ...form,
+                                  total_rooms: e.target.value,
+                                })
+                              }
+                              className="mt-2 w-full rounded-lg border border-gray-300 bg-white p-3 font-normal outline-none focus:border-[#173B2B]"
+                            />
+                          </label>
+
+                          <label className="text-sm font-semibold text-gray-700 md:col-span-2">
+                            Room Description
+                            <textarea
+                              rows={3}
+                              maxLength={2000}
+                              value={form.description}
+                              onChange={(e) =>
+                                setForm({
+                                  ...form,
+                                  description: e.target.value,
+                                })
+                              }
+                              placeholder="Describe the room and its facilities..."
+                              className="mt-2 w-full rounded-lg border border-gray-300 bg-white p-3 font-normal outline-none focus:border-[#173B2B]"
+                            />
+                          </label>
+
+                          <label className="text-sm font-semibold text-gray-700 md:col-span-2">
+                            Amenities (comma separated)
+                            <input
+                              value={form.amenities}
+                              onChange={(e) =>
+                                setForm({ ...form, amenities: e.target.value })
+                              }
+                              placeholder="WiFi, Air Conditioning, TV, Attached Bathroom"
+                              className="mt-2 w-full rounded-lg border border-gray-300 bg-white p-3 font-normal outline-none focus:border-[#173B2B]"
+                            />
+                          </label>
+
+                          <label className="text-sm font-semibold text-gray-700 md:col-span-2">
+                            Room Image URL
+                            <input
+                              type="url"
+                              value={form.image_url}
+                              onChange={(e) =>
+                                setForm({ ...form, image_url: e.target.value })
+                              }
+                              placeholder="https://example.com/room-image.jpg"
+                              className="mt-2 w-full rounded-lg border border-gray-300 bg-white p-3 font-normal outline-none focus:border-[#173B2B]"
+                            />
+                          </label>
+                        </div>
+
+                        <label className="mt-5 flex items-center gap-3 text-sm font-semibold text-[#173B2B]">
+                          <input
+                            type="checkbox"
+                            checked={form.is_active}
+                            onChange={(e) =>
+                              setForm({
+                                ...form,
+                                is_active: e.target.checked,
+                              })
+                            }
+                            className="h-5 w-5 accent-[#173B2B]"
+                          />
+                          Make this room active and publicly visible
+                        </label>
+
+                        <div className="mt-6 flex flex-wrap gap-3">
+                          <button
+                            type="submit"
+                            disabled={saving}
+                            className="rounded-xl bg-[#173B2B] px-6 py-3 font-bold text-white hover:bg-[#24513D] disabled:opacity-50"
+                          >
+                            {saving
+                              ? "Saving..."
+                              : editingRoomId
+                                ? "Update Room"
+                                : "Save Room"}
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={resetForm}
+                            disabled={saving}
+                            className="rounded-xl border border-gray-300 bg-white px-6 py-3 font-semibold text-gray-700 hover:bg-gray-100"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </form>
+                    )}
+
+                    {rooms.length === 0 ? (
+                      <div className="rounded-xl border border-dashed border-[#D9BD72] bg-[#FBFAF5] p-8 text-center">
+                        <div className="text-4xl">🛏️</div>
+                        <p className="mt-3 font-semibold text-[#173B2B]">
+                          No rooms have been added yet.
+                        </p>
+                        <p className="mt-1 text-sm text-gray-500">
+                          Click Add New Room to create your first room listing.
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left text-sm">
+                          <thead>
+                            <tr className="border-b bg-[#F3F6F1] text-[#173B2B]">
+                              <th className="p-3">Room Type</th>
+                              <th className="p-3">Price / Night</th>
+                              <th className="p-3">Capacity</th>
+                              <th className="p-3">Total Rooms</th>
+                              <th className="p-3">Status</th>
+                              <th className="p-3">Actions</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {rooms.map((room) => (
+                              <tr key={room.id} className="border-b">
+                                <td className="p-3 font-semibold text-[#173B2B]">
+                                  {room.room_type}
+                                </td>
+                                <td className="p-3">
+                                  Rs. {Number(room.price_per_night).toLocaleString()}
+                                </td>
+                                <td className="p-3">{room.capacity}</td>
+                                <td className="p-3">{room.total_rooms}</td>
+                                <td className="p-3">
+                                  <span
+                                    className={`rounded-full px-3 py-1 text-xs font-bold ${
+                                      room.is_active
+                                        ? "bg-green-100 text-green-800"
+                                        : "bg-gray-100 text-gray-700"
+                                    }`}
+                                  >
+                                    {room.is_active ? "Active" : "Inactive"}
+                                  </span>
+                                </td>
+                                <td className="p-3">
+                                  <div className="flex flex-wrap gap-2">
+                                    <button
+                                      onClick={() => startEdit(room)}
+                                      className="rounded-lg bg-blue-50 px-3 py-2 text-xs font-bold text-blue-700 hover:bg-blue-100"
+                                    >
+                                      Edit
+                                    </button>
+                                    <button
+                                      onClick={() => toggleRoomStatus(room)}
+                                      className="rounded-lg bg-amber-50 px-3 py-2 text-xs font-bold text-amber-800 hover:bg-amber-100"
+                                    >
+                                      {room.is_active ? "Deactivate" : "Activate"}
+                                    </button>
+                                    <button
+                                      onClick={() => deleteRoom(room)}
+                                      disabled={deletingRoomId === room.id}
+                                      className="rounded-lg bg-red-50 px-3 py-2 text-xs font-bold text-red-700 hover:bg-red-100 disabled:opacity-50"
+                                    >
+                                      {deletingRoomId === room.id
+                                        ? "Deleting..."
+                                        : "Delete"}
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
             </section>
@@ -424,7 +826,6 @@ export default function HotelOwnerDashboard() {
                               Reference: {booking.booking_reference}
                             </p>
                           </div>
-
                           <span
                             className={`rounded-full px-3 py-1 text-xs font-semibold capitalize ${statusStyle(booking.status)}`}
                           >
@@ -440,8 +841,7 @@ export default function HotelOwnerDashboard() {
                           <p>Guests: {booking.guests}</p>
                           <p>Rooms: {booking.rooms_booked}</p>
                           <p>
-                            Total: Rs.{" "}
-                            {Number(booking.total_amount).toLocaleString()}
+                            Total: Rs. {Number(booking.total_amount).toLocaleString()}
                           </p>
                           <p>Payment: {booking.payment_status}</p>
                         </div>
