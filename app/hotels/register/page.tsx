@@ -99,31 +99,45 @@ export default function HotelRegistrationPage() {
   }
 
   const inputClass =
-    "w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-gray-900 outline-none transition focus:border-green-700 focus:ring-2 focus:ring-green-100";
+    "w-full rounded-xl border border-[#b99743]/50 bg-[#071b13] px-4 py-3 text-white placeholder:text-gray-400 outline-none transition focus:border-[#e4c36a] focus:ring-2 focus:ring-[#d0aa45]/30";
 
   return (
-    <main className="min-h-screen bg-[#F3F6F1] px-4 py-10">
-      <div className="mx-auto max-w-3xl">
-        <div className="mb-8 text-center">
-          <div className="mb-3 text-4xl">🏨</div>
+    <main className="relative min-h-screen overflow-hidden bg-[#061810] px-4 py-12 text-white">
+      <div className="pointer-events-none absolute -left-32 top-20 h-80 w-80 rounded-full bg-[#b58b35]/10 blur-3xl" />
+      <div className="pointer-events-none absolute -right-32 bottom-10 h-80 w-80 rounded-full bg-[#1d7047]/20 blur-3xl" />
 
-          <h1 className="text-3xl font-bold text-[#173B2B]">
+      <div className="relative mx-auto max-w-3xl">
+        <div className="mb-8 text-center">
+          <div className="mb-4 inline-flex h-20 w-20 items-center justify-center rounded-2xl border border-[#d0aa45]/60 bg-[#103b29] text-4xl shadow-lg shadow-black/30">
+            🏨
+          </div>
+
+          <p className="mb-2 text-sm font-bold uppercase tracking-[0.3em] text-[#d0aa45]">
+            ALIQO Hospitality
+          </p>
+
+          <h1 className="text-3xl font-extrabold tracking-tight text-[#f4d77b] md:text-4xl">
             Register Your Hotel
           </h1>
 
-          <p className="mt-3 text-gray-600">
+          <p className="mt-3 text-sm leading-6 text-gray-300 md:text-base">
             Join ALIQO and make your hotel discoverable to customers.
           </p>
         </div>
 
         <form
           onSubmit={handleSubmit}
-          className="space-y-6 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm md:p-8"
+          className="space-y-6 rounded-3xl border border-[#c9a646]/60 bg-[#0d2b1e] p-5 shadow-2xl shadow-black/40 md:p-9"
         >
           <div>
-            <h2 className="mb-4 text-xl font-bold text-gray-900">
-              Hotel Information
-            </h2>
+            <div className="mb-5 border-b border-[#c9a646]/30 pb-4">
+              <h2 className="text-xl font-bold text-[#f4d77b]">
+                Hotel Information
+              </h2>
+              <p className="mt-1 text-sm text-gray-400">
+                Enter your hotel details carefully.
+              </p>
+            </div>
 
             <div className="space-y-4">
               <input
@@ -219,18 +233,19 @@ export default function HotelRegistrationPage() {
           </div>
 
           {error && (
-            <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+            <div className="rounded-xl border border-red-500/50 bg-red-950/40 p-4 text-sm text-red-300">
               {error}
             </div>
           )}
 
           {success && (
-            <div className="rounded-xl border border-green-200 bg-green-50 p-4 text-sm text-green-800">
+            <div className="rounded-xl border border-green-500/50 bg-green-950/40 p-4 text-sm text-green-300">
               {success}
             </div>
           )}
 
-          <div className="rounded-xl bg-amber-50 p-4 text-sm text-amber-800">
+          <div className="rounded-xl border border-[#d0aa45]/50 bg-[#d0aa45]/10 p-4 text-sm leading-6 text-[#f4d77b]">
+            <strong className="block mb-1">Admin Approval Required</strong>
             Your hotel will remain pending until the ALIQO admin team reviews
             and approves your application.
           </div>
@@ -238,10 +253,14 @@ export default function HotelRegistrationPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full rounded-xl bg-[#173B2B] px-6 py-4 font-bold text-white transition hover:bg-[#24543B] disabled:cursor-not-allowed disabled:opacity-60"
+            className="w-full rounded-xl border border-[#f4d77b] bg-gradient-to-r from-[#b58b35] to-[#e0bd60] px-6 py-4 font-extrabold text-[#102116] shadow-lg shadow-black/30 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {loading ? "Submitting..." : "Submit Hotel Registration"}
           </button>
+
+          <p className="text-center text-xs text-gray-400">
+            ALIQO • Hotel Registration Portal
+          </p>
         </form>
       </div>
     </main>
