@@ -1,7 +1,9 @@
 
 "use client";
 
-import { useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
+import Link from "next/link";
+import { supabase } from "../../../lib/supabase";
 
 export default function SellerRegisterPage() {
   const [mode, setMode] = useState<"signup" | "login">("signup");
@@ -16,86 +18,110 @@ export default function SellerRegisterPage() {
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  useEffect(() => {
+    let active = true;
 
-  
-async function handleAuth(e: React.FormEvent<HTMLFormElement>) {
-  e.preventDefault();
-  setLoading(true);
-  setMessage("");
+    async function loadSession() {
+      const { data, error } = await supabase.auth.getSession();
 
-  try {
-    if (!supabaseUrl || !supabaseKey) {
-      throw new Error("Database configuration missing");
+      if (active && !error) {
+        setToken(data.session?.access_token || "");
+        setEmail(data.session?.user.email || "");
+      }
     }
 
-    const url =
-      mode === "signup"
-        ? `${supabaseUrl}/auth/v1/signup`
-        : `${supabaseUrl}/auth/v1/token?grant_type=password`;
+    loadSession();
 
-    const response = await fetch(url, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        apikey: supabaseKey,
-      },
-      body: JSON.stringify({ email, password }),
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (active) {
+        setToken(session?.access_token || "");
+        setEmail(session?.user.email || "");
+      }
     });
 
-    const data = await response.json();
+    return () => {
+      active = false;
+      subscription.unsubscribe();
+    };
+  }, []);
 
-    if (!response.ok) {
-      throw new Error(
-        data.msg ||
-          data.message ||
-          data.error_description ||
-          "Authentication failed"
-      );
-    }
-
-    if (data.access_token) {
-      setToken(data.access_token);
-      setMessage(
-        mode === "login"
-          ? "Login successful! Now complete your seller registration."
-          : "Account created successfully! Now complete your seller registration."
-      );
-      return;
-    }
-
-    if (mode === "signup" && (data.id || data.user?.id)) {
-      setMessage(
-        "Account created! Please check your email for confirmation, then login."
-      );
-      setMode("login");
-      return;
-    }
-
-    throw new Error(
-      "No access token received. Please confirm your email or try logging in."
-    );
-  } catch (error) {
-    setMessage(
-      error instanceof Error ? error.message : "Something went wrong"
-    );
-  } finally {
-    setLoading(false);
-  }
-}
-
-  async function handleRegistration(e: React.FormEvent<HTMLFormElement>) {
+  async function handleAuth(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setLoading(true);
     setMessage("");
 
     try {
+      if (mode === "signup") {
+        const { data, error } = await supabase.auth.signUp({
+          email: email.trim(),
+          password,
+        });
+
+        if (error) throw error;
+
+        if (data.session) {
+          setToken(data.session.access_token);
+          setMessage(
+            "Account created successfully! Now complete your seller registration."
+          );
+        } else {
+          setMessage(
+            "Account created! Please check your email for confirmation, then log in."
+          );
+          setMode("login");
+        }
+      } else {
+        const { data, error } =
+          await supabase.auth.signInWithPassword({
+            email: email.trim(),
+            password,
+          });
+
+        if (error) throw error;
+
+        if (!data.session) {
+          throw new Error("Login session could not be created.");
+        }
+
+        setToken(data.session.access_token);
+        setMessage(
+          "Login successful! Now complete your seller registration."
+        );
+      }
+    } catch (error) {
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Authentication failed. Please try again."
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleRegistration(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setLoading(true);
+    setMessage("");
+
+    try {
+      const {
+        data: { session },
+        error: sessionError,
+      } = await supabase.auth.getSession();
+
+      if (sessionError || !session?.access_token) {
+        setToken("");
+        throw new Error("Your login session has expired. Please login again.");
+      }
+
       const response = await fetch("/api/sellers/register", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
+          Authorization: `Bearer ${session.access_token}`,
         },
         body: JSON.stringify({
           business_name: businessName,
@@ -113,7 +139,8 @@ async function handleAuth(e: React.FormEvent<HTMLFormElement>) {
       }
 
       setMessage(
-        "Congratulations! Your seller application has been submitted and is waiting for admin approval."
+        data.message ||
+          "Congratulations! Your seller application has been submitted and is waiting for admin approval."
       );
 
       setBusinessName("");
@@ -130,6 +157,27 @@ async function handleAuth(e: React.FormEvent<HTMLFormElement>) {
     }
   }
 
+  async function handleLogout() {
+    setLoading(true);
+    setMessage("");
+
+    try {
+      const { error } = await supabase.auth.signOut();
+
+      if (error) throw error;
+
+      setToken("");
+      setPassword("");
+      setMessage("You have been logged out successfully.");
+    } catch (error) {
+      setMessage(
+        error instanceof Error ? error.message : "Unable to log out."
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
+
   const inputClass =
     "w-full rounded-xl border border-emerald-900/15 bg-white px-4 py-3.5 text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/10";
 
@@ -137,16 +185,19 @@ async function handleAuth(e: React.FormEvent<HTMLFormElement>) {
     <main className="min-h-screen bg-[#f7f8f2] px-5 py-10 text-slate-800">
       <div className="mx-auto max-w-5xl">
         <nav className="flex items-center justify-between">
-          <a href="/" className="text-3xl font-black tracking-tight text-emerald-900">
+          <Link
+            href="/"
+            className="text-3xl font-black tracking-tight text-emerald-900"
+          >
             ALIQO<span className="text-amber-500">.</span>
-          </a>
+          </Link>
 
-          <a
+          <Link
             href="/"
             className="rounded-full border border-emerald-900/20 px-5 py-2 text-sm font-semibold text-emerald-900 transition hover:bg-emerald-900 hover:text-white"
           >
             ← Back to Home
-          </a>
+          </Link>
         </nav>
 
         <div className="mt-12 grid overflow-hidden rounded-3xl border border-emerald-900/10 bg-white shadow-xl shadow-emerald-950/5 md:grid-cols-2">
@@ -160,7 +211,9 @@ async function handleAuth(e: React.FormEvent<HTMLFormElement>) {
 
             <h1 className="mt-9 text-4xl font-black leading-tight md:text-5xl">
               Grow Your
-              <span className="block text-amber-400">Business With ALIQO</span>
+              <span className="block text-amber-400">
+                Business With ALIQO
+              </span>
             </h1>
 
             <p className="mt-6 leading-8 text-emerald-100/80">
@@ -170,7 +223,9 @@ async function handleAuth(e: React.FormEvent<HTMLFormElement>) {
 
             <div className="mt-10 space-y-6">
               <div className="flex gap-4">
-                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-amber-400 text-xl font-bold text-emerald-950">1</span>
+                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-amber-400 text-xl font-bold text-emerald-950">
+                  1
+                </span>
                 <div>
                   <h3 className="font-bold text-white">Free Registration</h3>
                   <p className="mt-1 text-sm text-emerald-100/70">
@@ -180,7 +235,9 @@ async function handleAuth(e: React.FormEvent<HTMLFormElement>) {
               </div>
 
               <div className="flex gap-4">
-                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-amber-400 text-xl font-bold text-emerald-950">2</span>
+                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-amber-400 text-xl font-bold text-emerald-950">
+                  2
+                </span>
                 <div>
                   <h3 className="font-bold text-white">Admin Approval</h3>
                   <p className="mt-1 text-sm text-emerald-100/70">
@@ -190,7 +247,9 @@ async function handleAuth(e: React.FormEvent<HTMLFormElement>) {
               </div>
 
               <div className="flex gap-4">
-                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-amber-400 text-xl font-bold text-emerald-950">3</span>
+                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-amber-400 text-xl font-bold text-emerald-950">
+                  3
+                </span>
                 <div>
                   <h3 className="font-bold text-white">Start Selling</h3>
                   <p className="mt-1 text-sm text-emerald-100/70">
@@ -278,6 +337,8 @@ async function handleAuth(e: React.FormEvent<HTMLFormElement>) {
                     <input
                       type="email"
                       required
+                      maxLength={254}
+                      autoComplete="email"
                       placeholder="Enter your email"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
@@ -293,6 +354,9 @@ async function handleAuth(e: React.FormEvent<HTMLFormElement>) {
                       type="password"
                       required
                       minLength={6}
+                      autoComplete={
+                        mode === "signup" ? "new-password" : "current-password"
+                      }
                       placeholder="Minimum 6 characters"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
@@ -301,6 +365,7 @@ async function handleAuth(e: React.FormEvent<HTMLFormElement>) {
                   </div>
 
                   <button
+                    type="submit"
                     disabled={loading}
                     className="w-full rounded-xl bg-emerald-900 py-4 font-bold text-white shadow-lg shadow-emerald-900/15 transition hover:bg-emerald-800 disabled:opacity-50"
                   >
@@ -311,92 +376,129 @@ async function handleAuth(e: React.FormEvent<HTMLFormElement>) {
                         : "Login to Continue →"}
                   </button>
                 </form>
+
+                <p className="mt-5 text-center text-sm text-slate-500">
+                  Already using ALIQO?{" "}
+                  <Link
+                    href="/login?next=%2Fseller%2Fregister"
+                    className="font-bold text-emerald-900 underline"
+                  >
+                    Open shared login
+                  </Link>
+                </p>
               </>
             ) : (
-              <form
-                onSubmit={handleRegistration}
-                className="mt-7 space-y-4"
-              >
-                <div>
-                  <label className="mb-2 block text-sm font-bold text-slate-700">
-                    Business Name
-                  </label>
-                  <input
-                    required
-                    placeholder="Your business name"
-                    value={businessName}
-                    onChange={(e) => setBusinessName(e.target.value)}
-                    className={inputClass}
-                  />
-                </div>
+              <>
+                <div className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-emerald-50 p-4">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">
+                      Logged in account
+                    </p>
+                    <p className="mt-1 break-all text-sm font-bold text-emerald-950">
+                      {email}
+                    </p>
+                  </div>
 
-                <div>
-                  <label className="mb-2 block text-sm font-bold text-slate-700">
-                    Owner Full Name
-                  </label>
-                  <input
-                    required
-                    placeholder="Your full name"
-                    value={ownerName}
-                    onChange={(e) => setOwnerName(e.target.value)}
-                    className={inputClass}
-                  />
-                </div>
-
-                <div>
-                  <label className="mb-2 block text-sm font-bold text-slate-700">
-                    Phone Number
-                  </label>
-                  <input
-                    required
-                    type="tel"
-                    placeholder="03XX XXXXXXX"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    className={inputClass}
-                  />
-                </div>
-
-                <div>
-                  <label className="mb-2 block text-sm font-bold text-slate-700">
-                    Business Category
-                  </label>
-                  <select
-                    required
-                    value={category}
-                    onChange={(e) => setCategory(e.target.value)}
-                    className={inputClass}
+                  <button
+                    type="button"
+                    onClick={handleLogout}
+                    disabled={loading}
+                    className="text-sm font-bold text-red-700 underline disabled:opacity-50"
                   >
-                    <option value="">Select Category</option>
-                    <option value="Electronics">Electronics</option>
-                    <option value="Fashion">Fashion</option>
-                    <option value="Food">Food</option>
-                    <option value="Home & Living">Home & Living</option>
-                    <option value="Beauty">Beauty</option>
-                    <option value="Other">Other</option>
-                  </select>
+                    Logout
+                  </button>
                 </div>
 
-                <div>
-                  <label className="mb-2 block text-sm font-bold text-slate-700">
-                    City
-                  </label>
-                  <input
-                    required
-                    placeholder="Your city"
-                    value={city}
-                    onChange={(e) => setCity(e.target.value)}
-                    className={inputClass}
-                  />
-                </div>
-
-                <button
-                  disabled={loading}
-                  className="w-full rounded-xl bg-emerald-900 py-4 font-bold text-white shadow-lg transition hover:bg-emerald-800 disabled:opacity-50"
+                <form
+                  onSubmit={handleRegistration}
+                  className="mt-7 space-y-4"
                 >
-                  {loading ? "Submitting..." : "Submit Seller Application →"}
-                </button>
-              </form>
+                  <div>
+                    <label className="mb-2 block text-sm font-bold text-slate-700">
+                      Business Name
+                    </label>
+                    <input
+                      required
+                      maxLength={150}
+                      placeholder="Your business name"
+                      value={businessName}
+                      onChange={(e) => setBusinessName(e.target.value)}
+                      className={inputClass}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="mb-2 block text-sm font-bold text-slate-700">
+                      Owner Full Name
+                    </label>
+                    <input
+                      required
+                      maxLength={150}
+                      placeholder="Your full name"
+                      value={ownerName}
+                      onChange={(e) => setOwnerName(e.target.value)}
+                      className={inputClass}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="mb-2 block text-sm font-bold text-slate-700">
+                      Phone Number
+                    </label>
+                    <input
+                      required
+                      type="tel"
+                      maxLength={40}
+                      placeholder="03XX XXXXXXX"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      className={inputClass}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="mb-2 block text-sm font-bold text-slate-700">
+                      Business Category
+                    </label>
+                    <select
+                      required
+                      value={category}
+                      onChange={(e) => setCategory(e.target.value)}
+                      className={inputClass}
+                    >
+                      <option value="">Select Category</option>
+                      <option value="Electronics">Electronics</option>
+                      <option value="Fashion">Fashion</option>
+                      <option value="Food">Food</option>
+                      <option value="Home & Living">Home & Living</option>
+                      <option value="Beauty">Beauty</option>
+                      <option value="Other">Other</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="mb-2 block text-sm font-bold text-slate-700">
+                      City
+                    </label>
+                    <input
+                      required
+                      maxLength={100}
+                      placeholder="Your city"
+                      value={city}
+                      onChange={(e) => setCity(e.target.value)}
+                      className={inputClass}
+                    />
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="w-full rounded-xl bg-emerald-900 py-4 font-bold text-white shadow-lg transition hover:bg-emerald-800 disabled:opacity-50"
+                  >
+                    {loading ? "Submitting..." : "Submit Seller Application →"}
+                  </button>
+                </form>
+              </>
             )}
 
             <div className="mt-7 border-t border-slate-100 pt-5 text-center">
