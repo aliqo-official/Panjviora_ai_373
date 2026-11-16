@@ -2,12 +2,8 @@
 "use client";
 
 import { FormEvent, useState } from "react";
-import { createClient } from "@supabase/supabase-js";
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
+import Link from "next/link";
+import { supabase } from "../../../lib/supabase";
 
 export default function HotelRegistrationPage() {
   const [form, setForm] = useState({
@@ -48,7 +44,11 @@ export default function HotelRegistrationPage() {
         error: sessionError,
       } = await supabase.auth.getSession();
 
-      if (sessionError || !session?.access_token) {
+      if (sessionError) {
+        throw new Error("Unable to verify your login. Please login again.");
+      }
+
+      if (!session?.access_token) {
         throw new Error(
           "Please login to your ALIQO account before registering your hotel."
         );
@@ -245,7 +245,7 @@ export default function HotelRegistrationPage() {
           )}
 
           <div className="rounded-xl border border-[#d0aa45]/50 bg-[#d0aa45]/10 p-4 text-sm leading-6 text-[#f4d77b]">
-            <strong className="block mb-1">Admin Approval Required</strong>
+            <strong className="mb-1 block">Admin Approval Required</strong>
             Your hotel will remain pending until the ALIQO admin team reviews
             and approves your application.
           </div>
@@ -257,6 +257,16 @@ export default function HotelRegistrationPage() {
           >
             {loading ? "Submitting..." : "Submit Hotel Registration"}
           </button>
+
+          <p className="text-center text-sm text-gray-300">
+            Already have an ALIQO account?{" "}
+            <Link
+              href="/login?next=%2Fhotels%2Fregister"
+              className="font-bold text-[#f4d77b] underline underline-offset-4 hover:text-white"
+            >
+              Login here
+            </Link>
+          </p>
 
           <p className="text-center text-xs text-gray-400">
             ALIQO • Hotel Registration Portal
