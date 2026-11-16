@@ -78,6 +78,7 @@ const translations = {
       "A clean, easy and comfortable search experience.",
     footer: "Explore more. Discover more.",
     home: "Home",
+    login: "Login / Sign Up",
     about: "About Us",
     privacy: "Privacy Policy",
     contact: "Contact",
@@ -122,6 +123,7 @@ const translations = {
     simpleDescription: "ایک صاف ستھرا اور آسان سرچ کا تجربہ۔",
     footer: "مزید تلاش کریں۔ مزید دریافت کریں۔",
     home: "ہوم",
+    login: "لاگ اِن / سائن اَپ",
     about: "ہمارے بارے میں",
     privacy: "پرائیویسی پالیسی",
     contact: "رابطہ",
@@ -153,7 +155,6 @@ const cardStyle =
 
 export default function Home() {
   const [query, setQuery] = useState("");
-
   const [language, setLanguage] = useState<"en" | "ur">("en");
   const [mode, setMode] = useState<SearchMode>("web");
 
@@ -338,7 +339,15 @@ export default function Home() {
             </div>
           </a>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            {/* Customer Login */}
+            <a
+              href="/login?next=%2F"
+              className="rounded-full bg-gradient-to-r from-[#C49A32] to-[#E7C766] px-4 py-2 text-xs font-bold text-[#10271D] shadow-md transition hover:brightness-105"
+            >
+              {t.login}
+            </a>
+
             <a
               href="/crypto"
               className="rounded-full border border-[#B9953B]/50 bg-[#D4AF37]/10 px-4 py-2 text-xs font-bold text-[#F0D77F]"
@@ -839,6 +848,14 @@ export default function Home() {
             <nav className="flex flex-wrap content-start gap-x-7 gap-y-4 text-sm">
               <a href="/" className="text-[#C4D0C5] transition hover:text-[#E4C35D]">
                 {t.home}
+              </a>
+
+              {/* Customer Login */}
+              <a
+                href="/login?next=%2F"
+                className="font-bold text-[#E4C35D] transition hover:text-white"
+              >
+                {t.login}
               </a>
 
               <a href="/crypto" className="text-[#C4D0C5] transition hover:text-[#E4C35D]">
