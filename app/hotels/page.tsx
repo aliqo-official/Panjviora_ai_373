@@ -73,6 +73,7 @@ export default function PublicHotelsPage() {
 
     try {
       const parsed = new URL(url);
+
       return ["http:", "https:"].includes(parsed.protocol)
         ? parsed.href
         : null;
@@ -81,10 +82,27 @@ export default function PublicHotelsPage() {
     }
   }
 
+  // Convert Pakistani WhatsApp numbers into international format.
   function whatsappLink(number: string | null) {
     if (!number) return null;
-    const digits = number.replace(/\D/g, "");
-    return digits ? `https://wa.me/${digits}` : null;
+
+    let digits = number.replace(/\D/g, "");
+
+    if (digits.startsWith("0092")) {
+      digits = digits.slice(2);
+    }
+
+    if (digits.startsWith("92")) {
+      // Already in international format.
+    } else if (digits.startsWith("0")) {
+      digits = "92" + digits.slice(1);
+    } else {
+      digits = "92" + digits;
+    }
+
+    return digits.length >= 12
+      ? `https://wa.me/${digits}`
+      : null;
   }
 
   return (
@@ -120,6 +138,7 @@ export default function PublicHotelsPage() {
             <h2 className="text-2xl font-bold text-[#173B2B]">
               Available Hotels
             </h2>
+
             <p className="mt-1 text-sm text-gray-600">
               {hotels.length} approved hotel(s) listed
             </p>
@@ -141,6 +160,7 @@ export default function PublicHotelsPage() {
         ) : error ? (
           <div className="rounded-2xl border border-red-200 bg-red-50 p-8 text-center text-red-700">
             <p>{error}</p>
+
             <button
               onClick={loadHotels}
               className="mt-4 rounded-lg bg-[#173B2B] px-5 py-2 text-white"
@@ -151,11 +171,13 @@ export default function PublicHotelsPage() {
         ) : filteredHotels.length === 0 ? (
           <div className="rounded-2xl border border-gray-200 bg-white p-12 text-center">
             <div className="text-5xl">🏨</div>
+
             <h3 className="mt-4 text-xl font-bold text-gray-900">
               {hotels.length === 0
                 ? "No Hotels Available Yet"
                 : "No Matching Hotels Found"}
             </h3>
+
             <p className="mt-2 text-gray-600">
               {hotels.length === 0
                 ? "Approved hotels will appear here when they join ALIQO."
@@ -190,6 +212,7 @@ export default function PublicHotelsPage() {
                       <h3 className="text-xl font-bold text-[#173B2B]">
                         {hotel.hotel_name}
                       </h3>
+
                       <span className="shrink-0 rounded-full bg-green-100 px-3 py-1 text-xs font-bold text-green-800">
                         Approved
                       </span>
