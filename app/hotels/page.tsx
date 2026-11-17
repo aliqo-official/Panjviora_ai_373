@@ -82,7 +82,6 @@ export default function PublicHotelsPage() {
     }
   }
 
-  // Convert Pakistani WhatsApp numbers into international format.
   function whatsappLink(number: string | null) {
     if (!number) return null;
 
@@ -106,86 +105,128 @@ export default function PublicHotelsPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#F3F6F1]">
-      <section className="bg-[#173B2B] px-4 py-16 text-center text-white">
-        <p className="mb-3 text-sm font-semibold uppercase tracking-[0.25em] text-[#D8BD72]">
-          ALIQO Accommodation
-        </p>
+    <main className="min-h-screen bg-[#F5F0E6]">
+      {/* Premium Hero Section */}
+      <section className="relative overflow-hidden bg-[#123D2B] px-4 py-16 text-center text-white md:py-20">
+        <div className="pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full border border-[#D4AF37]/20" />
+        <div className="pointer-events-none absolute -bottom-32 -left-20 h-80 w-80 rounded-full border border-[#D4AF37]/20" />
 
-        <h1 className="text-4xl font-extrabold md:text-5xl">
-          Discover Hotels
-        </h1>
+        <div className="relative mx-auto max-w-4xl">
+          <p className="mb-3 text-sm font-bold uppercase tracking-[0.25em] text-[#D4AF37]">
+            ALIQO Accommodation
+          </p>
 
-        <p className="mx-auto mt-4 max-w-2xl text-green-100">
-          Explore verified and approved hotels across Pakistan.
-          Find accommodation for your next journey with ALIQO.
-        </p>
+          <h1 className="text-4xl font-extrabold tracking-tight text-white md:text-5xl">
+            Discover Hotels
+          </h1>
 
-        <div className="mx-auto mt-8 max-w-xl">
-          <input
-            type="search"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search by hotel name or city..."
-            className="w-full rounded-xl border border-white/20 bg-white px-5 py-4 text-gray-900 outline-none focus:ring-4 focus:ring-[#D8BD72]/40"
-          />
+          <p className="mx-auto mt-4 max-w-2xl leading-7 text-white/80">
+            Explore verified and approved hotels across Pakistan.
+            Find accommodation for your next journey with ALIQO.
+          </p>
+
+          <div className="mx-auto mt-8 max-w-xl">
+            <div className="flex items-center gap-3 rounded-2xl border border-[#D4AF37]/40 bg-white p-2 shadow-xl">
+              <span className="pl-3 text-xl text-[#123D2B]">⌕</span>
+
+              <input
+                type="search"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search by hotel name or city..."
+                className="w-full border-0 bg-transparent py-3 text-[#123D2B] outline-none placeholder:text-[#68766D] focus:border-0 focus:ring-0"
+              />
+
+              {search && (
+                <button
+                  type="button"
+                  onClick={() => setSearch("")}
+                  className="mr-2 rounded-lg px-3 py-2 text-sm font-semibold text-[#123D2B] hover:bg-[#F5F0E6]"
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+          </div>
         </div>
       </section>
 
-      <section className="mx-auto max-w-7xl px-4 py-12">
+      {/* Hotels Listing */}
+      <section className="mx-auto max-w-7xl px-4 py-12 md:py-16">
         <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
           <div>
-            <h2 className="text-2xl font-bold text-[#173B2B]">
+            <p className="mb-2 text-xs font-bold uppercase tracking-widest text-[#B08B22]">
+              Find Your Stay
+            </p>
+
+            <h2 className="text-2xl font-extrabold text-[#123D2B] md:text-3xl">
               Available Hotels
             </h2>
 
-            <p className="mt-1 text-sm text-gray-600">
+            <p className="mt-2 text-sm text-[#68766D]">
               {hotels.length} approved hotel(s) listed
+              {search.trim() && ` · ${filteredHotels.length} matching`}
             </p>
           </div>
 
           <button
             onClick={loadHotels}
             disabled={loading}
-            className="rounded-lg border border-[#173B2B] px-5 py-2.5 font-semibold text-[#173B2B] hover:bg-[#173B2B] hover:text-white disabled:opacity-50"
+            className="rounded-xl border border-[#123D2B] bg-white px-5 py-3 font-semibold text-[#123D2B] transition hover:bg-[#123D2B] hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
           >
-            Refresh
+            {loading ? "Refreshing..." : "↻ Refresh"}
           </button>
         </div>
 
         {loading ? (
-          <div className="rounded-2xl bg-white p-12 text-center text-gray-600">
-            Loading approved hotels...
+          <div className="rounded-2xl border border-[#DED5C2] bg-white p-12 text-center shadow-sm">
+            <div className="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-4 border-[#DED5C2] border-t-[#D4AF37]" />
+            <p className="font-medium text-[#123D2B]">
+              Loading approved hotels...
+            </p>
           </div>
         ) : error ? (
-          <div className="rounded-2xl border border-red-200 bg-red-50 p-8 text-center text-red-700">
-            <p>{error}</p>
+          <div className="rounded-2xl border border-red-200 bg-white p-10 text-center shadow-sm">
+            <div className="text-4xl">⚠️</div>
+
+            <p className="mt-3 font-semibold text-red-700">
+              {error}
+            </p>
 
             <button
               onClick={loadHotels}
-              className="mt-4 rounded-lg bg-[#173B2B] px-5 py-2 text-white"
+              className="mt-5 rounded-xl bg-[#123D2B] px-6 py-3 font-semibold text-white transition hover:bg-[#1B563C]"
             >
               Try Again
             </button>
           </div>
         ) : filteredHotels.length === 0 ? (
-          <div className="rounded-2xl border border-gray-200 bg-white p-12 text-center">
-            <div className="text-5xl">🏨</div>
+          <div className="rounded-2xl border border-[#DED5C2] bg-white p-12 text-center shadow-sm">
+            <div className="text-6xl">🏨</div>
 
-            <h3 className="mt-4 text-xl font-bold text-gray-900">
+            <h3 className="mt-5 text-xl font-bold text-[#123D2B]">
               {hotels.length === 0
                 ? "No Hotels Available Yet"
                 : "No Matching Hotels Found"}
             </h3>
 
-            <p className="mt-2 text-gray-600">
+            <p className="mx-auto mt-2 max-w-md text-[#68766D]">
               {hotels.length === 0
                 ? "Approved hotels will appear here when they join ALIQO."
                 : "Try searching with another hotel name or city."}
             </p>
+
+            {search && (
+              <button
+                onClick={() => setSearch("")}
+                className="mt-5 rounded-xl bg-[#123D2B] px-5 py-3 font-semibold text-white hover:bg-[#1B563C]"
+              >
+                Clear Search
+              </button>
+            )}
           </div>
         ) : (
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-7 sm:grid-cols-2 lg:grid-cols-3">
             {filteredHotels.map((hotel) => {
               const website = safeWebsite(hotel.website_url);
               const whatsapp = whatsappLink(hotel.whatsapp_number);
@@ -193,52 +234,59 @@ export default function PublicHotelsPage() {
               return (
                 <article
                   key={hotel.id}
-                  className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-lg"
+                  className="group overflow-hidden rounded-2xl border border-[#DED5C2] bg-white shadow-sm transition duration-300 hover:-translate-y-1 hover:border-[#D4AF37] hover:shadow-xl"
                 >
-                  {hotel.image_url ? (
-                    <img
-                      src={hotel.image_url}
-                      alt={hotel.hotel_name}
-                      className="h-52 w-full object-cover"
-                    />
-                  ) : (
-                    <div className="flex h-52 items-center justify-center bg-[#E7EEE8] text-6xl">
-                      🏨
+                  <div className="relative overflow-hidden">
+                    {hotel.image_url ? (
+                      <img
+                        src={hotel.image_url}
+                        alt={hotel.hotel_name}
+                        className="h-56 w-full object-cover transition duration-500 group-hover:scale-105"
+                      />
+                    ) : (
+                      <div className="flex h-56 items-center justify-center bg-[#F5F0E6] text-7xl">
+                        🏨
+                      </div>
+                    )}
+
+                    <div className="absolute left-4 top-4 rounded-full border border-[#D4AF37]/50 bg-[#123D2B] px-3 py-1.5 text-xs font-bold text-[#D4AF37] shadow">
+                      ✓ Approved
                     </div>
-                  )}
+                  </div>
 
-                  <div className="p-5">
-                    <div className="mb-3 flex items-start justify-between gap-3">
-                      <h3 className="text-xl font-bold text-[#173B2B]">
-                        {hotel.hotel_name}
-                      </h3>
+                  <div className="p-6">
+                    <h3 className="text-xl font-extrabold text-[#123D2B]">
+                      {hotel.hotel_name}
+                    </h3>
 
-                      <span className="shrink-0 rounded-full bg-green-100 px-3 py-1 text-xs font-bold text-green-800">
-                        Approved
-                      </span>
+                    <div className="mt-3 flex items-start gap-2">
+                      <span className="text-[#B08B22]">📍</span>
+                      <div>
+                        <p className="font-semibold text-[#123D2B]">
+                          {hotel.city}
+                        </p>
+
+                        <p className="mt-1 text-sm leading-6 text-[#68766D]">
+                          {hotel.address}
+                        </p>
+                      </div>
                     </div>
-
-                    <p className="font-semibold text-gray-700">
-                      📍 {hotel.city}
-                    </p>
-
-                    <p className="mt-1 text-sm text-gray-500">
-                      {hotel.address}
-                    </p>
 
                     {hotel.description && (
-                      <p className="mt-4 line-clamp-3 text-sm leading-6 text-gray-600">
+                      <p className="mt-4 line-clamp-3 text-sm leading-6 text-[#68766D]">
                         {hotel.description}
                       </p>
                     )}
 
-                    <div className="mt-5 flex flex-wrap gap-2">
+                    <div className="my-5 border-t border-[#DED5C2]" />
+
+                    <div className="flex flex-wrap gap-2">
                       {hotel.phone && (
                         <a
                           href={`tel:${hotel.phone}`}
-                          className="rounded-lg bg-[#173B2B] px-4 py-2 text-sm font-semibold text-white hover:bg-[#24543B]"
+                          className="rounded-lg bg-[#123D2B] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#1B563C]"
                         >
-                          Call Hotel
+                          ☎ Call Hotel
                         </a>
                       )}
 
@@ -247,7 +295,7 @@ export default function PublicHotelsPage() {
                           href={whatsapp}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-700"
+                          className="rounded-lg bg-[#1B563C] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#123D2B]"
                         >
                           WhatsApp
                         </a>
@@ -258,9 +306,9 @@ export default function PublicHotelsPage() {
                           href={website}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="rounded-lg border border-[#173B2B] px-4 py-2 text-sm font-semibold text-[#173B2B] hover:bg-green-50"
+                          className="rounded-lg border border-[#D4AF37] bg-[#F5F0E6] px-4 py-2.5 text-sm font-semibold text-[#123D2B] transition hover:bg-[#D4AF37]"
                         >
-                          Website
+                          Website ↗
                         </a>
                       )}
                     </div>
@@ -272,8 +320,15 @@ export default function PublicHotelsPage() {
         )}
       </section>
 
-      <footer className="bg-[#173B2B] px-4 py-8 text-center text-sm text-green-100">
-        © 2026 ALIQO. Explore more. Discover more.
+      {/* Footer */}
+      <footer className="border-t border-[#D4AF37]/30 bg-[#123D2B] px-4 py-9 text-center">
+        <p className="text-sm font-semibold text-[#D4AF37]">
+          ALIQO Accommodation
+        </p>
+
+        <p className="mt-2 text-sm text-white/75">
+          © 2026 ALIQO. Explore more. Discover more.
+        </p>
       </footer>
     </main>
   );
