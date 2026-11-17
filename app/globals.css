@@ -1,26 +1,122 @@
+
 @import "tailwindcss";
 
+/* ALIQO Official Brand Theme */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  color-scheme: dark;
+
+  --background: #080D0A;
+  --foreground: #F5F5F0;
+
+  --aliqo-green: #123D2B;
+  --aliqo-green-light: #1B563C;
+  --aliqo-gold: #D4AF37;
+  --aliqo-gold-light: #E8C95B;
+  --aliqo-black: #080D0A;
+  --aliqo-card: #111A14;
+  --aliqo-border: #294332;
+  --aliqo-muted: #A8B3AA;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+
+  --color-aliqo-green: var(--aliqo-green);
+  --color-aliqo-green-light: var(--aliqo-green-light);
+  --color-aliqo-gold: var(--aliqo-gold);
+  --color-aliqo-gold-light: var(--aliqo-gold-light);
+  --color-aliqo-black: var(--aliqo-black);
+  --color-aliqo-card: var(--aliqo-card);
+  --color-aliqo-border: var(--aliqo-border);
+  --color-aliqo-muted: var(--aliqo-muted);
+
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+* {
+  box-sizing: border-box;
+}
+
+html {
+  background: var(--background);
+  scroll-behavior: smooth;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+  margin: 0;
+  min-height: 100vh;
+}
+
+/* Text and links */
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  color: var(--foreground);
+}
+
+a {
+  transition: color 0.2s ease;
+}
+
+a:hover {
+  color: var(--aliqo-gold);
+}
+
+/* Form fields */
+input,
+textarea,
+select {
+  color: var(--foreground);
+  background-color: var(--aliqo-card);
+  border-color: var(--aliqo-border);
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--aliqo-muted);
+}
+
+input:focus,
+textarea:focus,
+select:focus {
+  outline-color: var(--aliqo-gold);
+  border-color: var(--aliqo-gold);
+}
+
+/* Selection */
+::selection {
+  background: var(--aliqo-gold);
+  color: var(--aliqo-black);
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 9px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--aliqo-black);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--aliqo-green);
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--aliqo-gold);
+}
+
+/* Keyboard accessibility */
+:focus-visible {
+  outline: 2px solid var(--aliqo-gold);
+  outline-offset: 2px;
 }
