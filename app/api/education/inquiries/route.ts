@@ -1,374 +1,291 @@
 
 import { NextRequest, NextResponse } from "next/server";
 
-const UUID_PATTERN =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
-type AuthData = {
-  supabaseUrl: string;
-  supabaseKey: string;
-  token: string;
-  user: { id: string };
-};
+const UUID_REGEX =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-async function getAuth(
-  request: NextRequest,
-  required: boolean
-): Promise<AuthData | null | "invalid"> {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+function response(data: unknown, status = 200) {
+  return NextResponse.json(data, { status });
+}
 
-  if (!supabaseUrl || !supabaseKey) return null;
+function clean(value: unknown, max = 1000): string {
+  return typeof value === "string" ? value.trim().slice(0, max) : "";
+}
 
-  const authorization = request.headers.get("authorization");
+function validEmail(value: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+}
 
-  if (!authorization) {
-    return required ? null : {
-      supabaseUrl,
-      supabaseKey,
-      token: supabaseKey,
-      user: { id: "" },
-    };
-  }
-
-  if (!authorization.startsWith("Bearer ")) return "invalid";
-
-  const token = authorization.slice(7).trim();
-  if (!token) return "invalid";
-
-  const response = await fetch(`${supabaseUrl}/auth/v1/user`, {
+async function verifyUser(token: string) {
+  const result = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
     headers: {
-      apikey: supabaseKey,
+      apikey: SUPABASE_ANON_KEY,
       Authorization: `Bearer ${token}`,
     },
     cache: "no-store",
   });
 
-  if (!response.ok) return "invalid";
+  if (!result.ok) return null;
 
-  const user = await response.json();
-  if (!user?.id) return "invalid";
-
-  return { supabaseUrl, supabaseKey, token, user };
+  const user = await result.json();
+  return user?.id ? user : null;
 }
 
-async function restGet(
-  auth: AuthData,
-  path: string
+async function dbRequest(
+  path: string,
+  token: string,
+  options: RequestInit = {}
 ) {
-  return fetch(`${auth.supabaseUrl}/rest/v1/${path}`, {
+  return fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
+    ...options,
     headers: {
-      apikey: auth.supabaseKey,
-      Authorization: `Bearer ${auth.token}`,
+      apikey: SUPABASE_ANON_KEY,
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+      ...options.headers,
     },
     cache: "no-store",
   });
 }
 
-// GET: Owner views inquiries for their institution
+// GET: Institution owner can view their own inquiries.
 export async function GET(request: NextRequest) {
   try {
-    const auth = await getAuth(request, true);
+    const token = request.headers
+      .get("authorization")
+      ?.replace(/^Bearer\s+/i, "");
 
-    if (!auth || auth === "invalid") {
-      return NextResponse.json(
-        { error: "Please login with a valid account" },
-        { status: 401 }
-      );
+    if (!token) {
+      return response({ error: "Authentication required." }, 401);
     }
 
-    const institutionId = request.nextUrl.searchParams
-      .get("institution_id")
-      ?.trim();
+    const user = await verifyUser(token);
 
-    if (!institutionId || !UUID_PATTERN.test(institutionId)) {
-      return NextResponse.json(
-        { error: "A valid institution ID is required" },
-        { status: 400 }
-      );
+    if (!user) {
+      return response({ error: "Invalid authentication." }, 401);
     }
 
-    const ownerResponse = await restGet(
-      auth,
-      `institutions?select=id&id=eq.${encodeURIComponent(
-        institutionId
-      )}&owner_user_id=eq.${encodeURIComponent(auth.user.id)}&limit=1`
+    const institutionId = clean(
+      request.nextUrl.searchParams.get("institution_id"),
+      36
     );
 
-    if (!ownerResponse.ok) {
-      return NextResponse.json(
-        { error: "Unable to verify institution ownership" },
-        { status: 500 }
-      );
+    if (!UUID_REGEX.test(institutionId)) {
+      return response({ error: "Valid institution_id is required." }, 400);
     }
 
-    const ownerData = await ownerResponse.json();
-
-    if (!Array.isArray(ownerData) || ownerData.length === 0) {
-      return NextResponse.json(
-        { error: "Institution not found or access denied" },
-        { status: 404 }
-      );
-    }
-
-    const response = await restGet(
-      auth,
-      `institution_inquiries?select=*&institution_id=eq.${encodeURIComponent(
-        institutionId
-      )}&order=created_at.desc`
+    const institutionResult = await dbRequest(
+      `institutions?id=eq.${institutionId}&owner_user_id=eq.${user.id}&select=id`,
+      token
     );
 
-    const data = await response.json();
-
-    if (!response.ok) {
-      return NextResponse.json(
-        { error: "Unable to load admission inquiries" },
-        { status: response.status }
-      );
+    if (!institutionResult.ok) {
+      return response({ error: "Unable to verify institution ownership." }, 400);
     }
 
-    return NextResponse.json({ inquiries: data });
+    const institutions = await institutionResult.json();
+
+    if (!institutions.length) {
+      return response({ error: "Institution not found or access denied." }, 403);
+    }
+
+    const inquiriesResult = await dbRequest(
+      `institution_inquiries?institution_id=eq.${institutionId}&select=*&order=created_at.desc`,
+      token
+    );
+
+    if (!inquiriesResult.ok) {
+      return response({ error: "Unable to load inquiries." }, 400);
+    }
+
+    return response({ inquiries: await inquiriesResult.json() });
   } catch {
-    return NextResponse.json(
-      { error: "Unable to connect to the database" },
-      { status: 500 }
-    );
+    return response({ error: "Something went wrong." }, 500);
   }
 }
 
-// POST: Student or parent submits an admission inquiry
+// POST: Students can submit admission inquiries.
 export async function POST(request: NextRequest) {
   try {
-    const auth = await getAuth(request, false);
-
-    if (!auth || auth === "invalid") {
-      return NextResponse.json(
-        { error: "Invalid login session" },
-        { status: 401 }
-      );
-    }
-
     let body: Record<string, unknown>;
 
     try {
-      const parsed = await request.json();
-
-      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-        return NextResponse.json(
-          { error: "Invalid inquiry data" },
-          { status: 400 }
-        );
-      }
-
-      body = parsed as Record<string, unknown>;
+      body = await request.json();
     } catch {
-      return NextResponse.json(
-        { error: "Invalid JSON request" },
-        { status: 400 }
-      );
+      return response({ error: "Invalid JSON request." }, 400);
     }
 
-    const institutionId = String(body.institution_id || "").trim();
-    const campusId = body.campus_id
-      ? String(body.campus_id).trim()
-      : null;
-    const programId = body.program_id
-      ? String(body.program_id).trim()
-      : null;
+    const institutionId = clean(body.institution_id, 36);
+    const campusId = clean(body.campus_id, 36);
+    const programId = clean(body.program_id, 36);
 
-    const studentName = String(body.student_name || "").trim();
-    const studentPhone = String(body.student_phone || "").trim();
-    const message = String(body.message || "").trim();
-    const studentEmail = body.student_email
-      ? String(body.student_email).trim()
-      : null;
+    const studentName = clean(body.student_name, 100);
+    const studentEmail = clean(body.student_email, 254);
+    const studentPhone = clean(body.student_phone, 30);
+    const message = clean(body.message, 2000);
+
+    if (!UUID_REGEX.test(institutionId)) {
+      return response({ error: "Valid institution_id is required." }, 400);
+    }
 
     if (
-      !UUID_PATTERN.test(institutionId) ||
       !studentName ||
       !studentPhone ||
-      !message
+      !message ||
+      studentName.length < 2 ||
+      studentPhone.length < 7 ||
+      message.length < 5
     ) {
-      return NextResponse.json(
-        {
-          error:
-            "Institution, student name, phone and message are required",
-        },
-        { status: 400 }
+      return response(
+        { error: "Please provide a valid name, phone number and message." },
+        400
       );
     }
 
-    if (
-      studentName.length > 150 ||
-      studentPhone.length > 30 ||
-      message.length > 3000
-    ) {
-      return NextResponse.json(
-        { error: "One or more fields exceed the allowed length" },
-        { status: 400 }
-      );
+    if (studentEmail && !validEmail(studentEmail)) {
+      return response({ error: "Invalid email address." }, 400);
     }
 
-    if (
-      (campusId && !UUID_PATTERN.test(campusId)) ||
-      (programId && !UUID_PATTERN.test(programId))
-    ) {
-      return NextResponse.json(
-        { error: "Invalid campus or program ID" },
-        { status: 400 }
-      );
+    if (campusId && !UUID_REGEX.test(campusId)) {
+      return response({ error: "Invalid campus_id." }, 400);
     }
 
-    if (
-      studentEmail &&
-      (
-        studentEmail.length > 254 ||
-        !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(studentEmail)
-      )
-    ) {
-      return NextResponse.json(
-        { error: "Please enter a valid email address" },
-        { status: 400 }
-      );
+    if (programId && !UUID_REGEX.test(programId)) {
+      return response({ error: "Invalid program_id." }, 400);
     }
 
-    // Verify that the institution is approved and active.
-    const institutionResponse = await restGet(
-      auth,
-      `institutions?select=id&id=eq.${encodeURIComponent(
-        institutionId
-      )}&verification_status=eq.approved&is_active=eq.true&limit=1`
+    // Optional authentication. Never trust a user ID supplied in the body.
+    const authToken = request.headers
+      .get("authorization")
+      ?.replace(/^Bearer\s+/i, "");
+
+    let studentUserId: string | null = null;
+    let insertToken = SUPABASE_ANON_KEY;
+
+    if (authToken) {
+      const user = await verifyUser(authToken);
+
+      if (!user) {
+        return response({ error: "Invalid authentication." }, 401);
+      }
+
+      studentUserId = user.id;
+      insertToken = authToken;
+    }
+
+    // Confirm the institution is publicly approved and active.
+    const institutionResult = await dbRequest(
+      `institutions?id=eq.${institutionId}&verification_status=eq.approved&is_active=eq.true&select=id`,
+      SUPABASE_ANON_KEY
     );
 
-    if (!institutionResponse.ok) {
-      return NextResponse.json(
-        { error: "Unable to verify institution" },
-        { status: 500 }
+    if (!institutionResult.ok) {
+      return response({ error: "Unable to verify institution." }, 400);
+    }
+
+    const institutions = await institutionResult.json();
+
+    if (!institutions.length) {
+      return response(
+        { error: "This institution is not currently accepting public inquiries." },
+        404
       );
     }
 
-    const institutionData = await institutionResponse.json();
-
-    if (!Array.isArray(institutionData) || institutionData.length === 0) {
-      return NextResponse.json(
-        { error: "Institution is unavailable for admission inquiries" },
-        { status: 404 }
-      );
-    }
-
-    // Verify that the campus belongs to this institution.
+    // If a campus is selected, it must belong to this institution.
     if (campusId) {
-      const campusResponse = await restGet(
-        auth,
-        `institution_campuses?select=id&id=eq.${encodeURIComponent(
-          campusId
-        )}&institution_id=eq.${encodeURIComponent(
-          institutionId
-        )}&is_active=eq.true&limit=1`
+      const campusResult = await dbRequest(
+        `institution_campuses?id=eq.${campusId}&institution_id=eq.${institutionId}&is_active=eq.true&select=id`,
+        SUPABASE_ANON_KEY
       );
 
-      if (!campusResponse.ok) {
-        return NextResponse.json(
-          { error: "Unable to verify campus" },
-          { status: 500 }
-        );
+      if (!campusResult.ok) {
+        return response({ error: "Unable to verify campus." }, 400);
       }
 
-      const campusData = await campusResponse.json();
+      const campuses = await campusResult.json();
 
-      if (!Array.isArray(campusData) || campusData.length === 0) {
-        return NextResponse.json(
-          { error: "Campus does not belong to this institution" },
-          { status: 400 }
-        );
+      if (!campuses.length) {
+        return response({ error: "Invalid or inactive campus." }, 400);
       }
     }
 
-    // Verify that the program belongs to this institution.
+    // If a program is selected, verify its institution and campus.
     if (programId) {
-      const programResponse = await restGet(
-        auth,
-        `institution_programs?select=id,campus_id&id=eq.${encodeURIComponent(
-          programId
-        )}&institution_id=eq.${encodeURIComponent(
-          institutionId
-        )}&is_active=eq.true&limit=1`
+      const programResult = await dbRequest(
+        `institution_programs?id=eq.${programId}&institution_id=eq.${institutionId}&is_active=eq.true&select=id,campus_id`,
+        SUPABASE_ANON_KEY
       );
 
-      if (!programResponse.ok) {
-        return NextResponse.json(
-          { error: "Unable to verify program" },
-          { status: 500 }
-        );
+      if (!programResult.ok) {
+        return response({ error: "Unable to verify program." }, 400);
       }
 
-      const programData = await programResponse.json();
+      const programs = await programResult.json();
 
-      if (!Array.isArray(programData) || programData.length === 0) {
-        return NextResponse.json(
-          { error: "Program does not belong to this institution or is inactive" },
-          { status: 400 }
-        );
+      if (!programs.length) {
+        return response({ error: "Invalid or inactive program." }, 400);
       }
 
-      const programCampusId = programData[0].campus_id;
+      const program = programs[0];
 
-      if (programCampusId && programCampusId !== campusId) {
-        return NextResponse.json(
-          { error: "Please select the campus assigned to this program" },
-          { status: 400 }
+      if (program.campus_id && program.campus_id !== campusId) {
+        return response(
+          { error: "Please select the campus associated with this program." },
+          400
         );
       }
     }
 
     const inquiry = {
       institution_id: institutionId,
-      campus_id: campusId,
-      program_id: programId,
-      student_user_id: auth.user.id || null,
+      campus_id: campusId || null,
+      program_id: programId || null,
+      student_user_id: studentUserId,
       student_name: studentName,
-      student_email: studentEmail,
+      student_email: studentEmail || null,
       student_phone: studentPhone,
       message,
       status: "new",
       admin_notes: null,
     };
 
-    const response = await fetch(
-      `${auth.supabaseUrl}/rest/v1/institution_inquiries`,
+    const insertResult = await dbRequest(
+      "institution_inquiries",
+      insertToken,
       {
         method: "POST",
         headers: {
-          apikey: auth.supabaseKey,
-          Authorization: `Bearer ${auth.token}`,
-          "Content-Type": "application/json",
           Prefer: "return=representation",
         },
         body: JSON.stringify(inquiry),
-        cache: "no-store",
       }
     );
 
-    const data = await response.json();
+    if (!insertResult.ok) {
+      const error = await insertResult.json().catch(() => null);
+      console.error("Education inquiry insert failed:", error);
 
-    if (!response.ok) {
-      return NextResponse.json(
-        { error: "Unable to submit admission inquiry" },
-        { status: response.status }
+      return response(
+        { error: "Unable to submit inquiry. Please try again." },
+        400
       );
     }
 
-    return NextResponse.json(
+    const inserted = await insertResult.json();
+
+    return response(
       {
-        message: "Admission inquiry submitted successfully",
-        inquiry: data[0],
+        message: "Admission inquiry submitted successfully.",
+        inquiry: inserted?.[0] ?? null,
       },
-      { status: 201 }
+      201
     );
-  } catch {
-    return NextResponse.json(
-      { error: "Something went wrong while submitting the inquiry" },
-      { status: 500 }
-    );
+  } catch (error) {
+    console.error("Education inquiry API error:", error);
+    return response({ error: "Something went wrong." }, 500);
   }
 }
