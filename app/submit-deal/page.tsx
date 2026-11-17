@@ -214,15 +214,14 @@ export default function SubmitDealPage() {
 
             <label className="mt-5 block text-sm font-bold text-[#123D2B]">
               Offer Valid Until (Optional)
-              <input
-                type="date"
-                className={inputClass}
-                value={form.valid_until}
-                onChange={(e) =>
-                  updateField("valid_until", e.target.value)
-                }
-                className={inputClass}
-              />
+             <input
+  type="date"
+  className={inputClass}
+  value={form.valid_until}
+  onChange={(e) =>
+    updateField("valid_until", e.target.value)
+  }
+/>
             </label>
 
             {message && (
