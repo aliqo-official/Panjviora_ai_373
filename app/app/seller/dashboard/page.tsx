@@ -136,7 +136,7 @@ export default function SellerDashboard() {
     pending: {
       title: "Waiting for Admin Approval",
       label: "Pending Review",
-      style: "bg-amber-100 text-amber-800 border-amber-200",
+      style: "bg-amber-50 text-[#85631B] border-[#D4AF37]/40",
       dot: "bg-amber-500",
       description:
         "Your application is under review. You can add products after approval.",
@@ -144,7 +144,7 @@ export default function SellerDashboard() {
     approved: {
       title: "Your Seller Account is Approved",
       label: "Approved",
-      style: "bg-emerald-100 text-emerald-800 border-emerald-200",
+      style: "bg-emerald-50 text-emerald-800 border-emerald-200",
       dot: "bg-emerald-500",
       description:
         "Your account is approved. Product selling features will be available as they are added to ALIQO.",
@@ -152,7 +152,7 @@ export default function SellerDashboard() {
     rejected: {
       title: "Your Seller Application was Rejected",
       label: "Rejected",
-      style: "bg-red-100 text-red-800 border-red-200",
+      style: "bg-red-50 text-red-800 border-red-200",
       dot: "bg-red-500",
       description:
         "Please contact ALIQO support for further assistance.",
@@ -160,16 +160,16 @@ export default function SellerDashboard() {
   };
 
   const inputClass =
-    "w-full rounded-xl border border-emerald-900/15 bg-white px-4 py-3.5 text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/10";
+    "w-full rounded-xl border border-[#DED5C2] bg-white px-4 py-3.5 text-[#123D2B] outline-none transition placeholder:text-[#68766D] focus:border-[#D4AF37] focus:ring-2 focus:ring-[#D4AF37]/20";
 
   if (checkingSession) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-[#f7f8f2] px-5">
+      <main className="flex min-h-screen items-center justify-center bg-[#F5F0E6] px-5">
         <div className="text-center">
-          <p className="text-3xl font-black text-emerald-950">
-            ALIQO<span className="text-amber-500">.</span>
+          <p className="text-3xl font-black text-[#123D2B]">
+            ALI<span className="text-[#D4AF37]">QO</span>
           </p>
-          <p className="mt-4 text-sm text-slate-500">
+          <p className="mt-4 text-sm text-[#68766D]">
             Loading your seller dashboard...
           </p>
         </div>
@@ -178,28 +178,28 @@ export default function SellerDashboard() {
   }
 
   return (
-    <main className="min-h-screen bg-[#f7f8f2] px-5 py-10 text-slate-800">
+    <main className="min-h-screen bg-[#F5F0E6] px-5 py-10 text-[#123D2B]">
       <div className="mx-auto max-w-5xl">
         <nav className="flex flex-wrap items-center justify-between gap-4">
           <a
             href="/"
-            className="text-3xl font-black tracking-tight text-emerald-950"
+            className="text-3xl font-black tracking-tight text-[#123D2B]"
           >
-            ALIQO<span className="text-amber-500">.</span>
+            ALI<span className="text-[#D4AF37]">QO</span>
           </a>
 
           <a
             href="/"
-            className="rounded-full border border-emerald-900/20 px-5 py-2 text-sm font-semibold text-emerald-900 transition hover:bg-emerald-900 hover:text-white"
+            className="rounded-full border border-[#D4AF37] px-5 py-2 text-sm font-semibold text-[#123D2B] transition hover:bg-[#123D2B] hover:text-[#D4AF37]"
           >
             ← Back to Home
           </a>
         </nav>
 
         {!seller ? (
-          <div className="mx-auto mt-12 max-w-md overflow-hidden rounded-3xl border border-emerald-900/10 bg-white shadow-xl shadow-emerald-950/5">
-            <div className="bg-emerald-950 px-8 py-10 text-white">
-              <span className="inline-block rounded-full border border-amber-400/30 bg-amber-400/10 px-4 py-2 text-xs font-bold tracking-widest text-amber-300">
+          <div className="mx-auto mt-12 max-w-md overflow-hidden rounded-3xl border border-[#DED5C2] bg-white shadow-xl">
+            <div className="bg-[#123D2B] px-8 py-10 text-white">
+              <span className="inline-block rounded-full border border-[#D4AF37]/40 bg-[#D4AF37]/10 px-4 py-2 text-xs font-bold tracking-widest text-[#D4AF37]">
                 ALIQO SELLER PORTAL
               </span>
 
@@ -207,7 +207,7 @@ export default function SellerDashboard() {
                 Seller Dashboard
               </h1>
 
-              <p className="mt-3 text-sm leading-7 text-emerald-100/75">
+              <p className="mt-3 text-sm leading-7 text-[#F5F0E6]/80">
                 Login to manage your seller account and view your business
                 information.
               </p>
@@ -215,14 +215,14 @@ export default function SellerDashboard() {
 
             <div className="p-8">
               {message && (
-                <div className="mt-1 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-900">
+                <div className="mt-1 rounded-xl border border-[#D4AF37]/40 bg-[#F5F0E6] p-4 text-sm leading-6 text-[#85631B]">
                   {message}
                 </div>
               )}
 
               <form onSubmit={handleLogin} className="mt-5 space-y-5">
                 <div>
-                  <label className="mb-2 block text-sm font-bold text-slate-700">
+                  <label className="mb-2 block text-sm font-bold text-[#123D2B]">
                     Email Address
                   </label>
                   <input
@@ -236,7 +236,7 @@ export default function SellerDashboard() {
                 </div>
 
                 <div>
-                  <label className="mb-2 block text-sm font-bold text-slate-700">
+                  <label className="mb-2 block text-sm font-bold text-[#123D2B]">
                     Password
                   </label>
                   <input
@@ -251,18 +251,18 @@ export default function SellerDashboard() {
 
                 <button
                   disabled={loading}
-                  className="w-full rounded-xl bg-emerald-950 py-4 font-bold text-white shadow-lg shadow-emerald-950/15 transition hover:bg-emerald-800 disabled:opacity-50"
+                  className="w-full rounded-xl bg-[#123D2B] py-4 font-bold text-[#D4AF37] shadow-lg transition hover:bg-[#1B563C] disabled:opacity-50"
                 >
                   {loading ? "Please wait..." : "Login to Dashboard →"}
                 </button>
               </form>
 
-              <div className="mt-7 border-t border-slate-100 pt-6 text-center">
-                <p className="text-sm text-slate-500">
+              <div className="mt-7 border-t border-[#DED5C2] pt-6 text-center">
+                <p className="text-sm text-[#68766D]">
                   New seller?{" "}
                   <a
                     href="/seller/register"
-                    className="font-bold text-emerald-800 hover:text-amber-600"
+                    className="font-bold text-[#123D2B] transition hover:text-[#A17C26]"
                   >
                     Register here
                   </a>
@@ -272,10 +272,10 @@ export default function SellerDashboard() {
           </div>
         ) : (
           <>
-            <div className="mt-12 overflow-hidden rounded-3xl bg-emerald-950 p-8 text-white shadow-xl md:p-10">
+            <div className="mt-12 overflow-hidden rounded-3xl bg-[#123D2B] p-8 text-white shadow-xl md:p-10">
               <div className="flex flex-wrap items-center justify-between gap-5">
                 <div>
-                  <span className="inline-block rounded-full border border-amber-400/30 bg-amber-400/10 px-4 py-2 text-xs font-bold tracking-widest text-amber-300">
+                  <span className="inline-block rounded-full border border-[#D4AF37]/40 bg-[#D4AF37]/10 px-4 py-2 text-xs font-bold tracking-widest text-[#D4AF37]">
                     SELLER ACCOUNT
                   </span>
 
@@ -283,14 +283,14 @@ export default function SellerDashboard() {
                     Welcome, {seller.owner_name}
                   </h1>
 
-                  <p className="mt-3 text-emerald-100/75">
+                  <p className="mt-3 text-[#F5F0E6]/80">
                     Manage your ALIQO seller account.
                   </p>
                 </div>
 
                 <button
                   onClick={handleLogout}
-                  className="rounded-full border border-amber-400/40 px-6 py-3 text-sm font-bold text-amber-300 transition hover:bg-amber-400 hover:text-emerald-950"
+                  className="rounded-full border border-[#D4AF37]/50 px-6 py-3 text-sm font-bold text-[#D4AF37] transition hover:bg-[#D4AF37] hover:text-[#123D2B]"
                 >
                   Logout
                 </button>
@@ -298,18 +298,18 @@ export default function SellerDashboard() {
             </div>
 
             <div className="mt-7 grid gap-6 md:grid-cols-2">
-              <section className="rounded-3xl border border-emerald-900/10 bg-white p-7 shadow-sm md:col-span-2">
+              <section className="rounded-3xl border border-[#DED5C2] bg-white p-7 shadow-sm md:col-span-2">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
-                    <p className="text-sm font-bold uppercase tracking-widest text-amber-600">
+                    <p className="text-sm font-bold uppercase tracking-widest text-[#A17C26]">
                       Your Business
                     </p>
-                    <h2 className="mt-2 text-2xl font-black text-emerald-950">
+                    <h2 className="mt-2 text-2xl font-black text-[#123D2B]">
                       Business Information
                     </h2>
                   </div>
 
-                  <span className="rounded-full bg-emerald-50 px-4 py-2 text-xs font-bold text-emerald-900">
+                  <span className="rounded-full bg-[#F5F0E6] px-4 py-2 text-xs font-bold text-[#123D2B]">
                     ALIQO SELLER
                   </span>
                 </div>
@@ -325,12 +325,12 @@ export default function SellerDashboard() {
                   ].map(([label, value]) => (
                     <div
                       key={label}
-                      className="rounded-xl border border-emerald-900/10 bg-[#f7f8f2] p-4"
+                      className="rounded-xl border border-[#DED5C2] bg-[#F5F0E6] p-4"
                     >
-                      <p className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                      <p className="text-xs font-bold uppercase tracking-wider text-[#68766D]">
                         {label}
                       </p>
-                      <p className="mt-2 break-words font-semibold text-emerald-950">
+                      <p className="mt-2 break-words font-semibold text-[#123D2B]">
                         {value}
                       </p>
                     </div>
@@ -338,11 +338,11 @@ export default function SellerDashboard() {
                 </div>
               </section>
 
-              <section className="rounded-3xl border border-emerald-900/10 bg-white p-7 shadow-sm">
-                <p className="text-sm font-bold uppercase tracking-widest text-amber-600">
+              <section className="rounded-3xl border border-[#DED5C2] bg-white p-7 shadow-sm">
+                <p className="text-sm font-bold uppercase tracking-widest text-[#A17C26]">
                   Application
                 </p>
-                <h2 className="mt-2 text-2xl font-black text-emerald-950">
+                <h2 className="mt-2 text-2xl font-black text-[#123D2B]">
                   Account Status
                 </h2>
 
@@ -355,60 +355,60 @@ export default function SellerDashboard() {
                   {statusConfig[seller.status].label}
                 </div>
 
-                <p className="mt-5 font-bold text-emerald-950">
+                <p className="mt-5 font-bold text-[#123D2B]">
                   {statusConfig[seller.status].title}
                 </p>
 
-                <p className="mt-3 text-sm leading-7 text-slate-500">
+                <p className="mt-3 text-sm leading-7 text-[#68766D]">
                   {statusConfig[seller.status].description}
                 </p>
               </section>
 
-              <section className="rounded-3xl border border-emerald-900/10 bg-white p-7 shadow-sm">
-                <p className="text-sm font-bold uppercase tracking-widest text-amber-600">
+              <section className="rounded-3xl border border-[#DED5C2] bg-white p-7 shadow-sm">
+                <p className="text-sm font-bold uppercase tracking-widest text-[#A17C26]">
                   Marketplace
                 </p>
-                <h2 className="mt-2 text-2xl font-black text-emerald-950">
+                <h2 className="mt-2 text-2xl font-black text-[#123D2B]">
                   Products
                 </h2>
 
-                <div className="mt-5 flex h-20 w-20 items-center justify-center rounded-2xl bg-emerald-50 text-3xl text-emerald-900">
+                <div className="mt-5 flex h-20 w-20 items-center justify-center rounded-2xl bg-[#F5F0E6] text-3xl text-[#123D2B]">
                   <span aria-hidden="true">▦</span>
                 </div>
 
-                <p className="mt-5 font-bold text-emerald-950">
+                <p className="mt-5 font-bold text-[#123D2B]">
                   Product Management
                 </p>
-                <p className="mt-2 text-sm leading-7 text-slate-500">
+                <p className="mt-2 text-sm leading-7 text-[#68766D]">
                   Product management tools are coming soon. They will be
                   available as ALIQO marketplace features are launched.
                 </p>
               </section>
 
-              <section className="rounded-3xl border border-amber-300/40 bg-amber-50 p-7 shadow-sm md:col-span-2">
-                <p className="text-sm font-bold uppercase tracking-widest text-amber-700">
+              <section className="rounded-3xl border border-[#D4AF37]/40 bg-[#F5F0E6] p-7 shadow-sm md:col-span-2">
+                <p className="text-sm font-bold uppercase tracking-widest text-[#85631B]">
                   ALIQO Proposed Commission
                 </p>
 
                 <div className="mt-3 flex flex-wrap items-center justify-between gap-4">
                   <div>
-                    <p className="text-5xl font-black text-emerald-950">
+                    <p className="text-5xl font-black text-[#123D2B]">
                       5%
                     </p>
-                    <p className="mt-3 text-sm leading-7 text-slate-600">
+                    <p className="mt-3 text-sm leading-7 text-[#68766D]">
                       Proposed commission on completed sales only.
                       Cancelled or refunded orders are excluded.
                     </p>
                   </div>
 
-                  <div className="rounded-2xl border border-amber-300/50 bg-white px-6 py-5">
-                    <p className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                  <div className="rounded-2xl border border-[#D4AF37]/40 bg-white px-6 py-5">
+                    <p className="text-xs font-bold uppercase tracking-wider text-[#68766D]">
                       Example Sale
                     </p>
-                    <p className="mt-2 text-2xl font-black text-emerald-950">
+                    <p className="mt-2 text-2xl font-black text-[#123D2B]">
                       Rs. 10,000
                     </p>
-                    <p className="mt-1 text-sm font-semibold text-amber-700">
+                    <p className="mt-1 text-sm font-semibold text-[#85631B]">
                       Proposed fee: Rs. 500
                     </p>
                   </div>
@@ -418,9 +418,9 @@ export default function SellerDashboard() {
           </>
         )}
 
-        <footer className="py-9 text-center text-sm text-slate-500">
+        <footer className="py-9 text-center text-sm text-[#68766D]">
           © 2026 ALIQO. All rights reserved.
-          <p className="mt-2 font-semibold text-emerald-900">
+          <p className="mt-2 font-semibold text-[#123D2B]">
             ALIQO — Discover More. Do More.
           </p>
         </footer>
