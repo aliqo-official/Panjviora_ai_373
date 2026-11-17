@@ -1,5 +1,5 @@
 
-import { NextRequest, NextResponse } from "next/server";
+import { connection, NextRequest, NextResponse } from "next/server";
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SUPABASE_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -60,6 +60,11 @@ async function readJson(response: Response) {
 // /api/education/directory?id=INSTITUTION_UUID
 
 export async function GET(request: NextRequest) {
+  // This API depends on URL query parameters.
+  // connection() makes it execute at request time instead of
+  // attempting to prerender it during the production build.
+  await connection();
+
   try {
     const params = request.nextUrl.searchParams;
 
@@ -86,10 +91,7 @@ export async function GET(request: NextRequest) {
       return json({ error: "Invalid institution type." }, 400);
     }
 
-    if (
-      cityInput.length > 100 ||
-      searchInput.length > 100
-    ) {
+    if (cityInput.length > 100 || searchInput.length > 100) {
       return json({ error: "Search filter is too long." }, 400);
     }
 
@@ -108,10 +110,7 @@ export async function GET(request: NextRequest) {
 
       const institutions = await readJson(institutionResult);
 
-      if (
-        !Array.isArray(institutions) ||
-        institutions.length === 0
-      ) {
+      if (!Array.isArray(institutions) || institutions.length === 0) {
         return json({ error: "Institution not found." }, 404);
       }
 
@@ -145,10 +144,35 @@ export async function GET(request: NextRequest) {
         );
       }
 
+      // Adapt database fee fields to the public details page.
+      const formattedPrograms = programs.map((program) => {
+        const feeMin = program.fee_min;
+        const feeMax = program.fee_max;
+
+        let fee: string | number | null = null;
+
+        if (feeMin !== null && feeMin !== undefined &&
+            feeMax !== null && feeMax !== undefined) {
+          fee = String(feeMin) === String(feeMax)
+            ? feeMin
+            : `${feeMin} - ${feeMax}`;
+        } else if (feeMin !== null && feeMin !== undefined) {
+          fee = feeMin;
+        } else if (feeMax !== null && feeMax !== undefined) {
+          fee = feeMax;
+        }
+
+        return {
+          ...program,
+          degree_level: program.program_type ?? null,
+          fee,
+        };
+      });
+
       return json({
         institution,
         campuses,
-        programs,
+        programs: formattedPrograms,
       });
     }
 
