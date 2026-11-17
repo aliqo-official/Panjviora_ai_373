@@ -85,37 +85,48 @@ export default function LoginPage() {
   }
 
   const inputClass =
-    "w-full rounded-xl border border-[#b99743]/50 bg-[#071b13] px-4 py-3 text-white placeholder:text-gray-400 outline-none transition focus:border-[#e4c36a] focus:ring-2 focus:ring-[#d0aa45]/30";
+    "w-full rounded-xl border border-[#DED5C2] bg-[#F5F0E6] px-4 py-3.5 text-[#123D2B] placeholder:text-[#68766D] outline-none transition focus:border-[#D4AF37] focus:ring-2 focus:ring-[#D4AF37]/20";
 
   return (
-    <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#061810] px-4 py-12 text-white">
-      <div className="pointer-events-none absolute -left-32 top-20 h-80 w-80 rounded-full bg-[#b58b35]/10 blur-3xl" />
-      <div className="pointer-events-none absolute -right-32 bottom-10 h-80 w-80 rounded-full bg-[#1d7047]/20 blur-3xl" />
+    <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#F5F0E6] px-4 py-12 text-[#123D2B]">
+      {/* Background Decoration */}
+      <div className="pointer-events-none absolute -left-32 top-20 h-80 w-80 rounded-full bg-[#D4AF37]/10 blur-3xl" />
+      <div className="pointer-events-none absolute -right-32 bottom-10 h-80 w-80 rounded-full bg-[#123D2B]/10 blur-3xl" />
 
       <div className="relative w-full max-w-md">
+        {/* Brand Header */}
         <div className="mb-8 text-center">
-          <div className="mb-4 inline-flex h-20 w-20 items-center justify-center rounded-2xl border border-[#d0aa45]/60 bg-[#103b29] text-4xl shadow-lg">
-            👤
+          <a
+            href="/"
+            className="mb-6 inline-block text-3xl font-black tracking-wide text-[#123D2B]"
+          >
+            ALI<span className="text-[#B08B22]">QO</span>
+          </a>
+
+          <div className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-2xl border border-[#D4AF37]/50 bg-[#123D2B] text-4xl shadow-lg">
+            <span className="text-[#D4AF37]">👤</span>
           </div>
 
-          <p className="mb-2 text-sm font-bold uppercase tracking-[0.3em] text-[#d0aa45]">
+          <p className="mb-2 text-sm font-bold uppercase tracking-[0.3em] text-[#B08B22]">
             ALIQO Account
           </p>
 
-          <h1 className="text-3xl font-extrabold text-[#f4d77b]">
+          <h1 className="text-3xl font-black text-[#123D2B]">
             {mode === "login" ? "Welcome Back" : "Create Your Account"}
           </h1>
 
-          <p className="mt-3 text-sm text-gray-300">
+          <p className="mt-3 text-sm text-[#68766D]">
             One account for your ALIQO services.
           </p>
         </div>
 
+        {/* Authentication Form */}
         <form
           onSubmit={handleSubmit}
-          className="space-y-5 rounded-3xl border border-[#c9a646]/60 bg-[#0d2b1e] p-6 shadow-2xl md:p-8"
+          className="space-y-5 rounded-3xl border border-[#D4AF37]/40 bg-white p-6 shadow-xl sm:p-8"
         >
-          <div className="flex rounded-xl border border-[#c9a646]/40 bg-[#071b13] p-1">
+          {/* Login / Signup Toggle */}
+          <div className="flex rounded-xl border border-[#DED5C2] bg-[#F5F0E6] p-1">
             <button
               type="button"
               onClick={() => {
@@ -123,10 +134,10 @@ export default function LoginPage() {
                 setError("");
                 setSuccess("");
               }}
-              className={`flex-1 rounded-lg py-3 text-sm font-bold ${
+              className={`flex-1 rounded-lg py-3 text-sm font-bold transition ${
                 mode === "login"
-                  ? "bg-[#d0aa45] text-[#102116]"
-                  : "text-gray-300"
+                  ? "bg-[#123D2B] text-white shadow-sm"
+                  : "text-[#68766D] hover:text-[#123D2B]"
               }`}
             >
               Login
@@ -139,20 +150,22 @@ export default function LoginPage() {
                 setError("");
                 setSuccess("");
               }}
-              className={`flex-1 rounded-lg py-3 text-sm font-bold ${
+              className={`flex-1 rounded-lg py-3 text-sm font-bold transition ${
                 mode === "signup"
-                  ? "bg-[#d0aa45] text-[#102116]"
-                  : "text-gray-300"
+                  ? "bg-[#123D2B] text-white shadow-sm"
+                  : "text-[#68766D] hover:text-[#123D2B]"
               }`}
             >
               Sign Up
             </button>
           </div>
 
+          {/* Email */}
           <div>
-            <label className="mb-2 block text-sm font-semibold text-[#f4d77b]">
+            <label className="mb-2 block text-sm font-bold text-[#123D2B]">
               Email Address
             </label>
+
             <input
               type="email"
               value={email}
@@ -165,10 +178,12 @@ export default function LoginPage() {
             />
           </div>
 
+          {/* Password */}
           <div>
-            <label className="mb-2 block text-sm font-semibold text-[#f4d77b]">
+            <label className="mb-2 block text-sm font-bold text-[#123D2B]">
               Password
             </label>
+
             <input
               type="password"
               value={password}
@@ -183,22 +198,31 @@ export default function LoginPage() {
             />
           </div>
 
+          {/* Error Message */}
           {error && (
-            <div className="rounded-xl border border-red-500/50 bg-red-950/40 p-4 text-sm text-red-300">
+            <div
+              role="alert"
+              className="rounded-xl border border-red-300 bg-red-50 p-4 text-sm font-medium text-red-700"
+            >
               {error}
             </div>
           )}
 
+          {/* Success Message */}
           {success && (
-            <div className="rounded-xl border border-green-500/50 bg-green-950/40 p-4 text-sm text-green-300">
+            <div
+              role="status"
+              className="rounded-xl border border-green-300 bg-green-50 p-4 text-sm font-medium text-green-800"
+            >
               {success}
             </div>
           )}
 
+          {/* Submit */}
           <button
             type="submit"
             disabled={loading}
-            className="w-full rounded-xl border border-[#f4d77b] bg-gradient-to-r from-[#b58b35] to-[#e0bd60] px-6 py-4 font-extrabold text-[#102116] shadow-lg transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
+            className="w-full rounded-xl border border-[#D4AF37] bg-[#123D2B] px-6 py-4 font-extrabold text-white shadow-md transition hover:bg-[#1B563C] hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-60"
           >
             {loading
               ? "Please wait..."
@@ -207,10 +231,23 @@ export default function LoginPage() {
                 : "Create ALIQO Account"}
           </button>
 
-          <p className="text-center text-xs leading-5 text-gray-400">
+          <p className="text-center text-xs leading-6 text-[#68766D]">
             Your ALIQO account can be used for customer and business services.
           </p>
+
+          <div className="border-t border-[#DED5C2] pt-5 text-center">
+            <a
+              href="/"
+              className="text-sm font-semibold text-[#1B563C] transition hover:text-[#B08B22]"
+            >
+              ← Back to ALIQO Home
+            </a>
+          </div>
         </form>
+
+        <p className="mt-6 text-center text-xs font-medium text-[#68766D]">
+          © 2026 ALIQO. All rights reserved.
+        </p>
       </div>
     </main>
   );
