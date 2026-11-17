@@ -258,7 +258,7 @@ export default function AdminPage() {
   }, [requests, search, filter]);
 
   return (
-    <main className="min-h-screen bg-[#080D0A] px-4 py-10 text-[#F5F5F0] sm:px-6">
+   <main className="min-h-screen bg-gradient-to-br from-[#123D2B] via-[#0B2419] to-[#111111] px-4 py-10 text-[#F5F5F0] sm:px-6">
       <div className="mx-auto max-w-6xl">
 
         <header className="mb-10 text-center">
