@@ -1,8 +1,6 @@
 
 import { NextRequest, NextResponse } from "next/server";
 
-export const dynamic = "force-dynamic";
-
 const ALLOWED_FIELDS = [
   "institution_name",
   "institution_type",
