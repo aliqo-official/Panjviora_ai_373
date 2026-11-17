@@ -216,14 +216,14 @@ export default function AdminPage() {
     const value = normalizeStatus(status);
 
     if (value === "Approved") {
-      return "border border-green-500/30 bg-green-500/15 text-green-300";
+      return "border border-green-200 bg-green-50 text-green-800";
     }
 
     if (value === "Rejected") {
-      return "border border-red-500/30 bg-red-500/15 text-red-300";
+      return "border border-red-200 bg-red-50 text-red-700";
     }
 
-    return "border border-[#D4AF37]/30 bg-[#D4AF37]/15 text-[#D4AF37]";
+    return "border border-[#D4AF37]/40 bg-[#F5F0E6] text-[#8A681B]";
   }
 
   const pendingCount = requests.filter(
@@ -258,30 +258,45 @@ export default function AdminPage() {
   }, [requests, search, filter]);
 
   return (
-   <main className="min-h-screen bg-gradient-to-br from-[#123D2B] via-[#0B2419] to-[#111111] px-4 py-10 text-[#F5F5F0] sm:px-6">
+    <main className="min-h-screen bg-[#F5F0E6] px-4 py-10 text-[#123D2B] sm:px-6">
       <div className="mx-auto max-w-6xl">
 
-        <header className="mb-10 text-center">
-          <h1 className="text-4xl font-black tracking-tight">
-            ALI<span className="text-[#D4AF37]">QO</span>{" "}
-            <span className="text-[#D4AF37]">Admin</span>
+        {/* Header */}
+        <header className="mb-10 rounded-3xl border border-[#D4AF37]/30 bg-[#123D2B] px-6 py-9 text-center shadow-xl sm:py-11">
+          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl border border-[#E8C95B] bg-gradient-to-br from-[#E8C95B] to-[#B68A25] text-3xl font-black text-[#123D2B] shadow-lg">
+            A
+          </div>
+
+          <h1 className="text-4xl font-black tracking-tight text-white">
+            ALI<span className="text-[#E8C95B]">QO</span>{" "}
+            <span className="text-[#E8C95B]">Admin</span>
           </h1>
 
-          <p className="mt-3 text-gray-400">
+          <p className="mt-3 text-sm text-[#E1E8DF] sm:text-base">
             Professional Advertising Management Dashboard
           </p>
 
-          <div className="mx-auto mt-4 h-1 w-24 rounded-full bg-[#D4AF37]" />
+          <div className="mx-auto mt-5 h-1 w-24 rounded-full bg-[#D4AF37]" />
         </header>
 
         {!authenticated ? (
           <form
             onSubmit={handleLogin}
-            className="mx-auto max-w-md space-y-5 rounded-2xl border border-[#D4AF37]/40 bg-[#101813] p-8 shadow-xl"
+            className="mx-auto max-w-md space-y-5 rounded-3xl border border-[#DED5C2] bg-white p-8 shadow-xl"
           >
-            <h2 className="text-2xl font-bold text-[#D4AF37]">
-              Admin Login
-            </h2>
+            <div className="mb-6 text-center">
+              <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#F5F0E6] text-2xl text-[#123D2B]">
+                <span>♙</span>
+              </div>
+
+              <h2 className="text-2xl font-black text-[#123D2B]">
+                Admin Login
+              </h2>
+
+              <p className="mt-2 text-sm text-[#68766D]">
+                Sign in to manage ALIQO advertising requests.
+              </p>
+            </div>
 
             <input
               required
@@ -289,7 +304,8 @@ export default function AdminPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="Admin Email"
-              className="w-full rounded-lg border border-[#D4AF37]/30 bg-[#080D0A] p-3 text-[#F5F5F0] outline-none placeholder:text-gray-500 focus:border-[#D4AF37]"
+              autoComplete="username"
+              className="w-full rounded-xl border border-[#DED5C2] bg-[#FDFBF7] p-3 text-[#123D2B] outline-none placeholder:text-[#89958C] focus:border-[#D4AF37] focus:ring-2 focus:ring-[#D4AF37]/20"
             />
 
             <input
@@ -298,17 +314,20 @@ export default function AdminPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="Password"
-              className="w-full rounded-lg border border-[#D4AF37]/30 bg-[#080D0A] p-3 text-[#F5F5F0] outline-none placeholder:text-gray-500 focus:border-[#D4AF37]"
+              autoComplete="current-password"
+              className="w-full rounded-xl border border-[#DED5C2] bg-[#FDFBF7] p-3 text-[#123D2B] outline-none placeholder:text-[#89958C] focus:border-[#D4AF37] focus:ring-2 focus:ring-[#D4AF37]/20"
             />
 
             {error && (
-              <p className="break-words text-sm text-red-400">{error}</p>
+              <p className="break-words rounded-lg bg-red-50 p-3 text-sm text-red-700">
+                {error}
+              </p>
             )}
 
             <button
               type="submit"
               disabled={loading}
-              className="w-full rounded-lg bg-[#D4AF37] p-3 font-bold text-[#080D0A] transition hover:bg-[#E5C65B] disabled:opacity-50"
+              className="w-full rounded-xl bg-gradient-to-r from-[#D4AF37] to-[#E8C95B] p-3 font-bold text-[#123D2B] shadow-md transition hover:-translate-y-0.5 hover:shadow-lg disabled:opacity-50"
             >
               {loading ? "Please wait..." : "Secure Admin Login"}
             </button>
@@ -316,70 +335,95 @@ export default function AdminPage() {
         ) : (
           <section>
 
+            {/* Statistics */}
             <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               {[
                 {
                   label: "Total Requests",
                   count: requests.length,
+                  icon: "▤",
                 },
                 {
                   label: "Pending",
                   count: pendingCount,
+                  icon: "◷",
                 },
                 {
                   label: "Approved",
                   count: approvedCount,
+                  icon: "✓",
                 },
                 {
                   label: "Rejected",
                   count: rejectedCount,
+                  icon: "×",
                 },
               ].map((stat) => (
                 <div
                   key={stat.label}
-                  className="rounded-xl border border-[#D4AF37]/30 bg-[#123D2B] p-5 shadow-lg"
+                  className="rounded-2xl border border-[#DED5C2] bg-white p-5 shadow-sm transition hover:-translate-y-1 hover:border-[#D4AF37] hover:shadow-lg"
                 >
-                  <p className="text-sm font-semibold text-gray-300">
-                    {stat.label}
-                  </p>
-                  <p className="mt-2 text-3xl font-black text-[#D4AF37]">
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-sm font-semibold text-[#68766D]">
+                      {stat.label}
+                    </p>
+
+                    <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#F5F0E6] text-xl font-bold text-[#A17C26]">
+                      {stat.icon}
+                    </span>
+                  </div>
+
+                  <p className="mt-3 text-3xl font-black text-[#123D2B]">
                     {stat.count}
                   </p>
+
+                  <div className="mt-4 h-1 w-full rounded-full bg-[#F5F0E6]">
+                    <div className="h-1 w-1/3 rounded-full bg-[#D4AF37]" />
+                  </div>
                 </div>
               ))}
             </div>
 
-            <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
-              <h2 className="text-2xl font-bold text-[#D4AF37]">
-                Advertising Requests
-              </h2>
+            {/* Dashboard Actions */}
+            <div className="mb-8 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-[#DED5C2] bg-white p-5 shadow-sm">
+              <div>
+                <h2 className="text-2xl font-black text-[#123D2B]">
+                  Advertising Requests
+                </h2>
+
+                <p className="mt-1 text-sm text-[#68766D]">
+                  Review and manage business advertising applications.
+                </p>
+              </div>
 
               <div className="flex flex-wrap gap-3">
                 <Link
                   href="/admin/deals"
-                  className="rounded-lg bg-[#D4AF37] px-4 py-2 font-bold text-[#080D0A] transition hover:bg-[#E5C65B]"
+                  className="rounded-xl bg-gradient-to-r from-[#D4AF37] to-[#E8C95B] px-4 py-2.5 font-bold text-[#123D2B] shadow-sm transition hover:brightness-105"
                 >
                   Manage Deals →
                 </Link>
 
                 <Link
                   href="/admin/sellers"
-                  className="rounded-lg bg-[#123D2B] px-4 py-2 font-bold text-[#F5F5F0] transition hover:bg-[#1B563D]"
+                  className="rounded-xl bg-[#123D2B] px-4 py-2.5 font-bold text-white transition hover:bg-[#1B563C]"
                 >
                   Manage Sellers →
                 </Link>
 
                 <button
+                  type="button"
                   onClick={loadRequests}
                   disabled={loading}
-                  className="rounded-lg border border-[#D4AF37]/50 bg-[#101813] px-4 py-2 font-semibold text-[#D4AF37] transition hover:bg-[#123D2B] disabled:opacity-50"
+                  className="rounded-xl border border-[#D4AF37]/60 bg-white px-4 py-2.5 font-semibold text-[#123D2B] transition hover:bg-[#F5F0E6] disabled:opacity-50"
                 >
-                  {loading ? "Loading..." : "Refresh"}
+                  {loading ? "Loading..." : "↻ Refresh"}
                 </button>
 
                 <button
+                  type="button"
                   onClick={handleLogout}
-                  className="rounded-lg border border-[#D4AF37]/50 bg-[#D4AF37] px-4 py-2 font-semibold text-[#080D0A] transition hover:bg-[#E5C65B]"
+                  className="rounded-xl border border-red-200 bg-red-50 px-4 py-2.5 font-semibold text-red-700 transition hover:bg-red-100"
                 >
                   Logout
                 </button>
@@ -387,23 +431,24 @@ export default function AdminPage() {
             </div>
 
             {error && (
-              <p className="mb-5 break-words rounded-lg border border-red-500/30 bg-red-500/10 p-4 text-red-300">
+              <p className="mb-5 break-words rounded-xl border border-red-200 bg-red-50 p-4 text-red-700">
                 ⚠ {error}
               </p>
             )}
 
-            <div className="mb-6 grid gap-3 sm:grid-cols-2">
+            {/* Search and Filter */}
+            <div className="mb-6 grid gap-3 rounded-2xl border border-[#DED5C2] bg-white p-4 shadow-sm sm:grid-cols-2">
               <input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Search business, name, email or phone..."
-                className="w-full rounded-lg border border-[#D4AF37]/30 bg-[#101813] p-3 text-[#F5F5F0] outline-none placeholder:text-gray-500 focus:border-[#D4AF37]"
+                className="w-full rounded-xl border border-[#DED5C2] bg-[#FDFBF7] p-3 text-[#123D2B] outline-none placeholder:text-[#89958C] focus:border-[#D4AF37] focus:ring-2 focus:ring-[#D4AF37]/20"
               />
 
               <select
                 value={filter}
                 onChange={(e) => setFilter(e.target.value as StatusFilter)}
-                className="w-full rounded-lg border border-[#D4AF37]/30 bg-[#101813] p-3 text-[#F5F5F0] outline-none focus:border-[#D4AF37]"
+                className="w-full rounded-xl border border-[#DED5C2] bg-[#FDFBF7] p-3 text-[#123D2B] outline-none focus:border-[#D4AF37] focus:ring-2 focus:ring-[#D4AF37]/20"
               >
                 <option value="All">All Requests</option>
                 <option value="Pending">Pending</option>
@@ -412,13 +457,22 @@ export default function AdminPage() {
               </select>
             </div>
 
-            <p className="mb-4 text-sm text-gray-400">
+            <p className="mb-4 text-sm font-medium text-[#68766D]">
               Showing {filteredRequests.length} of {requests.length} requests
             </p>
 
+            {/* Requests List */}
             {filteredRequests.length === 0 ? (
-              <div className="rounded-xl border border-[#D4AF37]/30 bg-[#101813] p-8 text-center text-gray-400">
-                No matching advertising requests found.
+              <div className="rounded-2xl border border-[#DED5C2] bg-white p-10 text-center shadow-sm">
+                <div className="mb-4 text-4xl text-[#B58B2B]">▤</div>
+
+                <h3 className="font-bold text-[#123D2B]">
+                  No matching requests
+                </h3>
+
+                <p className="mt-2 text-sm text-[#68766D]">
+                  No matching advertising requests found.
+                </p>
               </div>
             ) : (
               <div className="space-y-5">
@@ -428,10 +482,10 @@ export default function AdminPage() {
                   return (
                     <article
                       key={item.id ?? index}
-                      className="rounded-xl border border-[#D4AF37]/30 bg-[#101813] p-6 shadow-xl transition hover:border-[#D4AF37]/60"
+                      className="rounded-2xl border border-[#DED5C2] bg-white p-6 shadow-sm transition hover:border-[#D4AF37] hover:shadow-lg sm:p-7"
                     >
                       <div className="flex flex-wrap items-center justify-between gap-3">
-                        <h3 className="text-xl font-bold text-[#D4AF37]">
+                        <h3 className="text-xl font-black text-[#123D2B]">
                           {item.business_name || "Business"}
                         </h3>
 
@@ -442,35 +496,41 @@ export default function AdminPage() {
                         </span>
                       </div>
 
-                      <div className="mt-5 grid gap-3 text-[#F5F5F0] sm:grid-cols-2">
+                      <div className="mt-5 grid gap-3 text-sm text-[#123D2B] sm:grid-cols-2">
                         <p>
-                          <span className="text-gray-400">Contact:</span>{" "}
+                          <span className="font-semibold text-[#68766D]">
+                            Contact:
+                          </span>{" "}
                           {item.contact_name || "—"}
                         </p>
 
                         <p>
-                          <span className="text-gray-400">Email:</span>{" "}
+                          <span className="font-semibold text-[#68766D]">
+                            Email:
+                          </span>{" "}
                           {item.email || "—"}
                         </p>
 
                         <p>
-                          <span className="text-gray-400">Phone:</span>{" "}
+                          <span className="font-semibold text-[#68766D]">
+                            Phone:
+                          </span>{" "}
                           {item.phone || "—"}
                         </p>
                       </div>
 
-                      <div className="mt-4 rounded-lg border border-[#D4AF37]/20 bg-[#123D2B] p-4">
-                        <p className="mb-2 font-bold text-[#D4AF37]">
+                      <div className="mt-5 rounded-xl border border-[#DED5C2] bg-[#F5F0E6] p-4">
+                        <p className="mb-2 font-bold text-[#8A681B]">
                           Advertising Details
                         </p>
 
-                        <p className="whitespace-pre-wrap text-gray-200">
+                        <p className="whitespace-pre-wrap text-sm leading-7 text-[#536457]">
                           {item.advertising_details || "—"}
                         </p>
                       </div>
 
                       {item.created_at && (
-                        <p className="mt-4 text-xs text-gray-400">
+                        <p className="mt-4 text-xs text-[#68766D]">
                           Submitted:{" "}
                           {new Date(item.created_at).toLocaleString()}
                         </p>
@@ -478,36 +538,40 @@ export default function AdminPage() {
 
                       <div className="mt-5 flex flex-wrap gap-3">
                         <button
+                          type="button"
                           onClick={() => setSelected(item)}
-                          className="rounded-lg border border-[#D4AF37]/40 bg-[#123D2B] px-4 py-2 font-semibold text-[#F5F5F0] transition hover:bg-[#1B563D]"
+                          className="rounded-xl border border-[#D4AF37]/50 bg-[#F5F0E6] px-4 py-2 font-semibold text-[#123D2B] transition hover:bg-[#EAE0CA]"
                         >
                           View Details
                         </button>
 
                         <button
+                          type="button"
                           onClick={() => updateStatus(item, "Approved")}
                           disabled={
                             updatingId === item.id || status === "Approved"
                           }
-                          className="rounded-lg bg-[#D4AF37] px-4 py-2 font-semibold text-[#080D0A] transition hover:bg-[#E5C65B] disabled:opacity-40"
+                          className="rounded-xl bg-[#123D2B] px-4 py-2 font-semibold text-white transition hover:bg-[#1B563C] disabled:cursor-not-allowed disabled:opacity-40"
                         >
-                          {updatingId === item.id ? "Updating..." : "Approve"}
+                          {updatingId === item.id ? "Updating..." : "✓ Approve"}
                         </button>
 
                         <button
+                          type="button"
                           onClick={() => updateStatus(item, "Rejected")}
                           disabled={
                             updatingId === item.id || status === "Rejected"
                           }
-                          className="rounded-lg bg-red-600 px-4 py-2 font-semibold text-white transition hover:bg-red-500 disabled:opacity-40"
+                          className="rounded-xl border border-red-200 bg-red-50 px-4 py-2 font-semibold text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-40"
                         >
                           Reject
                         </button>
 
                         <button
+                          type="button"
                           onClick={() => deleteRequest(item)}
                           disabled={deletingId === item.id}
-                          className="rounded-lg border border-red-500/50 px-4 py-2 font-semibold text-red-400 transition hover:bg-red-500/10 disabled:opacity-40"
+                          className="rounded-xl border border-red-200 px-4 py-2 font-semibold text-red-700 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-40"
                         >
                           {deletingId === item.id ? "Deleting..." : "Delete"}
                         </button>
@@ -518,17 +582,19 @@ export default function AdminPage() {
               </div>
             )}
 
+            {/* Request Details Modal */}
             {selected && (
-              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4">
-                <div className="max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-[#D4AF37]/50 bg-[#101813] p-6 text-[#F5F5F0] shadow-2xl">
-                  <div className="mb-5 flex items-center justify-between gap-3">
-                    <h2 className="text-xl font-bold text-[#D4AF37]">
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#123D2B]/70 p-4 backdrop-blur-sm">
+                <div className="max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-[#D4AF37]/50 bg-white p-6 text-[#123D2B] shadow-2xl">
+                  <div className="mb-5 flex items-center justify-between gap-3 border-b border-[#DED5C2] pb-4">
+                    <h2 className="text-xl font-black text-[#123D2B]">
                       Request Details
                     </h2>
 
                     <button
+                      type="button"
                       onClick={() => setSelected(null)}
-                      className="rounded-lg bg-[#D4AF37] px-3 py-2 font-semibold text-[#080D0A] transition hover:bg-[#E5C65B]"
+                      className="rounded-xl bg-[#123D2B] px-4 py-2 font-semibold text-white transition hover:bg-[#1B563C]"
                     >
                       Close
                     </button>
@@ -536,43 +602,43 @@ export default function AdminPage() {
 
                   <div className="space-y-4 text-sm">
                     <p>
-                      <strong className="text-[#D4AF37]">Business:</strong>{" "}
+                      <strong className="text-[#8A681B]">Business:</strong>{" "}
                       {selected.business_name || "—"}
                     </p>
 
                     <p>
-                      <strong className="text-[#D4AF37]">Contact:</strong>{" "}
+                      <strong className="text-[#8A681B]">Contact:</strong>{" "}
                       {selected.contact_name || "—"}
                     </p>
 
                     <p>
-                      <strong className="text-[#D4AF37]">Email:</strong>{" "}
+                      <strong className="text-[#8A681B]">Email:</strong>{" "}
                       {selected.email || "—"}
                     </p>
 
                     <p>
-                      <strong className="text-[#D4AF37]">Phone:</strong>{" "}
+                      <strong className="text-[#8A681B]">Phone:</strong>{" "}
                       {selected.phone || "—"}
                     </p>
 
                     <p>
-                      <strong className="text-[#D4AF37]">Status:</strong>{" "}
+                      <strong className="text-[#8A681B]">Status:</strong>{" "}
                       {normalizeStatus(selected.status)}
                     </p>
 
-                    <div>
-                      <strong className="text-[#D4AF37]">
+                    <div className="rounded-xl bg-[#F5F0E6] p-4">
+                      <strong className="text-[#8A681B]">
                         Advertising Details:
                       </strong>
 
-                      <p className="mt-2 whitespace-pre-wrap text-gray-300">
+                      <p className="mt-2 whitespace-pre-wrap leading-7 text-[#536457]">
                         {selected.advertising_details || "—"}
                       </p>
                     </div>
 
                     {selected.created_at && (
                       <p>
-                        <strong className="text-[#D4AF37]">Submitted:</strong>{" "}
+                        <strong className="text-[#8A681B]">Submitted:</strong>{" "}
                         {new Date(selected.created_at).toLocaleString()}
                       </p>
                     )}
