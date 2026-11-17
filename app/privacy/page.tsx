@@ -1,16 +1,17 @@
 
 export default function PrivacyPage() {
   return (
-    <main className="min-h-screen bg-[#F3F7F1] text-[#17251B]">
+    <main className="min-h-screen bg-[#F5F0E6] text-[#123D2B]">
       {/* Header */}
-      <nav className="border-b border-[#DCE5D9] bg-[#0B1A11] px-6 py-5">
-        <div className="mx-auto flex max-w-6xl items-center justify-between">
-          <a href="/" className="text-3xl font-extrabold tracking-wide text-[#E4C35D]">
-            ALIQO
+      <nav className="border-b border-[#D4AF37]/30 bg-[#123D2B] px-5 py-5 shadow-md">
+        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4">
+          <a href="/" className="text-3xl font-black tracking-wide text-white">
+            ALI<span className="text-[#D4AF37]">QO</span>
           </a>
+
           <a
             href="/"
-            className="rounded-full border border-[#C4D0C5]/30 px-5 py-2 text-sm text-[#E4C35D] transition hover:bg-[#E4C35D] hover:text-[#0B1A11]"
+            className="rounded-full border border-[#D4AF37] px-5 py-2 text-sm font-semibold text-[#D4AF37] transition hover:bg-[#D4AF37] hover:text-[#123D2B]"
           >
             Home
           </a>
@@ -18,42 +19,49 @@ export default function PrivacyPage() {
       </nav>
 
       {/* Hero */}
-      <section className="bg-[#10251A] px-6 py-16 text-center text-white">
-        <p className="mb-4 text-sm font-bold tracking-[0.3em] text-[#E4C35D]">
+      <section className="border-b border-[#DED5C2] bg-[#123D2B] px-5 py-16 text-center text-white sm:py-20">
+        <p className="mb-4 text-sm font-bold tracking-[0.3em] text-[#D4AF37]">
           ALIQO TRUST CENTER
         </p>
-        <h1 className="text-4xl font-extrabold md:text-5xl">
+
+        <h1 className="text-4xl font-black md:text-5xl">
           Privacy Policy
         </h1>
-        <p className="mx-auto mt-5 max-w-2xl leading-7 text-[#C4D0C5]">
+
+        <p className="mx-auto mt-5 max-w-2xl leading-8 text-white/80">
           Your privacy matters to us. This policy explains how ALIQO
           collects, uses, and protects information when you use our website.
         </p>
-        <p className="mt-5 text-sm text-[#E4C35D]">
+
+        <p className="mt-5 text-sm font-semibold text-[#D4AF37]">
           Last updated: November 8, 2026
         </p>
+
+        <div className="mx-auto mt-8 h-1 w-24 rounded-full bg-[#D4AF37]" />
       </section>
 
       {/* Main Content */}
-      <article className="mx-auto max-w-4xl px-6 py-14">
-        <div className="rounded-2xl border border-[#DCE5D9] bg-white p-7 shadow-sm md:p-12">
-          <div className="mb-10 border-b border-[#E5EBE2] pb-7">
-            <span className="rounded-full bg-[#EDF3E9] px-4 py-2 text-xs font-bold tracking-wider text-[#426348]">
+      <article className="mx-auto max-w-4xl px-5 py-14">
+        <div className="rounded-3xl border border-[#DED5C2] bg-white p-6 shadow-sm sm:p-8 md:p-12">
+          <div className="mb-10 border-b border-[#DED5C2] pb-7">
+            <span className="rounded-full border border-[#D4AF37]/40 bg-[#F5F0E6] px-4 py-2 text-xs font-bold tracking-wider text-[#8A6A18]">
               YOUR PRIVACY
             </span>
-            <h2 className="mt-5 text-2xl font-bold text-[#183522]">
+
+            <h2 className="mt-5 text-2xl font-black text-[#123D2B]">
               Our Commitment to You
             </h2>
-            <p className="mt-3 leading-8 text-[#647267]">
+
+            <p className="mt-3 leading-8 text-[#68766D]">
               ALIQO aims to provide a useful search experience while
               respecting your privacy. Please read this policy to understand
               how information may be handled when you use our services.
             </p>
           </div>
 
-          <div className="space-y-9 leading-8 text-[#526156]">
+          <div className="space-y-9 leading-8 text-[#526356]">
             <section>
-              <h2 className="mb-3 text-xl font-bold text-[#183522]">
+              <h2 className="mb-3 text-xl font-bold text-[#123D2B]">
                 1. Introduction
               </h2>
               <p>
@@ -65,13 +73,13 @@ export default function PrivacyPage() {
             </section>
 
             <section>
-              <h2 className="mb-3 text-xl font-bold text-[#183522]">
+              <h2 className="mb-3 text-xl font-bold text-[#123D2B]">
                 2. Information We May Collect
               </h2>
               <p>
                 Depending on how you use ALIQO, information may include:
               </p>
-              <ul className="mt-3 list-disc space-y-2 pl-6">
+              <ul className="mt-3 list-disc space-y-2 pl-6 marker:text-[#B08B22]">
                 <li>
                   Search queries that you enter into our search services.
                 </li>
@@ -97,7 +105,7 @@ export default function PrivacyPage() {
             </section>
 
             <section>
-              <h2 className="mb-3 text-xl font-bold text-[#183522]">
+              <h2 className="mb-3 text-xl font-bold text-[#123D2B]">
                 3. Search and AI Services
               </h2>
               <p>
@@ -116,7 +124,7 @@ export default function PrivacyPage() {
             </section>
 
             <section>
-              <h2 className="mb-3 text-xl font-bold text-[#183522]">
+              <h2 className="mb-3 text-xl font-bold text-[#123D2B]">
                 4. Advertising Requests
               </h2>
               <p>
@@ -136,11 +144,11 @@ export default function PrivacyPage() {
             </section>
 
             <section>
-              <h2 className="mb-3 text-xl font-bold text-[#183522]">
+              <h2 className="mb-3 text-xl font-bold text-[#123D2B]">
                 5. How We Use Information
               </h2>
               <p>Information may be used to:</p>
-              <ul className="mt-3 list-disc space-y-2 pl-6">
+              <ul className="mt-3 list-disc space-y-2 pl-6 marker:text-[#B08B22]">
                 <li>Provide and operate ALIQO search features.</li>
                 <li>Process search queries and return relevant results.</li>
                 <li>Respond to contact and advertising enquiries.</li>
@@ -151,7 +159,7 @@ export default function PrivacyPage() {
             </section>
 
             <section>
-              <h2 className="mb-3 text-xl font-bold text-[#183522]">
+              <h2 className="mb-3 text-xl font-bold text-[#123D2B]">
                 6. Cookies and Advertising
               </h2>
               <p>
@@ -173,7 +181,7 @@ export default function PrivacyPage() {
             </section>
 
             <section>
-              <h2 className="mb-3 text-xl font-bold text-[#183522]">
+              <h2 className="mb-3 text-xl font-bold text-[#123D2B]">
                 7. Third-Party Services and Links
               </h2>
               <p>
@@ -189,7 +197,7 @@ export default function PrivacyPage() {
             </section>
 
             <section>
-              <h2 className="mb-3 text-xl font-bold text-[#183522]">
+              <h2 className="mb-3 text-xl font-bold text-[#123D2B]">
                 8. Data Storage and Retention
               </h2>
               <p>
@@ -202,7 +210,7 @@ export default function PrivacyPage() {
             </section>
 
             <section>
-              <h2 className="mb-3 text-xl font-bold text-[#183522]">
+              <h2 className="mb-3 text-xl font-bold text-[#123D2B]">
                 9. Data Security
               </h2>
               <p>
@@ -215,7 +223,7 @@ export default function PrivacyPage() {
             </section>
 
             <section>
-              <h2 className="mb-3 text-xl font-bold text-[#183522]">
+              <h2 className="mb-3 text-xl font-bold text-[#123D2B]">
                 10. Your Privacy Choices
               </h2>
               <p>
@@ -230,7 +238,7 @@ export default function PrivacyPage() {
             </section>
 
             <section>
-              <h2 className="mb-3 text-xl font-bold text-[#183522]">
+              <h2 className="mb-3 text-xl font-bold text-[#123D2B]">
                 11. Children's Privacy
               </h2>
               <p>
@@ -242,7 +250,7 @@ export default function PrivacyPage() {
             </section>
 
             <section>
-              <h2 className="mb-3 text-xl font-bold text-[#183522]">
+              <h2 className="mb-3 text-xl font-bold text-[#123D2B]">
                 12. International Data Processing
               </h2>
               <p>
@@ -254,7 +262,7 @@ export default function PrivacyPage() {
             </section>
 
             <section>
-              <h2 className="mb-3 text-xl font-bold text-[#183522]">
+              <h2 className="mb-3 text-xl font-bold text-[#123D2B]">
                 13. Changes to This Policy
               </h2>
               <p>
@@ -265,44 +273,53 @@ export default function PrivacyPage() {
             </section>
 
             <section>
-              <h2 className="mb-3 text-xl font-bold text-[#183522]">
+              <h2 className="mb-3 text-xl font-bold text-[#123D2B]">
                 14. Contact ALIQO
               </h2>
               <p>
                 If you have questions about this Privacy Policy or wish to
                 make a privacy-related request, contact us:
               </p>
+
               <a
                 href="mailto:aliqo37311011@gmail.com"
-                className="mt-3 inline-block font-semibold text-[#98751D] hover:underline"
+                className="mt-3 inline-block break-all font-bold text-[#8A6A18] transition hover:text-[#123D2B] hover:underline"
               >
                 aliqo37311011@gmail.com
               </a>
+
               <br />
+
               <a
                 href="/contact"
-                className="mt-3 inline-block font-semibold text-[#98751D] hover:underline"
+                className="mt-3 inline-block font-bold text-[#8A6A18] transition hover:text-[#123D2B] hover:underline"
               >
                 Visit Contact Page →
               </a>
             </section>
           </div>
 
-          <div className="mt-12 border-t border-[#E5EBE2] pt-8">
+          {/* Back to Home */}
+          <div className="mt-12 border-t border-[#DED5C2] pt-8">
             <a
               href="/"
-              className="inline-flex rounded-full bg-[#183522] px-8 py-3 font-semibold text-white transition hover:bg-[#294D32]"
+              className="inline-flex rounded-xl bg-[#123D2B] px-8 py-3.5 font-bold text-white transition hover:bg-[#1B563C]"
             >
-              Back to Home
+              ← Back to Home
             </a>
           </div>
         </div>
       </article>
 
       {/* Footer */}
-      <footer className="border-t border-[#263D2D] bg-[#090F0B] px-6 py-8 text-center text-sm text-[#A9B7AA]">
-        © 2026 <span className="font-bold text-[#E4C35D]">ALIQO</span>.
+      <footer className="border-t border-[#D4AF37]/30 bg-[#123D2B] px-5 py-9 text-center text-sm text-white/75">
+        © 2026{" "}
+        <span className="font-bold text-[#D4AF37]">ALIQO</span>.
         All rights reserved.
+
+        <p className="mt-2 text-xs font-semibold text-[#D4AF37]">
+          Search Smarter. Discover More.
+        </p>
       </footer>
     </main>
   );
