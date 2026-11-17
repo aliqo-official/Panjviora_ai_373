@@ -53,7 +53,7 @@ export default function SellerDashboard() {
   const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
   const inputClass =
-    "w-full rounded-xl border border-emerald-900/15 bg-white px-4 py-3.5 text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/10";
+    "w-full rounded-xl border border-[#DED5C2] bg-white px-4 py-3.5 text-[#123D2B] outline-none transition placeholder:text-[#68766D] focus:border-[#D4AF37] focus:ring-2 focus:ring-[#D4AF37]/20";
 
   async function loadSeller(token: string) {
     if (!supabaseUrl || !supabaseKey) {
@@ -98,7 +98,6 @@ export default function SellerDashboard() {
     setSeller(data[0]);
     localStorage.setItem("aliqo_seller_token", token);
 
-    // Load this seller's products
     const productResponse = await fetch(
       `${supabaseUrl}/rest/v1/products?seller_id=eq.${encodeURIComponent(user.id)}&select=*&order=created_at.desc`,
       {
@@ -285,40 +284,40 @@ export default function SellerDashboard() {
   const statusConfig = {
     pending: {
       label: "Pending Review",
-      style: "bg-amber-100 text-amber-800 border-amber-200",
-      dot: "bg-amber-500",
+      style: "bg-[#FFF4D6] text-[#946B08] border-[#E8C95B]",
+      dot: "bg-[#D4AF37]",
       description:
         "Your application is under review. You can add products after approval.",
     },
     approved: {
       label: "Approved",
-      style: "bg-emerald-100 text-emerald-800 border-emerald-200",
-      dot: "bg-emerald-500",
+      style: "bg-[#E4F1E8] text-[#123D2B] border-[#9CC6A8]",
+      dot: "bg-[#1B563C]",
       description:
         "Your seller account is approved. You can now submit products for review.",
     },
     rejected: {
       label: "Rejected",
-      style: "bg-red-100 text-red-800 border-red-200",
+      style: "bg-red-50 text-red-800 border-red-200",
       dot: "bg-red-500",
       description: "Please contact ALIQO support for further assistance.",
     },
   };
 
   const productStatusStyle = {
-    pending: "bg-amber-100 text-amber-800",
-    approved: "bg-emerald-100 text-emerald-800",
-    rejected: "bg-red-100 text-red-800",
+    pending: "bg-[#FFF4D6] text-[#946B08]",
+    approved: "bg-[#E4F1E8] text-[#123D2B]",
+    rejected: "bg-red-50 text-red-800",
   };
 
   if (checkingSession) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-[#f7f8f2] px-5">
+      <main className="flex min-h-screen items-center justify-center bg-[#F5F0E6] px-5">
         <div className="text-center">
-          <p className="text-3xl font-black text-emerald-950">
-            ALIQO<span className="text-amber-500">.</span>
+          <p className="text-3xl font-black text-[#123D2B]">
+            ALIQO<span className="text-[#D4AF37]">.</span>
           </p>
-          <p className="mt-4 text-sm text-slate-500">
+          <p className="mt-4 text-sm text-[#68766D]">
             Loading your seller dashboard...
           </p>
         </div>
@@ -327,28 +326,28 @@ export default function SellerDashboard() {
   }
 
   return (
-    <main className="min-h-screen bg-[#f7f8f2] px-5 py-10 text-slate-800">
+    <main className="min-h-screen bg-[#F5F0E6] px-5 py-10 text-[#123D2B]">
       <div className="mx-auto max-w-5xl">
         <nav className="flex flex-wrap items-center justify-between gap-4">
           <a
             href="/"
-            className="text-3xl font-black tracking-tight text-emerald-950"
+            className="text-3xl font-black tracking-tight text-[#123D2B]"
           >
-            ALIQO<span className="text-amber-500">.</span>
+            ALIQO<span className="text-[#D4AF37]">.</span>
           </a>
 
           <a
             href="/"
-            className="rounded-full border border-emerald-900/20 px-5 py-2 text-sm font-semibold text-emerald-900 transition hover:bg-emerald-900 hover:text-white"
+            className="rounded-full border border-[#123D2B]/20 px-5 py-2 text-sm font-semibold text-[#123D2B] transition hover:bg-[#123D2B] hover:text-white"
           >
             ← Back to Home
           </a>
         </nav>
 
         {!seller ? (
-          <div className="mx-auto mt-12 max-w-md overflow-hidden rounded-3xl border border-emerald-900/10 bg-white shadow-xl shadow-emerald-950/5">
-            <div className="bg-emerald-950 px-8 py-10 text-white">
-              <span className="inline-block rounded-full border border-amber-400/30 bg-amber-400/10 px-4 py-2 text-xs font-bold tracking-widest text-amber-300">
+          <div className="mx-auto mt-12 max-w-md overflow-hidden rounded-3xl border border-[#DED5C2] bg-white shadow-xl shadow-[#123D2B]/10">
+            <div className="bg-[#123D2B] px-8 py-10 text-white">
+              <span className="inline-block rounded-full border border-[#D4AF37]/40 bg-[#D4AF37]/10 px-4 py-2 text-xs font-bold tracking-widest text-[#E8C95B]">
                 ALIQO SELLER PORTAL
               </span>
 
@@ -356,21 +355,21 @@ export default function SellerDashboard() {
                 Seller Dashboard
               </h1>
 
-              <p className="mt-3 text-sm leading-7 text-emerald-100/75">
+              <p className="mt-3 text-sm leading-7 text-white/75">
                 Login to manage your seller account and products.
               </p>
             </div>
 
             <div className="p-8">
               {message && (
-                <div className="mt-1 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-900">
+                <div className="mt-1 rounded-xl border border-[#E8C95B] bg-[#FFF4D6] p-4 text-sm leading-6 text-[#765707]">
                   {message}
                 </div>
               )}
 
               <form onSubmit={handleLogin} className="mt-5 space-y-5">
                 <div>
-                  <label className="mb-2 block text-sm font-bold text-slate-700">
+                  <label className="mb-2 block text-sm font-bold text-[#123D2B]">
                     Email Address
                   </label>
                   <input
@@ -384,7 +383,7 @@ export default function SellerDashboard() {
                 </div>
 
                 <div>
-                  <label className="mb-2 block text-sm font-bold text-slate-700">
+                  <label className="mb-2 block text-sm font-bold text-[#123D2B]">
                     Password
                   </label>
                   <input
@@ -400,18 +399,18 @@ export default function SellerDashboard() {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full rounded-xl bg-emerald-950 py-4 font-bold text-white shadow-lg shadow-emerald-950/15 transition hover:bg-emerald-800 disabled:opacity-50"
+                  className="w-full rounded-xl bg-[#123D2B] py-4 font-bold text-white shadow-lg shadow-[#123D2B]/15 transition hover:bg-[#1B563C] hover:text-[#E8C95B] disabled:opacity-50"
                 >
                   {loading ? "Please wait..." : "Login to Dashboard →"}
                 </button>
               </form>
 
-              <div className="mt-7 border-t border-slate-100 pt-6 text-center">
-                <p className="text-sm text-slate-500">
+              <div className="mt-7 border-t border-[#DED5C2] pt-6 text-center">
+                <p className="text-sm text-[#68766D]">
                   New seller?{" "}
                   <a
                     href="/seller/register"
-                    className="font-bold text-emerald-800 hover:text-amber-600"
+                    className="font-bold text-[#123D2B] underline decoration-[#D4AF37] underline-offset-4 hover:text-[#B18B20]"
                   >
                     Register here
                   </a>
@@ -421,10 +420,10 @@ export default function SellerDashboard() {
           </div>
         ) : (
           <>
-            <div className="mt-12 overflow-hidden rounded-3xl bg-emerald-950 p-8 text-white shadow-xl md:p-10">
+            <div className="mt-12 overflow-hidden rounded-3xl bg-[#123D2B] p-8 text-white shadow-xl md:p-10">
               <div className="flex flex-wrap items-center justify-between gap-5">
                 <div>
-                  <span className="inline-block rounded-full border border-amber-400/30 bg-amber-400/10 px-4 py-2 text-xs font-bold tracking-widest text-amber-300">
+                  <span className="inline-block rounded-full border border-[#D4AF37]/40 bg-[#D4AF37]/10 px-4 py-2 text-xs font-bold tracking-widest text-[#E8C95B]">
                     SELLER ACCOUNT
                   </span>
 
@@ -432,7 +431,7 @@ export default function SellerDashboard() {
                     Welcome, {seller.owner_name}
                   </h1>
 
-                  <p className="mt-3 text-emerald-100/75">
+                  <p className="mt-3 text-white/75">
                     Manage your ALIQO seller account and products.
                   </p>
                 </div>
@@ -440,7 +439,7 @@ export default function SellerDashboard() {
                 <button
                   type="button"
                   onClick={handleLogout}
-                  className="rounded-full border border-amber-400/40 px-6 py-3 text-sm font-bold text-amber-300 transition hover:bg-amber-400 hover:text-emerald-950"
+                  className="rounded-full border border-[#D4AF37]/50 px-6 py-3 text-sm font-bold text-[#E8C95B] transition hover:bg-[#D4AF37] hover:text-[#123D2B]"
                 >
                   Logout
                 </button>
@@ -448,12 +447,12 @@ export default function SellerDashboard() {
             </div>
 
             <div className="mt-7 grid gap-6 md:grid-cols-2">
-              <section className="rounded-3xl border border-emerald-900/10 bg-white p-7 shadow-sm md:col-span-2">
-                <p className="text-sm font-bold uppercase tracking-widest text-amber-600">
+              <section className="rounded-3xl border border-[#DED5C2] bg-white p-7 shadow-sm md:col-span-2">
+                <p className="text-sm font-bold uppercase tracking-widest text-[#B18B20]">
                   Your Business
                 </p>
 
-                <h2 className="mt-2 text-2xl font-black text-emerald-950">
+                <h2 className="mt-2 text-2xl font-black text-[#123D2B]">
                   Business Information
                 </h2>
 
@@ -468,12 +467,12 @@ export default function SellerDashboard() {
                   ].map(([label, value]) => (
                     <div
                       key={label}
-                      className="rounded-xl border border-emerald-900/10 bg-[#f7f8f2] p-4"
+                      className="rounded-xl border border-[#DED5C2] bg-[#F5F0E6] p-4"
                     >
-                      <p className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                      <p className="text-xs font-bold uppercase tracking-wider text-[#68766D]">
                         {label}
                       </p>
-                      <p className="mt-2 break-words font-semibold text-emerald-950">
+                      <p className="mt-2 break-words font-semibold text-[#123D2B]">
                         {value}
                       </p>
                     </div>
@@ -481,12 +480,12 @@ export default function SellerDashboard() {
                 </div>
               </section>
 
-              <section className="rounded-3xl border border-emerald-900/10 bg-white p-7 shadow-sm">
-                <p className="text-sm font-bold uppercase tracking-widest text-amber-600">
+              <section className="rounded-3xl border border-[#DED5C2] bg-white p-7 shadow-sm">
+                <p className="text-sm font-bold uppercase tracking-widest text-[#B18B20]">
                   Application
                 </p>
 
-                <h2 className="mt-2 text-2xl font-black text-emerald-950">
+                <h2 className="mt-2 text-2xl font-black text-[#123D2B]">
                   Account Status
                 </h2>
 
@@ -499,40 +498,40 @@ export default function SellerDashboard() {
                   {statusConfig[seller.status].label}
                 </div>
 
-                <p className="mt-5 text-sm leading-7 text-slate-500">
+                <p className="mt-5 text-sm leading-7 text-[#68766D]">
                   {statusConfig[seller.status].description}
                 </p>
               </section>
 
-              <section className="rounded-3xl border border-emerald-900/10 bg-white p-7 shadow-sm">
-                <p className="text-sm font-bold uppercase tracking-widest text-amber-600">
+              <section className="rounded-3xl border border-[#DED5C2] bg-white p-7 shadow-sm">
+                <p className="text-sm font-bold uppercase tracking-widest text-[#B18B20]">
                   Marketplace
                 </p>
 
-                <h2 className="mt-2 text-2xl font-black text-emerald-950">
+                <h2 className="mt-2 text-2xl font-black text-[#123D2B]">
                   Product Overview
                 </h2>
 
-                <p className="mt-5 text-4xl font-black text-emerald-950">
+                <p className="mt-5 text-4xl font-black text-[#123D2B]">
                   {products.length}
                 </p>
 
-                <p className="mt-2 text-sm text-slate-500">
+                <p className="mt-2 text-sm text-[#68766D]">
                   Total products submitted
                 </p>
               </section>
 
               {seller.status === "approved" && (
-                <section className="rounded-3xl border border-emerald-900/10 bg-white p-7 shadow-sm md:col-span-2">
-                  <p className="text-sm font-bold uppercase tracking-widest text-amber-600">
+                <section className="rounded-3xl border border-[#DED5C2] bg-white p-7 shadow-sm md:col-span-2">
+                  <p className="text-sm font-bold uppercase tracking-widest text-[#B18B20]">
                     Marketplace
                   </p>
 
-                  <h2 className="mt-2 text-2xl font-black text-emerald-950">
+                  <h2 className="mt-2 text-2xl font-black text-[#123D2B]">
                     Add New Product
                   </h2>
 
-                  <p className="mt-2 text-sm leading-6 text-slate-500">
+                  <p className="mt-2 text-sm leading-6 text-[#68766D]">
                     Submit your product details. New products will remain
                     pending until reviewed by ALIQO admin.
                   </p>
@@ -542,7 +541,7 @@ export default function SellerDashboard() {
                     className="mt-7 grid gap-5 sm:grid-cols-2"
                   >
                     <div>
-                      <label className="mb-2 block text-sm font-bold">
+                      <label className="mb-2 block text-sm font-bold text-[#123D2B]">
                         Product Name *
                       </label>
                       <input
@@ -555,7 +554,7 @@ export default function SellerDashboard() {
                     </div>
 
                     <div>
-                      <label className="mb-2 block text-sm font-bold">
+                      <label className="mb-2 block text-sm font-bold text-[#123D2B]">
                         Category *
                       </label>
                       <input
@@ -568,7 +567,7 @@ export default function SellerDashboard() {
                     </div>
 
                     <div>
-                      <label className="mb-2 block text-sm font-bold">
+                      <label className="mb-2 block text-sm font-bold text-[#123D2B]">
                         Price (PKR) *
                       </label>
                       <input
@@ -584,7 +583,7 @@ export default function SellerDashboard() {
                     </div>
 
                     <div>
-                      <label className="mb-2 block text-sm font-bold">
+                      <label className="mb-2 block text-sm font-bold text-[#123D2B]">
                         Stock Quantity *
                       </label>
                       <input
@@ -600,7 +599,7 @@ export default function SellerDashboard() {
                     </div>
 
                     <div className="sm:col-span-2">
-                      <label className="mb-2 block text-sm font-bold">
+                      <label className="mb-2 block text-sm font-bold text-[#123D2B]">
                         Product Image URL
                       </label>
                       <input
@@ -613,7 +612,7 @@ export default function SellerDashboard() {
                     </div>
 
                     <div className="sm:col-span-2">
-                      <label className="mb-2 block text-sm font-bold">
+                      <label className="mb-2 block text-sm font-bold text-[#123D2B]">
                         Product Description
                       </label>
                       <textarea
@@ -628,7 +627,7 @@ export default function SellerDashboard() {
                     </div>
 
                     {productMessage && (
-                      <div className="sm:col-span-2 rounded-xl border border-emerald-900/10 bg-[#f7f8f2] p-4 text-sm leading-6 text-emerald-950">
+                      <div className="sm:col-span-2 rounded-xl border border-[#DED5C2] bg-[#F5F0E6] p-4 text-sm leading-6 text-[#123D2B]">
                         {productMessage}
                       </div>
                     )}
@@ -637,7 +636,7 @@ export default function SellerDashboard() {
                       <button
                         type="submit"
                         disabled={savingProduct}
-                        className="w-full rounded-xl bg-emerald-950 px-6 py-4 font-bold text-white transition hover:bg-emerald-800 disabled:opacity-50 sm:w-auto"
+                        className="w-full rounded-xl bg-[#123D2B] px-6 py-4 font-bold text-white transition hover:bg-[#1B563C] hover:text-[#E8C95B] disabled:opacity-50 sm:w-auto"
                       >
                         {savingProduct ? "Saving Product..." : "Submit Product →"}
                       </button>
@@ -646,23 +645,23 @@ export default function SellerDashboard() {
                 </section>
               )}
 
-              <section className="rounded-3xl border border-emerald-900/10 bg-white p-7 shadow-sm md:col-span-2">
-                <p className="text-sm font-bold uppercase tracking-widest text-amber-600">
+              <section className="rounded-3xl border border-[#DED5C2] bg-white p-7 shadow-sm md:col-span-2">
+                <p className="text-sm font-bold uppercase tracking-widest text-[#B18B20]">
                   Your Inventory
                 </p>
 
-                <h2 className="mt-2 text-2xl font-black text-emerald-950">
+                <h2 className="mt-2 text-2xl font-black text-[#123D2B]">
                   My Products
                 </h2>
 
                 {productMessage && products.length === 0 && (
-                  <p className="mt-4 rounded-xl bg-amber-50 p-4 text-sm text-amber-900">
+                  <p className="mt-4 rounded-xl border border-[#E8C95B] bg-[#FFF4D6] p-4 text-sm text-[#765707]">
                     {productMessage}
                   </p>
                 )}
 
                 {products.length === 0 ? (
-                  <p className="mt-5 rounded-xl bg-[#f7f8f2] p-5 text-sm text-slate-500">
+                  <p className="mt-5 rounded-xl bg-[#F5F0E6] p-5 text-sm text-[#68766D]">
                     No products added yet.
                   </p>
                 ) : (
@@ -670,7 +669,7 @@ export default function SellerDashboard() {
                     {products.map((product) => (
                       <div
                         key={product.id}
-                        className="flex flex-col gap-4 rounded-2xl border border-emerald-900/10 p-5 sm:flex-row sm:items-center"
+                        className="flex flex-col gap-4 rounded-2xl border border-[#DED5C2] p-5 sm:flex-row sm:items-center"
                       >
                         {product.image_url ? (
                           <img
@@ -679,21 +678,21 @@ export default function SellerDashboard() {
                             className="h-24 w-24 rounded-xl object-cover"
                           />
                         ) : (
-                          <div className="flex h-24 w-24 items-center justify-center rounded-xl bg-emerald-50 text-3xl text-emerald-900">
+                          <div className="flex h-24 w-24 items-center justify-center rounded-xl bg-[#F5F0E6] text-3xl text-[#123D2B]">
                             ▦
                           </div>
                         )}
 
                         <div className="min-w-0 flex-1">
-                          <h3 className="break-words text-lg font-bold text-emerald-950">
+                          <h3 className="break-words text-lg font-bold text-[#123D2B]">
                             {product.product_name}
                           </h3>
 
-                          <p className="mt-1 text-sm text-slate-500">
+                          <p className="mt-1 text-sm text-[#68766D]">
                             {product.category} · Stock: {product.stock_quantity}
                           </p>
 
-                          <p className="mt-2 font-bold text-emerald-900">
+                          <p className="mt-2 font-bold text-[#123D2B]">
                             Rs. {Number(product.price).toLocaleString("en-PK")}
                           </p>
                         </div>
@@ -709,30 +708,30 @@ export default function SellerDashboard() {
                 )}
               </section>
 
-              <section className="rounded-3xl border border-amber-300/40 bg-amber-50 p-7 shadow-sm md:col-span-2">
-                <p className="text-sm font-bold uppercase tracking-widest text-amber-700">
+              <section className="rounded-3xl border border-[#D4AF37]/40 bg-[#FFF4D6] p-7 shadow-sm md:col-span-2">
+                <p className="text-sm font-bold uppercase tracking-widest text-[#946B08]">
                   ALIQO Proposed Commission
                 </p>
 
                 <div className="mt-3 flex flex-wrap items-center justify-between gap-4">
                   <div>
-                    <p className="text-5xl font-black text-emerald-950">
+                    <p className="text-5xl font-black text-[#123D2B]">
                       5%
                     </p>
-                    <p className="mt-3 text-sm leading-7 text-slate-600">
+                    <p className="mt-3 text-sm leading-7 text-[#68766D]">
                       Proposed commission on completed sales only.
                       Cancelled or refunded orders are excluded.
                     </p>
                   </div>
 
-                  <div className="rounded-2xl border border-amber-300/50 bg-white px-6 py-5">
-                    <p className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                  <div className="rounded-2xl border border-[#D4AF37]/40 bg-white px-6 py-5">
+                    <p className="text-xs font-bold uppercase tracking-wider text-[#68766D]">
                       Example Sale
                     </p>
-                    <p className="mt-2 text-2xl font-black text-emerald-950">
+                    <p className="mt-2 text-2xl font-black text-[#123D2B]">
                       Rs. 10,000
                     </p>
-                    <p className="mt-1 text-sm font-semibold text-amber-700">
+                    <p className="mt-1 text-sm font-semibold text-[#946B08]">
                       Proposed fee: Rs. 500
                     </p>
                   </div>
@@ -742,9 +741,9 @@ export default function SellerDashboard() {
           </>
         )}
 
-        <footer className="py-9 text-center text-sm text-slate-500">
+        <footer className="py-9 text-center text-sm text-[#68766D]">
           © 2026 ALIQO. All rights reserved.
-          <p className="mt-2 font-semibold text-emerald-900">
+          <p className="mt-2 font-semibold text-[#123D2B]">
             ALIQO — Discover More. Do More.
           </p>
         </footer>
