@@ -44,7 +44,9 @@ export default function SubmitDealPage() {
       }
 
       setSuccess(true);
-      setMessage("Your offer has been submitted successfully! It will appear after admin approval.");
+      setMessage(
+        "Your offer has been submitted successfully! It will appear after admin approval."
+      );
 
       setForm({
         business_name: "",
@@ -66,37 +68,37 @@ export default function SubmitDealPage() {
   }
 
   const inputClass =
-    "mt-2 w-full rounded-xl border border-[#D9E2D8] bg-white px-4 py-3 text-sm text-[#18271D] outline-none transition focus:border-[#B9953B] focus:ring-2 focus:ring-[#D4AF37]/20";
+    "mt-2 w-full rounded-xl border border-[#DED5C2] bg-white px-4 py-3 text-sm text-[#123D2B] outline-none transition placeholder:text-[#68766D] focus:border-[#D4AF37] focus:ring-2 focus:ring-[#D4AF37]/20";
 
   return (
-    <main className="min-h-screen bg-[#F3F6F1] text-[#18271D]">
-      <nav className="border-b border-white/10 bg-[#10271D] px-5 py-5 text-white">
+    <main className="min-h-screen bg-[#F5F0E6] text-[#123D2B]">
+      <nav className="border-b border-[#D4AF37]/30 bg-[#123D2B] px-5 py-5 text-white shadow-sm">
         <div className="mx-auto flex max-w-6xl items-center justify-between">
-          <Link href="/" className="text-2xl font-black">
-            ALI<span className="text-[#E4C35D]">QO</span>
+          <Link href="/" className="text-2xl font-black tracking-tight">
+            ALI<span className="text-[#D4AF37]">QO</span>
           </Link>
 
           <Link
             href="/deals"
-            className="rounded-full border border-[#D4AF37]/50 px-5 py-2 text-sm font-bold text-[#E4C35D]"
+            className="rounded-full border border-[#D4AF37] px-5 py-2 text-sm font-bold text-[#E8C95B] transition hover:bg-[#D4AF37] hover:text-[#123D2B]"
           >
             View Deals
           </Link>
         </div>
       </nav>
 
-      <section className="px-5 py-16">
+      <section className="px-5 py-16 sm:py-20">
         <div className="mx-auto max-w-2xl">
           <div className="mb-8 text-center">
             <span className="text-xs font-bold tracking-[0.25em] text-[#A17C26]">
               GROW WITH ALIQO
             </span>
 
-            <h1 className="mt-4 text-4xl font-black text-[#10271D] sm:text-5xl">
+            <h1 className="mt-4 text-4xl font-black text-[#123D2B] sm:text-5xl">
               Submit Your Deal
             </h1>
 
-            <p className="mt-4 leading-7 text-[#647468]">
+            <p className="mt-4 leading-7 text-[#68766D]">
               Share your special offers with the ALIQO community.
               Your offer will be reviewed before it goes live.
             </p>
@@ -104,10 +106,10 @@ export default function SubmitDealPage() {
 
           <form
             onSubmit={handleSubmit}
-            className="rounded-3xl border border-[#D9E2D8] bg-white p-6 shadow-lg sm:p-9"
+            className="rounded-3xl border border-[#DED5C2] bg-white p-6 shadow-xl shadow-[#123D2B]/5 sm:p-9"
           >
             <div className="grid gap-5 sm:grid-cols-2">
-              <label className="text-sm font-bold text-[#173B2B]">
+              <label className="text-sm font-bold text-[#123D2B]">
                 Business Name *
                 <input
                   required
@@ -115,12 +117,14 @@ export default function SubmitDealPage() {
                   maxLength={150}
                   className={inputClass}
                   value={form.business_name}
-                  onChange={(e) => updateField("business_name", e.target.value)}
+                  onChange={(e) =>
+                    updateField("business_name", e.target.value)
+                  }
                   placeholder="Your business name"
                 />
               </label>
 
-              <label className="text-sm font-bold text-[#173B2B]">
+              <label className="text-sm font-bold text-[#123D2B]">
                 Contact Person *
                 <input
                   required
@@ -128,13 +132,15 @@ export default function SubmitDealPage() {
                   maxLength={100}
                   className={inputClass}
                   value={form.contact_name}
-                  onChange={(e) => updateField("contact_name", e.target.value)}
+                  onChange={(e) =>
+                    updateField("contact_name", e.target.value)
+                  }
                   placeholder="Your full name"
                 />
               </label>
             </div>
 
-            <label className="mt-5 block text-sm font-bold text-[#173B2B]">
+            <label className="mt-5 block text-sm font-bold text-[#123D2B]">
               Email Address *
               <input
                 required
@@ -147,7 +153,7 @@ export default function SubmitDealPage() {
               />
             </label>
 
-            <label className="mt-5 block text-sm font-bold text-[#173B2B]">
+            <label className="mt-5 block text-sm font-bold text-[#123D2B]">
               Deal Title *
               <input
                 required
@@ -160,7 +166,7 @@ export default function SubmitDealPage() {
               />
             </label>
 
-            <label className="mt-5 block text-sm font-bold text-[#173B2B]">
+            <label className="mt-5 block text-sm font-bold text-[#123D2B]">
               Deal Category *
               <select
                 required
@@ -179,7 +185,7 @@ export default function SubmitDealPage() {
               </select>
             </label>
 
-            <label className="mt-5 block text-sm font-bold text-[#173B2B]">
+            <label className="mt-5 block text-sm font-bold text-[#123D2B]">
               Deal Description *
               <textarea
                 required
@@ -188,12 +194,14 @@ export default function SubmitDealPage() {
                 rows={5}
                 className={inputClass}
                 value={form.description}
-                onChange={(e) => updateField("description", e.target.value)}
+                onChange={(e) =>
+                  updateField("description", e.target.value)
+                }
                 placeholder="Describe your offer, discount and conditions..."
               />
             </label>
 
-            <label className="mt-5 block text-sm font-bold text-[#173B2B]">
+            <label className="mt-5 block text-sm font-bold text-[#123D2B]">
               Offer Website (Optional)
               <input
                 type="url"
@@ -204,22 +212,25 @@ export default function SubmitDealPage() {
               />
             </label>
 
-            <label className="mt-5 block text-sm font-bold text-[#173B2B]">
+            <label className="mt-5 block text-sm font-bold text-[#123D2B]">
               Offer Valid Until (Optional)
               <input
                 type="date"
-                                className={inputClass}
+                className={inputClass}
                 value={form.valid_until}
-                onChange={(e) => updateField("valid_until", e.target.value)}
+                onChange={(e) =>
+                  updateField("valid_until", e.target.value)
+                }
+                className={inputClass}
               />
             </label>
 
             {message && (
               <div
-                className={`mt-6 rounded-xl p-4 text-sm font-medium ${
+                className={`mt-6 rounded-xl border p-4 text-sm font-medium ${
                   success
-                    ? "bg-green-50 text-green-800"
-                    : "bg-red-50 text-red-700"
+                    ? "border-[#1B563C]/20 bg-[#1B563C]/10 text-[#123D2B]"
+                    : "border-red-200 bg-red-50 text-red-700"
                 }`}
                 role="status"
               >
@@ -230,19 +241,19 @@ export default function SubmitDealPage() {
             <button
               type="submit"
               disabled={loading}
-              className="mt-7 w-full rounded-full bg-[#173B2B] px-6 py-4 font-bold text-white shadow-lg transition hover:bg-[#24543C] disabled:cursor-not-allowed disabled:opacity-60"
+              className="mt-7 w-full rounded-full border border-[#D4AF37] bg-[#123D2B] px-6 py-4 font-bold text-white shadow-lg transition hover:bg-[#1B563C] hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-60"
             >
               {loading ? "Submitting..." : "Submit Your Deal →"}
             </button>
 
-            <p className="mt-5 text-center text-xs leading-6 text-[#829084]">
+            <p className="mt-5 text-center text-xs leading-6 text-[#68766D]">
               Submissions are reviewed by ALIQO before publication.
             </p>
           </form>
         </div>
       </section>
 
-      <footer className="bg-[#10271D] px-5 py-8 text-center text-sm text-[#C4D0C5]">
+      <footer className="border-t border-[#D4AF37]/30 bg-[#123D2B] px-5 py-8 text-center text-sm text-[#F5F0E6]">
         © 2026 ALIQO. All rights reserved.
       </footer>
     </main>
