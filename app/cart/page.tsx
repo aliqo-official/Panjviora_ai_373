@@ -71,15 +71,16 @@ export default function CartPage() {
     }).format(price);
 
   return (
-    <main className="min-h-screen bg-[#050907] text-white">
-      <header className="border-b border-[#c9a44c]/30 bg-[#08130e] px-6 py-5">
+    <main className="min-h-screen bg-[#F5F0E6] text-[#123D2B]">
+      <header className="border-b border-[#D4AF37]/30 bg-[#123D2B] px-6 py-5">
         <div className="mx-auto flex max-w-7xl items-center justify-between">
-          <a href="/" className="text-3xl font-black text-[#d6b45c]">
-            ALIQO
+          <a href="/" className="text-3xl font-black tracking-tight text-white">
+            ALI<span className="text-[#D4AF37]">QO</span>
           </a>
+
           <a
             href="/marketplace"
-            className="rounded-full border border-[#d6b45c]/60 px-5 py-2 text-sm text-[#e6ca7a]"
+            className="rounded-full border border-[#D4AF37] px-5 py-2 text-sm font-bold text-[#E8C95B] transition hover:bg-[#D4AF37] hover:text-[#123D2B]"
           >
             Continue Shopping
           </a>
@@ -87,21 +88,25 @@ export default function CartPage() {
       </header>
 
       <section className="mx-auto max-w-6xl px-6 py-12">
-        <h1 className="mb-10 text-4xl font-black text-[#d6b45c]">
+        <h1 className="mb-10 text-4xl font-black text-[#123D2B]">
           Shopping Cart
         </h1>
 
         {!loaded ? (
-          <p className="text-gray-400">Loading your cart...</p>
+          <p className="text-[#68766D]">Loading your cart...</p>
         ) : cart.length === 0 ? (
-          <div className="rounded-3xl border border-[#c9a44c]/25 bg-[#0b1711] p-12 text-center">
-            <h2 className="text-2xl font-bold">Your cart is empty</h2>
-            <p className="mt-3 text-gray-400">
+          <div className="rounded-3xl border border-[#DED5C2] bg-white p-12 text-center shadow-lg shadow-[#123D2B]/5">
+            <h2 className="text-2xl font-bold text-[#123D2B]">
+              Your cart is empty
+            </h2>
+
+            <p className="mt-3 text-[#68766D]">
               Explore ALIQO Marketplace and add products to your cart.
             </p>
+
             <a
               href="/marketplace"
-              className="mt-7 inline-block rounded-xl bg-[#d6b45c] px-8 py-3 font-bold text-black"
+              className="mt-7 inline-block rounded-xl border border-[#D4AF37] bg-[#123D2B] px-8 py-3 font-bold text-white transition hover:bg-[#1B563C]"
             >
               Explore Marketplace
             </a>
@@ -112,9 +117,9 @@ export default function CartPage() {
               {cart.map((item) => (
                 <div
                   key={item.id}
-                  className="flex flex-col gap-5 rounded-2xl border border-[#c9a44c]/25 bg-[#0b1711] p-5 sm:flex-row sm:items-center"
+                  className="flex flex-col gap-5 rounded-2xl border border-[#DED5C2] bg-white p-5 shadow-md shadow-[#123D2B]/5 sm:flex-row sm:items-center"
                 >
-                  <div className="flex h-28 w-28 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-[#08130e]">
+                  <div className="flex h-28 w-28 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-[#DED5C2] bg-[#F5F0E6]">
                     {item.image_url ? (
                       <img
                         src={item.image_url}
@@ -122,17 +127,18 @@ export default function CartPage() {
                         className="h-full w-full object-contain"
                       />
                     ) : (
-                      <span className="font-black text-[#d6b45c]">
+                      <span className="font-black text-[#A17C26]">
                         ALIQO
                       </span>
                     )}
                   </div>
 
                   <div className="flex-1">
-                    <h2 className="text-lg font-bold">
+                    <h2 className="text-lg font-bold text-[#123D2B]">
                       {item.product_name}
                     </h2>
-                    <p className="mt-2 text-[#e4c46d]">
+
+                    <p className="mt-2 font-medium text-[#A17C26]">
                       {formatPrice(Number(item.price))}
                     </p>
 
@@ -140,17 +146,21 @@ export default function CartPage() {
                       <button
                         type="button"
                         onClick={() => decreaseQuantity(item.id)}
-                        className="h-9 w-9 rounded-lg border border-[#d6b45c]/50 text-xl text-[#e6ca7a]"
+                        aria-label={`Decrease quantity of ${item.product_name}`}
+                        className="h-9 w-9 rounded-lg border border-[#D4AF37] text-xl font-bold text-[#123D2B] transition hover:bg-[#F5F0E6]"
                       >
                         −
                       </button>
 
-                      <span className="font-bold">{item.quantity}</span>
+                      <span className="font-bold text-[#123D2B]">
+                        {item.quantity}
+                      </span>
 
                       <button
                         type="button"
                         onClick={() => increaseQuantity(item.id)}
-                        className="h-9 w-9 rounded-lg border border-[#d6b45c]/50 text-xl text-[#e6ca7a]"
+                        aria-label={`Increase quantity of ${item.product_name}`}
+                        className="h-9 w-9 rounded-lg border border-[#D4AF37] text-xl font-bold text-[#123D2B] transition hover:bg-[#F5F0E6]"
                       >
                         +
                       </button>
@@ -158,13 +168,14 @@ export default function CartPage() {
                   </div>
 
                   <div className="sm:text-right">
-                    <p className="font-bold text-[#e4c46d]">
+                    <p className="font-bold text-[#A17C26]">
                       {formatPrice(Number(item.price) * item.quantity)}
                     </p>
+
                     <button
                       type="button"
                       onClick={() => removeItem(item.id)}
-                      className="mt-4 text-sm text-red-400 underline"
+                      className="mt-4 text-sm font-medium text-red-600 underline transition hover:text-red-800"
                     >
                       Remove
                     </button>
@@ -173,33 +184,33 @@ export default function CartPage() {
               ))}
             </div>
 
-            <aside className="h-fit rounded-2xl border border-[#c9a44c]/30 bg-[#0b1711] p-6">
-              <h2 className="text-xl font-bold text-[#d6b45c]">
+            <aside className="h-fit rounded-2xl border border-[#DED5C2] bg-white p-6 shadow-lg shadow-[#123D2B]/5">
+              <h2 className="text-xl font-bold text-[#123D2B]">
                 Order Summary
               </h2>
 
-              <div className="mt-6 flex justify-between text-gray-400">
+              <div className="mt-6 flex justify-between text-[#68766D]">
                 <span>Items</span>
-                <span>
+                <span className="font-semibold text-[#123D2B]">
                   {cart.reduce((sum, item) => sum + item.quantity, 0)}
                 </span>
               </div>
 
-              <div className="mt-4 flex justify-between text-lg font-bold">
-                <span>Total</span>
-                <span className="text-[#e4c46d]">
+              <div className="mt-4 flex justify-between border-t border-[#DED5C2] pt-4 text-lg font-bold">
+                <span className="text-[#123D2B]">Total</span>
+                <span className="text-[#A17C26]">
                   {formatPrice(total)}
                 </span>
               </div>
 
               <a
-  href="/checkout"
-  className="mt-8 block w-full rounded-xl bg-[#d6b45c] px-5 py-4 text-center font-bold text-black transition hover:bg-[#e6ca7a]"
->
-  Proceed to Checkout
-</a>
+                href="/checkout"
+                className="mt-8 block w-full rounded-xl border border-[#D4AF37] bg-[#123D2B] px-5 py-4 text-center font-bold text-white transition hover:bg-[#1B563C]"
+              >
+                Proceed to Checkout
+              </a>
 
-              <p className="mt-3 text-center text-xs text-gray-500">
+              <p className="mt-3 text-center text-xs text-[#68766D]">
                 Secure checkout will be available soon.
               </p>
             </aside>
@@ -207,7 +218,7 @@ export default function CartPage() {
         )}
       </section>
 
-      <footer className="border-t border-[#c9a44c]/20 bg-[#08130e] px-6 py-8 text-center text-sm text-gray-500">
+      <footer className="border-t border-[#D4AF37]/30 bg-[#123D2B] px-6 py-8 text-center text-sm text-[#F5F0E6]">
         © 2026 ALIQO. All rights reserved.
       </footer>
     </main>
