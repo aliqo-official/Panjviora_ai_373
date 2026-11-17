@@ -32,58 +32,67 @@ const partners = [
 
 export default function CryptoPage() {
   return (
-    <main className="min-h-screen bg-[#07130f] text-white">
-      <header className="border-b border-[#c5a34a]/30 px-6 py-5">
-        <div className="mx-auto flex max-w-6xl items-center justify-between">
+    <main className="min-h-screen bg-[#F5F0E6] text-[#123D2B]">
+      {/* Header */}
+      <header className="border-b border-[#D4AF37]/30 bg-[#123D2B] px-5 py-5 shadow-md">
+        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4">
           <Link
             href="/"
-            className="text-2xl font-bold tracking-wide text-[#d6b65c]"
+            className="text-3xl font-black tracking-wide text-white"
           >
-            ALIQO
+            ALI<span className="text-[#D4AF37]">QO</span>
           </Link>
 
           <Link
             href="/"
-            className="rounded-lg border border-[#d6b65c] px-4 py-2 text-sm transition hover:bg-[#d6b65c] hover:text-black"
+            className="rounded-xl border border-[#D4AF37] px-4 py-2.5 text-sm font-semibold text-[#D4AF37] transition hover:bg-[#D4AF37] hover:text-[#123D2B]"
           >
-            Back to Home
+            ← Back to Home
           </Link>
         </div>
       </header>
 
-      <section className="mx-auto max-w-5xl px-6 py-16 text-center">
-        <p className="mb-4 text-sm font-semibold uppercase tracking-[0.3em] text-[#d6b65c]">
+      {/* Hero */}
+      <section className="border-b border-[#DED5C2] bg-[#123D2B] px-5 py-16 text-center sm:py-20">
+        <p className="mb-4 text-sm font-bold uppercase tracking-[0.3em] text-[#D4AF37]">
           ALIQO Financial Hub
         </p>
 
-        <h1 className="mb-6 text-4xl font-bold md:text-6xl">
+        <h1 className="mb-6 text-4xl font-black text-white md:text-6xl">
           Explore the World of{" "}
-          <span className="text-[#d6b65c]">Crypto</span>
+          <span className="text-[#D4AF37]">Crypto</span>
         </h1>
 
-        <p className="mx-auto max-w-2xl text-base leading-8 text-gray-300">
+        <p className="mx-auto max-w-2xl text-base leading-8 text-white/80">
           Discover cryptocurrency platforms, explore educational
           resources, and learn about digital finance. Compare
           platforms and make informed decisions before using
           any cryptocurrency service.
         </p>
+
+        <div className="mx-auto mt-8 h-1 w-24 rounded-full bg-[#D4AF37]" />
       </section>
 
-      <section className="mx-auto grid max-w-5xl gap-6 px-6 pb-16 sm:grid-cols-2">
+      {/* Partner Cards */}
+      <section className="mx-auto grid max-w-5xl gap-7 px-5 py-14 sm:grid-cols-2 sm:py-16">
         {partners.map((partner) => (
           <article
             key={partner.name}
-            className="rounded-2xl border border-[#c5a34a]/30 bg-[#10231a] p-8 shadow-lg transition duration-300 hover:-translate-y-1 hover:border-[#d6b65c]"
+            className="rounded-3xl border border-[#DED5C2] bg-white p-8 shadow-sm transition duration-300 hover:-translate-y-1 hover:border-[#D4AF37] hover:shadow-lg"
           >
-            <h2 className="mb-4 text-2xl font-bold text-[#d6b65c]">
+            <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-xl border border-[#D4AF37]/30 bg-[#F5F0E6] text-xl font-black text-[#B08B22]">
+              {partner.name.charAt(0)}
+            </div>
+
+            <h2 className="mb-4 text-2xl font-black text-[#123D2B]">
               {partner.name}
             </h2>
 
-            <p className="mb-6 min-h-20 leading-7 text-gray-300">
+            <p className="mb-6 min-h-20 leading-7 text-[#68766D]">
               {partner.description}
             </p>
 
-            <span className="mb-5 inline-block rounded-full border border-yellow-500/40 px-3 py-1 text-xs text-yellow-300">
+            <span className="mb-5 inline-block rounded-full border border-[#D4AF37]/50 bg-[#F5F0E6] px-3 py-1.5 text-xs font-semibold text-[#8A6A18]">
               Affiliate partnership pending
             </span>
 
@@ -91,21 +100,28 @@ export default function CryptoPage() {
               href={partner.website}
               target="_blank"
               rel="noopener noreferrer"
-              className="block rounded-xl bg-[#d6b65c] px-5 py-3 text-center font-semibold text-black transition hover:bg-[#edcf7c]"
+              className="block rounded-xl bg-[#123D2B] px-5 py-3.5 text-center font-bold text-white transition hover:bg-[#1B563C]"
             >
-              Visit Official Website
+              Visit Official Website →
             </a>
           </article>
         ))}
       </section>
 
-      <section className="mx-auto max-w-5xl px-6 pb-16">
-        <div className="rounded-2xl border border-white/10 bg-[#10231a] p-6">
-          <h2 className="mb-3 text-xl font-bold text-[#d6b65c]">
-            Important Risk Disclaimer
-          </h2>
+      {/* Risk Disclaimer */}
+      <section className="mx-auto max-w-5xl px-5 pb-16">
+        <div className="rounded-3xl border border-[#D4AF37]/50 bg-white p-7 shadow-sm sm:p-9">
+          <div className="mb-5 flex items-center gap-3">
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#F5F0E6] text-xl">
+              ⚠
+            </div>
 
-          <p className="text-sm leading-7 text-gray-300">
+            <h2 className="text-xl font-black text-[#123D2B]">
+              Important Risk Disclaimer
+            </h2>
+          </div>
+
+          <p className="text-sm leading-8 text-[#68766D]">
             Cryptocurrency involves significant financial risk.
             Prices can change rapidly, and you may lose some or
             all of your investment. ALIQO does not provide
@@ -116,12 +132,23 @@ export default function CryptoPage() {
         </div>
       </section>
 
-      <footer className="border-t border-[#c5a34a]/30 px-6 py-8 text-center text-sm text-gray-400">
-        <p>© 2026 ALIQO. All rights reserved.</p>
+      {/* Footer */}
+      <footer className="border-t border-[#D4AF37]/30 bg-[#123D2B] px-5 py-9 text-center">
+        <Link href="/" className="text-2xl font-black text-white">
+          ALI<span className="text-[#D4AF37]">QO</span>
+        </Link>
 
-        <p className="mt-2">
+        <p className="mt-4 text-sm text-white/75">
+          © 2026 ALIQO. All rights reserved.
+        </p>
+
+        <p className="mx-auto mt-2 max-w-xl text-xs leading-6 text-white/65">
           Some links may become affiliate links in the future.
           Any such relationship will be disclosed clearly.
+        </p>
+
+        <p className="mt-4 text-xs font-semibold text-[#D4AF37]">
+          Search Smarter. Discover More.
         </p>
       </footer>
     </main>
