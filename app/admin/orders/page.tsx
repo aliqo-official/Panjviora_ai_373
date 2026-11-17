@@ -49,15 +49,15 @@ function formatPrice(amount: number) {
 function statusStyle(status: string) {
   switch (status) {
     case "confirmed":
-      return "border-green-500/30 bg-green-500/15 text-green-300";
+      return "border-green-200 bg-green-50 text-green-800";
     case "shipped":
-      return "border-blue-500/30 bg-blue-500/15 text-blue-300";
+      return "border-blue-200 bg-blue-50 text-blue-800";
     case "delivered":
-      return "border-emerald-500/30 bg-emerald-500/15 text-emerald-300";
+      return "border-emerald-200 bg-emerald-50 text-emerald-800";
     case "cancelled":
-      return "border-red-500/30 bg-red-500/15 text-red-300";
+      return "border-red-200 bg-red-50 text-red-700";
     default:
-      return "border-[#D4AF37]/30 bg-[#D4AF37]/15 text-[#D4AF37]";
+      return "border-[#D4AF37]/40 bg-[#F5F0E6] text-[#8A681B]";
   }
 }
 
@@ -232,47 +232,65 @@ export default function AdminOrdersPage() {
   ).length;
 
   return (
-    <main className="min-h-screen bg-[#080D0A] px-4 py-10 text-[#F5F5F0] sm:px-6">
+    <main className="min-h-screen bg-[#F5F0E6] px-4 py-8 text-[#123D2B] sm:px-6">
       <div className="mx-auto max-w-6xl">
-        <header className="mb-10 text-center">
-          <h1 className="text-4xl font-black tracking-tight">
-            ALI<span className="text-[#D4AF37]">QO</span>{" "}
-            <span className="text-[#D4AF37]">Orders</span>
-          </h1>
 
-          <p className="mt-3 text-gray-400">
-            Professional Order Management Dashboard
-          </p>
+        {/* Header */}
+        <header className="mb-8 rounded-3xl border border-[#D4AF37]/40 bg-[#123D2B] p-6 shadow-xl sm:p-8">
+          <div className="flex flex-wrap items-center justify-between gap-5">
+            <div>
+              <Link
+                href="/admin"
+                className="text-2xl font-black tracking-wide text-white"
+              >
+                ALI<span className="text-[#E8C95B]">QO</span>
+              </Link>
 
-          <div className="mx-auto mt-4 h-1 w-24 rounded-full bg-[#D4AF37]" />
+              <p className="mt-5 text-xs font-bold uppercase tracking-[0.3em] text-[#E8C95B]">
+                ALIQO Administration
+              </p>
+
+              <h1 className="mt-2 text-3xl font-black text-white sm:text-4xl">
+                Orders Management
+              </h1>
+
+              <p className="mt-3 text-sm text-[#E1E8DF]">
+                Professional order management dashboard
+              </p>
+
+              <div className="mt-5 h-1 w-20 rounded-full bg-[#D4AF37]" />
+            </div>
+
+            <div className="flex flex-wrap gap-3">
+              <Link
+                href="/admin"
+                className="rounded-xl border border-[#D4AF37]/60 px-4 py-3 font-semibold text-[#E8C95B] transition hover:bg-[#1B563C]"
+              >
+                ← Admin Dashboard
+              </Link>
+
+              <button
+                type="button"
+                onClick={loadOrders}
+                disabled={loading || updatingId !== null}
+                className="rounded-xl bg-gradient-to-r from-[#D4AF37] to-[#E8C95B] px-5 py-3 font-bold text-[#123D2B] transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {loading ? "Loading..." : "↻ Refresh Orders"}
+              </button>
+            </div>
+          </div>
         </header>
 
-        <div className="mb-8 flex flex-wrap gap-3">
-          <Link
-            href="/admin"
-            className="rounded-lg border border-[#D4AF37]/40 bg-[#101813] px-4 py-2 font-semibold text-[#D4AF37] hover:bg-[#123D2B]"
-          >
-            ← Admin Dashboard
-          </Link>
-
-          <button
-            onClick={loadOrders}
-            disabled={loading || updatingId !== null}
-            className="rounded-lg bg-[#D4AF37] px-4 py-2 font-bold text-[#080D0A] hover:bg-[#E5C65B] disabled:opacity-50"
-          >
-            {loading ? "Loading..." : "Refresh Orders"}
-          </button>
-        </div>
-
+        {/* Error Message */}
         {error && (
-          <div className="mb-6 rounded-lg border border-red-500/30 bg-red-500/10 p-4 text-red-300">
-            {error}
+          <div className="mb-6 rounded-xl border border-red-200 bg-red-50 p-4 text-red-800">
+            <p className="font-semibold">{error}</p>
 
             {error.includes("Admin login required") && (
               <p className="mt-3">
                 <Link
                   href="/admin"
-                  className="font-bold text-[#D4AF37] underline"
+                  className="font-bold text-[#8A681B] underline hover:text-[#123D2B]"
                 >
                   Go to Admin Login
                 </Link>
@@ -281,7 +299,8 @@ export default function AdminOrdersPage() {
           </div>
         )}
 
-        <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {/* Statistics */}
+        <section className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {[
             { label: "Total Orders", count: orders.length },
             { label: "Pending", count: pendingCount },
@@ -290,100 +309,137 @@ export default function AdminOrdersPage() {
           ].map((stat) => (
             <div
               key={stat.label}
-              className="rounded-xl border border-[#D4AF37]/30 bg-[#123D2B] p-5 shadow-lg"
+              className="rounded-2xl border border-[#DED5C2] bg-white p-5 shadow-sm transition hover:-translate-y-1 hover:border-[#D4AF37] hover:shadow-lg"
             >
-              <p className="text-sm font-semibold text-gray-300">
+              <p className="text-sm font-semibold text-[#68766D]">
                 {stat.label}
               </p>
 
-              <p className="mt-2 text-3xl font-black text-[#D4AF37]">
+              <p className="mt-3 text-3xl font-black text-[#123D2B]">
                 {stat.count}
               </p>
+
+              <div className="mt-4 h-1 w-14 rounded-full bg-[#D4AF37]" />
             </div>
           ))}
-        </div>
+        </section>
 
-        <div className="mb-6 grid gap-3 sm:grid-cols-2">
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search customer, phone or order ID..."
-            className="w-full rounded-lg border border-[#D4AF37]/30 bg-[#101813] p-3 text-white outline-none placeholder:text-gray-500 focus:border-[#D4AF37]"
-          />
+        {/* Search and Filter */}
+        <section className="mb-6 rounded-2xl border border-[#DED5C2] bg-white p-5 shadow-sm">
+          <h2 className="mb-4 text-lg font-black text-[#123D2B]">
+            Search and Filter Orders
+          </h2>
 
-          <select
-            value={filter}
-            onChange={(e) => setFilter(e.target.value)}
-            className="w-full rounded-lg border border-[#D4AF37]/30 bg-[#101813] p-3 text-white outline-none focus:border-[#D4AF37]"
-          >
-            <option value="all">All Orders</option>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search customer, phone or order ID..."
+              className="w-full rounded-xl border border-[#DED5C2] bg-[#FDFBF7] p-3 text-[#123D2B] outline-none placeholder:text-[#8A958C] focus:border-[#D4AF37] focus:ring-2 focus:ring-[#D4AF37]/20"
+            />
 
-            {STATUSES.map((status) => (
-              <option key={status} value={status}>
-                {status.charAt(0).toUpperCase() + status.slice(1)}
-              </option>
-            ))}
-          </select>
-        </div>
+            <select
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+              className="w-full rounded-xl border border-[#DED5C2] bg-[#FDFBF7] p-3 text-[#123D2B] outline-none focus:border-[#D4AF37]"
+            >
+              <option value="all">All Orders</option>
 
-        <p className="mb-4 text-sm text-gray-400">
+              {STATUSES.map((status) => (
+                <option key={status} value={status}>
+                  {status.charAt(0).toUpperCase() + status.slice(1)}
+                </option>
+              ))}
+            </select>
+          </div>
+        </section>
+
+        <p className="mb-4 text-sm font-semibold text-[#68766D]">
           Showing {filteredOrders.length} of {orders.length} orders
         </p>
 
+        {/* Orders List */}
         {loading ? (
-          <div className="rounded-xl border border-[#D4AF37]/30 bg-[#101813] p-10 text-center text-[#D4AF37]">
-            Loading orders...
+          <div className="rounded-2xl border border-[#DED5C2] bg-white p-10 text-center shadow-sm">
+            <div className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-4 border-[#DED5C2] border-t-[#D4AF37]" />
+
+            <p className="font-semibold text-[#8A681B]">
+              Loading orders...
+            </p>
           </div>
         ) : filteredOrders.length === 0 ? (
-          <div className="rounded-xl border border-[#D4AF37]/30 bg-[#101813] p-10 text-center text-gray-400">
-            No matching orders found.
+          <div className="rounded-2xl border border-[#DED5C2] bg-white p-10 text-center shadow-sm">
+            <p className="text-lg font-bold text-[#123D2B]">
+              No matching orders found.
+            </p>
+
+            <p className="mt-2 text-sm text-[#68766D]">
+              Try changing your search or status filter.
+            </p>
           </div>
         ) : (
           <div className="space-y-6">
             {filteredOrders.map((order) => (
               <article
                 key={order.id}
-                className="rounded-xl border border-[#D4AF37]/30 bg-[#101813] p-6 shadow-xl hover:border-[#D4AF37]/60"
+                className="rounded-2xl border border-[#DED5C2] bg-white p-5 shadow-sm transition hover:border-[#D4AF37] hover:shadow-lg sm:p-6"
               >
+                {/* Order Header */}
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
-                    <h2 className="text-xl font-bold text-[#D4AF37]">
+                    <p className="text-xs font-bold tracking-wider text-[#8A681B]">
+                      CUSTOMER ORDER
+                    </p>
+
+                    <h2 className="mt-2 text-xl font-black text-[#123D2B]">
                       {order.customer_name}
                     </h2>
 
-                    <p className="mt-1 break-all text-xs text-gray-500">
+                    <p className="mt-1 break-all text-xs text-[#68766D]">
                       Order ID: {order.id}
                     </p>
                   </div>
 
                   <span
-                    className={`rounded-full border px-4 py-2 text-sm font-bold ${statusStyle(order.status)}`}
+                    className={`rounded-full border px-4 py-2 text-sm font-bold capitalize ${statusStyle(order.status)}`}
                   >
                     {order.status}
                   </span>
                 </div>
 
-                <div className="mt-5 grid gap-3 text-sm sm:grid-cols-2">
+                {/* Customer Details */}
+                <div className="mt-5 grid gap-4 rounded-xl border border-[#DED5C2] bg-[#F5F0E6] p-4 text-sm sm:grid-cols-2">
                   <p>
-                    <span className="text-gray-400">Phone:</span>{" "}
-                    {order.customer_phone}
+                    <span className="font-semibold text-[#8A681B]">
+                      Phone:
+                    </span>{" "}
+                    <span className="text-[#536457]">
+                      {order.customer_phone}
+                    </span>
                   </p>
 
                   <p>
-                    <span className="text-gray-400">Order Date:</span>{" "}
-                    {new Date(order.created_at).toLocaleString()}
+                    <span className="font-semibold text-[#8A681B]">
+                      Order Date:
+                    </span>{" "}
+                    <span className="text-[#536457]">
+                      {new Date(order.created_at).toLocaleString()}
+                    </span>
                   </p>
 
-                  <p className="sm:col-span-2">
-                    <span className="text-gray-400">
+                  <p className="break-words sm:col-span-2">
+                    <span className="font-semibold text-[#8A681B]">
                       Delivery Address:
                     </span>{" "}
-                    {order.delivery_address}
+                    <span className="text-[#536457]">
+                      {order.delivery_address}
+                    </span>
                   </p>
                 </div>
 
-                <div className="mt-5 rounded-lg border border-[#D4AF37]/20 bg-[#123D2B] p-4">
-                  <h3 className="mb-3 font-bold text-[#D4AF37]">
+                {/* Ordered Products */}
+                <div className="mt-5 rounded-xl border border-[#D4AF37]/40 bg-[#123D2B] p-4">
+                  <h3 className="mb-4 font-bold text-[#E8C95B]">
                     Ordered Products
                   </h3>
 
@@ -392,41 +448,44 @@ export default function AdminOrdersPage() {
                       {order.order_items.map((item) => (
                         <div
                           key={item.id}
-                          className="flex flex-wrap justify-between gap-2 border-b border-white/10 pb-3 text-sm last:border-0 last:pb-0"
+                          className="flex flex-wrap justify-between gap-3 border-b border-white/15 pb-3 text-sm last:border-0 last:pb-0"
                         >
                           <div>
                             <p className="font-semibold text-white">
                               {item.product_name}
                             </p>
 
-                            <p className="text-gray-400">
+                            <p className="mt-1 text-[#D9E2D9]">
                               {formatPrice(Number(item.unit_price))} ×{" "}
                               {item.quantity}
                             </p>
                           </div>
 
-                          <p className="font-bold text-[#D4AF37]">
+                          <p className="font-bold text-[#E8C95B]">
                             {formatPrice(Number(item.subtotal))}
                           </p>
                         </div>
                       ))}
                     </div>
                   ) : (
-                    <p className="text-sm text-gray-400">
+                    <p className="text-sm text-[#E1E8DF]">
                       No product details available.
                     </p>
                   )}
 
-                  <div className="mt-4 flex justify-between border-t border-[#D4AF37]/30 pt-3">
-                    <span className="font-bold">Order Total</span>
+                  <div className="mt-4 flex justify-between border-t border-[#D4AF37]/40 pt-4">
+                    <span className="font-bold text-white">
+                      Order Total
+                    </span>
 
-                    <span className="text-lg font-black text-[#D4AF37]">
+                    <span className="text-lg font-black text-[#E8C95B]">
                       {formatPrice(Number(order.total_amount))}
                     </span>
                   </div>
                 </div>
 
-                <div className="mt-5 flex flex-wrap items-center gap-3">
+                {/* Status Management */}
+                <div className="mt-5 flex flex-wrap items-center gap-3 border-t border-[#DED5C2] pt-5">
                   <select
                     value={draftStatuses[order.id] || "pending"}
                     disabled={
@@ -439,7 +498,7 @@ export default function AdminOrdersPage() {
                         [order.id]: e.target.value as OrderStatus,
                       }))
                     }
-                    className="min-w-40 rounded-lg border border-[#D4AF37]/30 bg-[#080D0A] p-3 text-white outline-none focus:border-[#D4AF37] disabled:cursor-not-allowed disabled:opacity-50"
+                    className="min-w-40 rounded-xl border border-[#DED5C2] bg-[#FDFBF7] p-3 text-[#123D2B] outline-none focus:border-[#D4AF37] disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {STATUSES.map((status) => (
                       <option key={status} value={status}>
@@ -449,13 +508,14 @@ export default function AdminOrdersPage() {
                   </select>
 
                   <button
+                    type="button"
                     onClick={() => updateStatus(order)}
                     disabled={
                       updatingId !== null ||
                       order.status === "cancelled" ||
                       draftStatuses[order.id] === order.status
                     }
-                    className="rounded-lg bg-[#D4AF37] px-4 py-3 font-bold text-[#080D0A] hover:bg-[#E5C65B] disabled:cursor-not-allowed disabled:opacity-40"
+                    className="rounded-xl bg-[#123D2B] px-5 py-3 font-bold text-white transition hover:bg-[#1B563C] disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     {updatingId === order.id
                       ? "Updating..."
@@ -464,7 +524,7 @@ export default function AdminOrdersPage() {
                 </div>
 
                 {order.status === "cancelled" && (
-                  <p className="mt-3 text-sm text-red-300">
+                  <p className="mt-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm font-medium text-red-700">
                     This order is cancelled and can no longer be modified.
                   </p>
                 )}
@@ -472,6 +532,20 @@ export default function AdminOrdersPage() {
             ))}
           </div>
         )}
+
+        {/* Footer */}
+        <footer className="mt-10 border-t border-[#DED5C2] pt-6 text-center">
+          <Link
+            href="/admin"
+            className="font-semibold text-[#8A681B] transition hover:text-[#123D2B] hover:underline"
+          >
+            ← Back to Admin Dashboard
+          </Link>
+
+          <p className="mt-4 text-xs text-[#68766D]">
+            ALIQO • Orders Administration
+          </p>
+        </footer>
       </div>
     </main>
   );
