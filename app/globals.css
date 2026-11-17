@@ -2,6 +2,7 @@
 @import "tailwindcss";
 
 /* ALIQO Premium Green, Gold & Cream Theme */
+
 :root {
   color-scheme: light;
 
@@ -53,7 +54,12 @@ body {
   min-height: 100vh;
 }
 
-h1, h2, h3, h4, h5, h6 {
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
   color: var(--aliqo-green);
 }
 
@@ -65,7 +71,9 @@ a:hover {
   color: var(--aliqo-gold);
 }
 
-input, textarea, select {
+input,
+textarea,
+select {
   color: var(--aliqo-green);
   background-color: var(--aliqo-white);
   border: 1px solid var(--aliqo-border);
