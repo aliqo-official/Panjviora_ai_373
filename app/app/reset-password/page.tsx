@@ -119,26 +119,40 @@ export default function ResetPasswordPage() {
   }
 
   return (
-    <main className="min-h-screen flex items-center justify-center bg-gray-950 px-4 py-10">
-      <div className="w-full max-w-md rounded-2xl border border-gray-700 bg-gray-900 p-8 shadow-xl">
-        <h1 className="mb-2 text-center text-3xl font-bold text-white">
-          ALIQO
-        </h1>
+    <main className="flex min-h-screen items-center justify-center bg-[#F5F0E6] px-4 py-10">
+      <div className="w-full max-w-md rounded-3xl border border-[#DED5C2] bg-white p-8 shadow-xl">
+        <a href="/" className="mb-7 block text-center text-3xl font-black tracking-wide text-[#123D2B]">
+          ALI<span className="text-[#D4AF37]">QO</span>
+        </a>
 
-        <h2 className="mb-6 text-center text-xl font-semibold text-white">
-          Reset Your Password
-        </h2>
+        <div className="mb-7 text-center">
+          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#F5F0E6] text-2xl text-[#A17C26]">
+            🔐
+          </div>
 
-        <p className="mb-5 text-center text-sm text-gray-300">
+          <h1 className="text-2xl font-black text-[#123D2B]">
+            Reset Your Password
+          </h1>
+
+          <p className="mt-3 text-sm leading-6 text-[#68766D]">
+            Create a new password to securely access your ALIQO seller account.
+          </p>
+        </div>
+
+        <div
+          role="status"
+          className="mb-6 rounded-xl border border-[#D4AF37]/40 bg-[#F5F0E6] p-4 text-center text-sm font-medium leading-6 text-[#123D2B]"
+        >
           {message}
-        </p>
+        </div>
 
         {validLink && (
-          <form onSubmit={handleReset} className="space-y-4">
+          <form onSubmit={handleReset} className="space-y-5">
             <div>
-              <label className="mb-2 block text-sm text-gray-200">
+              <label className="mb-2 block text-sm font-bold text-[#123D2B]">
                 New Password
               </label>
+
               <input
                 type="password"
                 value={password}
@@ -147,14 +161,15 @@ export default function ResetPasswordPage() {
                 required
                 minLength={8}
                 autoComplete="new-password"
-                className="w-full rounded-lg border border-gray-600 bg-gray-800 p-3 text-white outline-none focus:border-green-500"
+                className="w-full rounded-xl border border-[#DED5C2] bg-white p-4 text-[#123D2B] outline-none transition placeholder:text-[#68766D] focus:border-[#D4AF37] focus:ring-2 focus:ring-[#D4AF37]/20"
               />
             </div>
 
             <div>
-              <label className="mb-2 block text-sm text-gray-200">
+              <label className="mb-2 block text-sm font-bold text-[#123D2B]">
                 Confirm New Password
               </label>
+
               <input
                 type="password"
                 value={confirmPassword}
@@ -163,23 +178,32 @@ export default function ResetPasswordPage() {
                 required
                 minLength={8}
                 autoComplete="new-password"
-                className="w-full rounded-lg border border-gray-600 bg-gray-800 p-3 text-white outline-none focus:border-green-500"
+                className="w-full rounded-xl border border-[#DED5C2] bg-white p-4 text-[#123D2B] outline-none transition placeholder:text-[#68766D] focus:border-[#D4AF37] focus:ring-2 focus:ring-[#D4AF37]/20"
               />
             </div>
 
             <button
               type="submit"
               disabled={loading}
-              className="w-full rounded-lg bg-green-600 p-3 font-semibold text-white hover:bg-green-700 disabled:opacity-50"
+              className="w-full rounded-xl bg-[#123D2B] p-4 font-bold text-[#D4AF37] shadow-sm transition hover:bg-[#1B563C] disabled:cursor-not-allowed disabled:opacity-50"
             >
               {loading ? "Updating..." : "Update Password"}
             </button>
           </form>
         )}
 
-        <p className="mt-6 text-center text-xs text-gray-500">
-          ALIQO - Your Smart Discovery Platform
-        </p>
+        <div className="mt-8 border-t border-[#DED5C2] pt-5 text-center">
+          <a
+            href="/"
+            className="text-sm font-bold text-[#8A6B1F] transition hover:text-[#123D2B]"
+          >
+            Back to ALIQO Home
+          </a>
+
+          <p className="mt-4 text-xs text-[#68766D]">
+            ALIQO - Your Smart Discovery Platform
+          </p>
+        </div>
       </div>
     </main>
   );
