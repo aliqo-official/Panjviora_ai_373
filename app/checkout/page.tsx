@@ -67,11 +67,7 @@ export default function CheckoutPage() {
     const customerPhone = phone.trim();
     const deliveryAddress = address.trim();
 
-    if (
-      !customerName ||
-      !customerPhone ||
-      !deliveryAddress
-    ) {
+    if (!customerName || !customerPhone || !deliveryAddress) {
       setError("Please complete all customer details.");
       return;
     }
@@ -152,16 +148,16 @@ export default function CheckoutPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#050907] text-white">
-      <header className="border-b border-[#c9a44c]/30 bg-[#08130e] px-6 py-5">
+    <main className="min-h-screen bg-[#F5F0E6] text-[#123D2B]">
+      <header className="border-b border-[#D4AF37]/30 bg-[#123D2B] px-6 py-5">
         <div className="mx-auto flex max-w-7xl items-center justify-between">
-          <a href="/" className="text-3xl font-black text-[#d6b45c]">
-            ALIQO
+          <a href="/" className="text-3xl font-black tracking-tight text-white">
+            ALI<span className="text-[#D4AF37]">QO</span>
           </a>
 
           <a
             href="/cart"
-            className="rounded-full border border-[#d6b45c]/60 px-5 py-2 text-sm text-[#e6ca7a]"
+            className="rounded-full border border-[#D4AF37] px-5 py-2 text-sm font-bold text-[#E8C95B] transition hover:bg-[#D4AF37] hover:text-[#123D2B]"
           >
             Back to Cart
           </a>
@@ -170,49 +166,57 @@ export default function CheckoutPage() {
 
       <section className="mx-auto max-w-6xl px-6 py-12">
         {orderId ? (
-          <div className="mx-auto max-w-2xl rounded-3xl border border-[#d6b45c]/30 bg-[#0b1711] p-10 text-center">
-            <h1 className="text-3xl font-black text-[#d6b45c]">
+          <div className="mx-auto max-w-2xl rounded-3xl border border-[#D4AF37]/50 bg-white p-10 text-center shadow-xl shadow-[#123D2B]/10">
+            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[#123D2B] text-3xl text-[#D4AF37]">
+              ✓
+            </div>
+
+            <h1 className="mt-5 text-3xl font-black text-[#123D2B]">
               Order Placed Successfully!
             </h1>
 
-            <p className="mt-4 text-gray-300">
+            <p className="mt-4 text-[#68766D]">
               Thank you for shopping with ALIQO.
             </p>
 
-            <p className="mt-5 text-sm text-gray-400">
+            <p className="mt-5 text-sm text-[#68766D]">
               Your Order ID:
             </p>
 
-            <p className="mt-2 break-all font-bold text-[#e6ca7a]">
+            <p className="mt-2 break-all font-bold text-[#A17C26]">
               {orderId}
             </p>
 
             <a
               href="/marketplace"
-              className="mt-8 inline-block rounded-xl bg-[#d6b45c] px-8 py-3 font-bold text-black"
+              className="mt-8 inline-block rounded-xl border border-[#D4AF37] bg-[#123D2B] px-8 py-3 font-bold text-white transition hover:bg-[#1B563C]"
             >
               Continue Shopping
             </a>
           </div>
         ) : (
           <>
-            <h1 className="mb-10 text-4xl font-black text-[#d6b45c]">
+            <h1 className="mb-10 text-4xl font-black text-[#123D2B]">
               Guest Checkout
             </h1>
 
             {!loaded ? (
-              <p className="text-gray-400">
+              <p className="text-[#68766D]">
                 Loading checkout...
               </p>
             ) : cart.length === 0 ? (
-              <div className="rounded-3xl border border-[#c9a44c]/25 bg-[#0b1711] p-10 text-center">
-                <h2 className="text-2xl font-bold">
+              <div className="rounded-3xl border border-[#DED5C2] bg-white p-10 text-center shadow-lg shadow-[#123D2B]/5">
+                <h2 className="text-2xl font-bold text-[#123D2B]">
                   Your cart is empty
                 </h2>
 
+                <p className="mt-3 text-[#68766D]">
+                  Add products to your cart before proceeding to checkout.
+                </p>
+
                 <a
                   href="/marketplace"
-                  className="mt-6 inline-block rounded-xl bg-[#d6b45c] px-8 py-3 font-bold text-black"
+                  className="mt-6 inline-block rounded-xl border border-[#D4AF37] bg-[#123D2B] px-8 py-3 font-bold text-white transition hover:bg-[#1B563C]"
                 >
                   Explore Marketplace
                 </a>
@@ -221,14 +225,14 @@ export default function CheckoutPage() {
               <div className="grid gap-8 lg:grid-cols-3">
                 <form
                   onSubmit={placeOrder}
-                  className="space-y-6 rounded-2xl border border-[#c9a44c]/25 bg-[#0b1711] p-6 lg:col-span-2"
+                  className="space-y-6 rounded-2xl border border-[#DED5C2] bg-white p-6 shadow-lg shadow-[#123D2B]/5 lg:col-span-2"
                 >
-                  <h2 className="text-2xl font-bold text-[#d6b45c]">
+                  <h2 className="text-2xl font-bold text-[#123D2B]">
                     Delivery Information
                   </h2>
 
                   <div>
-                    <label className="mb-2 block text-sm text-gray-300">
+                    <label className="mb-2 block text-sm font-semibold text-[#123D2B]">
                       Full Name
                     </label>
 
@@ -238,12 +242,12 @@ export default function CheckoutPage() {
                       value={name}
                       onChange={(e) => setName(e.target.value)}
                       placeholder="Enter your full name"
-                      className="w-full rounded-xl border border-[#c9a44c]/30 bg-[#050907] px-4 py-3 text-white outline-none focus:border-[#d6b45c]"
+                      className="w-full rounded-xl border border-[#DED5C2] bg-[#F5F0E6] px-4 py-3 text-[#123D2B] outline-none transition focus:border-[#D4AF37] focus:ring-2 focus:ring-[#D4AF37]/20"
                     />
                   </div>
 
                   <div>
-                    <label className="mb-2 block text-sm text-gray-300">
+                    <label className="mb-2 block text-sm font-semibold text-[#123D2B]">
                       Phone Number
                     </label>
 
@@ -254,12 +258,12 @@ export default function CheckoutPage() {
                       value={phone}
                       onChange={(e) => setPhone(e.target.value)}
                       placeholder="Enter your phone number"
-                      className="w-full rounded-xl border border-[#c9a44c]/30 bg-[#050907] px-4 py-3 text-white outline-none focus:border-[#d6b45c]"
+                      className="w-full rounded-xl border border-[#DED5C2] bg-[#F5F0E6] px-4 py-3 text-[#123D2B] outline-none transition focus:border-[#D4AF37] focus:ring-2 focus:ring-[#D4AF37]/20"
                     />
                   </div>
 
                   <div>
-                    <label className="mb-2 block text-sm text-gray-300">
+                    <label className="mb-2 block text-sm font-semibold text-[#123D2B]">
                       Complete Delivery Address
                     </label>
 
@@ -270,14 +274,14 @@ export default function CheckoutPage() {
                       value={address}
                       onChange={(e) => setAddress(e.target.value)}
                       placeholder="House number, street, area, city"
-                      className="w-full rounded-xl border border-[#c9a44c]/30 bg-[#050907] px-4 py-3 text-white outline-none focus:border-[#d6b45c]"
+                      className="w-full rounded-xl border border-[#DED5C2] bg-[#F5F0E6] px-4 py-3 text-[#123D2B] outline-none transition focus:border-[#D4AF37] focus:ring-2 focus:ring-[#D4AF37]/20"
                     />
                   </div>
 
                   {error && (
                     <p
                       role="alert"
-                      className="rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-300"
+                      className="rounded-xl border border-red-300 bg-red-50 p-3 text-sm text-red-700"
                     >
                       {error}
                     </p>
@@ -286,7 +290,7 @@ export default function CheckoutPage() {
                   <button
                     type="submit"
                     disabled={loading || cart.length === 0}
-                    className="w-full rounded-xl bg-[#d6b45c] px-6 py-4 font-bold text-black transition hover:bg-[#e6ca7a] disabled:cursor-not-allowed disabled:opacity-50"
+                    className="w-full rounded-xl border border-[#D4AF37] bg-[#123D2B] px-6 py-4 font-bold text-white transition hover:bg-[#1B563C] disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {loading
                       ? "Placing Your Order..."
@@ -294,8 +298,8 @@ export default function CheckoutPage() {
                   </button>
                 </form>
 
-                <aside className="h-fit rounded-2xl border border-[#c9a44c]/30 bg-[#0b1711] p-6">
-                  <h2 className="text-xl font-bold text-[#d6b45c]">
+                <aside className="h-fit rounded-2xl border border-[#DED5C2] bg-white p-6 shadow-lg shadow-[#123D2B]/5">
+                  <h2 className="text-xl font-bold text-[#123D2B]">
                     Order Summary
                   </h2>
 
@@ -305,30 +309,28 @@ export default function CheckoutPage() {
                         key={item.product_id || index}
                         className="flex justify-between gap-3 text-sm"
                       >
-                        <span className="text-gray-300">
+                        <span className="text-[#68766D]">
                           {item.product_name} × {item.quantity}
                         </span>
 
-                        <span className="whitespace-nowrap text-[#e6ca7a]">
-                          {formatPrice(
-                            item.price * item.quantity
-                          )}
+                        <span className="whitespace-nowrap font-semibold text-[#A17C26]">
+                          {formatPrice(item.price * item.quantity)}
                         </span>
                       </div>
                     ))}
                   </div>
 
-                  <div className="mt-6 flex justify-between border-t border-[#c9a44c]/20 pt-5 text-lg font-bold">
-                    <span>Total</span>
+                  <div className="mt-6 flex justify-between border-t border-[#DED5C2] pt-5 text-lg font-bold">
+                    <span className="text-[#123D2B]">Total</span>
 
-                    <span className="text-[#e4c46d]">
+                    <span className="text-[#A17C26]">
                       {formatPrice(total)}
                     </span>
                   </div>
 
-                  <p className="mt-4 text-xs text-gray-500">
-                    Final prices and stock availability are
-                    verified when your order is submitted.
+                  <p className="mt-4 text-xs leading-5 text-[#68766D]">
+                    Final prices and stock availability are verified when
+                    your order is submitted.
                   </p>
                 </aside>
               </div>
@@ -337,7 +339,7 @@ export default function CheckoutPage() {
         )}
       </section>
 
-      <footer className="border-t border-[#c9a44c]/20 bg-[#08130e] px-6 py-8 text-center text-sm text-gray-500">
+      <footer className="border-t border-[#D4AF37]/30 bg-[#123D2B] px-6 py-8 text-center text-sm text-[#F5F0E6]">
         © 2026 ALIQO. All rights reserved.
       </footer>
     </main>
