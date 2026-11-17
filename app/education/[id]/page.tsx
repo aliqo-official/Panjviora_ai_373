@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 
 type Institution = {
@@ -48,9 +48,9 @@ type ApiResponse = {
   error?: string;
 };
 
-export default function InstitutionDetailsPage() {
-  const params = useParams();
-  const id = params.id as string;
+function InstitutionDetailsContent() {
+  const params = useParams<{ id: string }>();
+  const id = params.id;
 
   const [institution, setInstitution] = useState<Institution | null>(null);
   const [campuses, setCampuses] = useState<Campus[]>([]);
@@ -75,7 +75,9 @@ export default function InstitutionDetailsPage() {
       const data: ApiResponse = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || "Unable to load institution details.");
+        throw new Error(
+          data.error || "Unable to load institution details."
+        );
       }
 
       if (!data.institution) {
@@ -94,7 +96,9 @@ export default function InstitutionDetailsPage() {
           : "Something went wrong. Please try again."
       );
     } finally {
-      if (!signal?.aborted) setLoading(false);
+      if (!signal?.aborted) {
+        setLoading(false);
+      }
     }
   }, [id]);
 
@@ -102,6 +106,7 @@ export default function InstitutionDetailsPage() {
     if (!id) return;
 
     const controller = new AbortController();
+
     fetchDetails(controller.signal);
 
     return () => controller.abort();
@@ -127,15 +132,18 @@ export default function InstitutionDetailsPage() {
           <h1 className="text-2xl font-bold text-gray-900">
             Institution Not Available
           </h1>
+
           <p className="mt-3 text-gray-600">
             {error || "The requested institution could not be found."}
           </p>
+
           <button
             onClick={() => fetchDetails()}
             className="mt-6 rounded-lg bg-[#075b42] px-6 py-3 font-semibold text-white hover:bg-[#064832]"
           >
             Try Again
           </button>
+
           <a
             href="/education"
             className="mt-4 block font-semibold text-[#075b42]"
@@ -148,6 +156,7 @@ export default function InstitutionDetailsPage() {
   }
 
   const institutionName = institution.institution_name;
+
   const location = [institution.city, institution.province]
     .filter(Boolean)
     .join(", ");
@@ -222,7 +231,9 @@ export default function InstitutionDetailsPage() {
           <div className="mt-6 grid gap-5 sm:grid-cols-2">
             {institution.phone && (
               <div>
-                <p className="text-sm font-semibold text-gray-500">Phone</p>
+                <p className="text-sm font-semibold text-gray-500">
+                  Phone
+                </p>
                 <a
                   href={`tel:${institution.phone}`}
                   className="mt-1 inline-block font-semibold text-[#075b42] hover:underline"
@@ -234,7 +245,9 @@ export default function InstitutionDetailsPage() {
 
             {institution.email && (
               <div>
-                <p className="text-sm font-semibold text-gray-500">Email</p>
+                <p className="text-sm font-semibold text-gray-500">
+                  Email
+                </p>
                 <a
                   href={`mailto:${institution.email}`}
                   className="mt-1 inline-block break-all font-semibold text-[#075b42] hover:underline"
@@ -246,7 +259,9 @@ export default function InstitutionDetailsPage() {
 
             {institution.whatsapp_number && (
               <div>
-                <p className="text-sm font-semibold text-gray-500">WhatsApp</p>
+                <p className="text-sm font-semibold text-gray-500">
+                  WhatsApp
+                </p>
                 <a
                   href={`https://wa.me/${institution.whatsapp_number.replace(/\D/g, "")}`}
                   target="_blank"
@@ -260,7 +275,9 @@ export default function InstitutionDetailsPage() {
 
             {institution.website_url && (
               <div>
-                <p className="text-sm font-semibold text-gray-500">Website</p>
+                <p className="text-sm font-semibold text-gray-500">
+                  Website
+                </p>
                 <a
                   href={institution.website_url}
                   target="_blank"
@@ -274,8 +291,12 @@ export default function InstitutionDetailsPage() {
 
             {institution.address && (
               <div className="sm:col-span-2">
-                <p className="text-sm font-semibold text-gray-500">Address</p>
-                <p className="mt-1 text-gray-700">{institution.address}</p>
+                <p className="text-sm font-semibold text-gray-500">
+                  Address
+                </p>
+                <p className="mt-1 text-gray-700">
+                  {institution.address}
+                </p>
               </div>
             )}
           </div>
@@ -303,7 +324,9 @@ export default function InstitutionDetailsPage() {
                   </h3>
 
                   {campus.city && (
-                    <p className="mt-2 text-gray-600">{campus.city}</p>
+                    <p className="mt-2 text-gray-600">
+                      {campus.city}
+                    </p>
                   )}
 
                   {campus.address && (
@@ -402,6 +425,7 @@ export default function InstitutionDetailsPage() {
           <h2 className="text-2xl font-bold">
             Interested in {institutionName}?
           </h2>
+
           <p className="mt-3 text-gray-200">
             Contact the institution directly for admission and further details.
           </p>
@@ -417,5 +441,24 @@ export default function InstitutionDetailsPage() {
         </section>
       </div>
     </main>
+  );
+}
+
+export default function InstitutionDetailsPage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="min-h-screen bg-[#f7f8f4] px-4 py-16">
+          <div className="mx-auto max-w-5xl animate-pulse space-y-5">
+            <div className="h-64 rounded-2xl bg-gray-200" />
+            <div className="h-8 w-1/2 rounded bg-gray-200" />
+            <div className="h-4 w-full rounded bg-gray-200" />
+            <div className="h-4 w-3/4 rounded bg-gray-200" />
+          </div>
+        </main>
+      }
+    >
+      <InstitutionDetailsContent />
+    </Suspense>
   );
 }
