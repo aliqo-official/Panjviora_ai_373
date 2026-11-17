@@ -1,93 +1,82 @@
 
 import { NextRequest, NextResponse } from "next/server";
 
-const ALLOWED_TYPES = [
-  "school",
-  "college",
-  "university",
-  "academy",
-];
+const ADMIN_EMAIL = "aliqo37311011@gmail.com";
 
-async function verifyUser(request: NextRequest) {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  const authorization = request.headers.get("authorization");
-
-  if (!supabaseUrl || !supabaseKey) {
-    return null;
-  }
-
-  if (!authorization?.startsWith("Bearer ")) {
-    return null;
-  }
-
-  const token = authorization.slice(7).trim();
-
-  if (!token) return null;
-
-  const response = await fetch(`${supabaseUrl}/auth/v1/user`, {
-    headers: {
-      apikey: supabaseKey,
-      Authorization: `Bearer ${token}`,
-    },
-    cache: "no-store",
-  });
-
-  if (!response.ok) return null;
-
-  const user = await response.json();
-
-  if (!user?.id) return null;
-
-  return {
-    supabaseUrl,
-    supabaseKey,
-    token,
-    user,
-  };
-}
-
-function cleanOptional(value: unknown, maxLength: number) {
-  if (value === undefined || value === null) return null;
-
-  const cleaned = String(value).trim();
-
-  return cleaned ? cleaned.slice(0, maxLength) : null;
-}
-
-// GET: Fetch owner's institutions
-export async function GET(request: NextRequest) {
+async function verifyAdmin(request: NextRequest) {
   try {
-    const auth = await verifyUser(request);
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    const token = request.cookies.get("aliqo_admin_session")?.value;
 
-    if (!auth) {
-      return NextResponse.json(
-        { error: "Please login with a valid account" },
-        { status: 401 }
-      );
+    if (!supabaseUrl || !supabaseKey || !token) {
+      return null;
     }
 
-    const response = await fetch(
-      `${auth.supabaseUrl}/rest/v1/institutions?select=*&owner_user_id=eq.${encodeURIComponent(auth.user.id)}&order=created_at.desc`,
+    const authResponse = await fetch(
+      `${supabaseUrl}/auth/v1/user`,
       {
         headers: {
-          apikey: auth.supabaseKey,
-          Authorization: `Bearer ${auth.token}`,
+          apikey: supabaseKey,
+          Authorization: `Bearer ${token}`,
         },
         cache: "no-store",
       }
     );
 
-    const data = await response.json();
+    if (!authResponse.ok) return null;
 
-    if (!response.ok) {
+    const user = await authResponse.json();
+
+    if (user.email?.toLowerCase() !== ADMIN_EMAIL) {
+      return null;
+    }
+
+    return {
+      supabaseUrl,
+      supabaseKey,
+      token,
+    };
+  } catch {
+    return null;
+  }
+}
+
+// GET: Load all institution applications for admin review.
+export async function GET(request: NextRequest) {
+  const admin = await verifyAdmin(request);
+
+  if (!admin) {
+    return NextResponse.json(
+      { error: "Unauthorized" },
+      { status: 401 }
+    );
+  }
+
+  try {
+    const result = await fetch(
+      `${admin.supabaseUrl}/rest/v1/institutions?select=*&order=created_at.desc`,
+      {
+        headers: {
+          apikey: admin.supabaseKey,
+          Authorization: `Bearer ${admin.token}`,
+        },
+        cache: "no-store",
+      }
+    );
+
+    const data = await result.json();
+
+    if (!result.ok) {
       return NextResponse.json(
-        { error: "Unable to load institutions" },
-        { status: response.status }
+        { error: "Unable to load institution applications" },
+        { status: result.status }
       );
     }
 
-    return NextResponse.json({ institutions: data });
+    return NextResponse.json({
+      institutions: data,
+    });
   } catch {
     return NextResponse.json(
       { error: "Database connection failed" },
@@ -96,31 +85,22 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST: Register a new institution
-export async function POST(request: NextRequest) {
+// PATCH: Approve or reject an institution application.
+export async function PATCH(request: NextRequest) {
+  const admin = await verifyAdmin(request);
+
+  if (!admin) {
+    return NextResponse.json(
+      { error: "Unauthorized" },
+      { status: 401 }
+    );
+  }
+
   try {
-    const auth = await verifyUser(request);
-
-    if (!auth) {
-      return NextResponse.json(
-        { error: "Please login before registering" },
-        { status: 401 }
-      );
-    }
-
     let body: Record<string, unknown>;
 
     try {
-      const parsed = await request.json();
-
-      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-        return NextResponse.json(
-          { error: "Invalid registration data" },
-          { status: 400 }
-        );
-      }
-
-      body = parsed as Record<string, unknown>;
+      body = await request.json();
     } catch {
       return NextResponse.json(
         { error: "Invalid JSON request" },
@@ -128,100 +108,82 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const institutionName = String(body.institution_name || "").trim();
-    const institutionType = String(body.institution_type || "")
-      .trim()
-      .toLowerCase();
-    const phone = String(body.phone || "").trim();
-    const city = String(body.city || "").trim();
+    const institutionId =
+      typeof body.institution_id === "string"
+        ? body.institution_id.trim()
+        : "";
 
-    if (!institutionName || !institutionType || !phone || !city) {
-      return NextResponse.json(
-        { error: "Institution name, type, phone and city are required" },
-        { status: 400 }
-      );
-    }
+    const status = body.status;
+
+    const adminNotes =
+      typeof body.admin_notes === "string"
+        ? body.admin_notes.trim().slice(0, 2000)
+        : "";
+
+    const uuidRegex =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
     if (
-      institutionName.length > 200 ||
-      phone.length > 30 ||
-      city.length > 100
+      !uuidRegex.test(institutionId) ||
+      !["approved", "rejected"].includes(String(status))
     ) {
       return NextResponse.json(
-        { error: "One or more fields exceed the allowed length" },
+        { error: "Invalid institution ID or status" },
         { status: 400 }
       );
     }
 
-    if (!ALLOWED_TYPES.includes(institutionType)) {
+    if (status === "rejected" && !adminNotes) {
       return NextResponse.json(
-        { error: "Invalid institution type" },
+        { error: "Please provide a reason for rejection" },
         { status: 400 }
       );
     }
 
-    const email = cleanOptional(body.email, 254);
-
-    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      return NextResponse.json(
-        { error: "Please enter a valid email address" },
-        { status: 400 }
-      );
-    }
-
-    const institution = {
-      owner_user_id: auth.user.id,
-      institution_name: institutionName,
-      institution_type: institutionType,
-      description: cleanOptional(body.description, 5000),
-      email,
-      phone,
-      whatsapp_number: cleanOptional(body.whatsapp_number, 30),
-      website_url: cleanOptional(body.website_url, 500),
-      country: cleanOptional(body.country, 100) || "Pakistan",
-      province: cleanOptional(body.province, 100),
-      city,
-      address: cleanOptional(body.address, 500),
-      logo_url: cleanOptional(body.logo_url, 1000),
-      cover_image_url: cleanOptional(body.cover_image_url, 1000),
-      verification_status: "pending",
-      is_active: true,
-    };
-
-    const response = await fetch(
-      `${auth.supabaseUrl}/rest/v1/institutions`,
+    const result = await fetch(
+      `${admin.supabaseUrl}/rest/v1/institutions?id=eq.${encodeURIComponent(institutionId)}`,
       {
-        method: "POST",
+        method: "PATCH",
         headers: {
-          apikey: auth.supabaseKey,
-          Authorization: `Bearer ${auth.token}`,
+          apikey: admin.supabaseKey,
+          Authorization: `Bearer ${admin.token}`,
           "Content-Type": "application/json",
           Prefer: "return=representation",
         },
-        body: JSON.stringify(institution),
+        body: JSON.stringify({
+          verification_status: status,
+          admin_notes: adminNotes || null,
+          updated_at: new Date().toISOString(),
+        }),
         cache: "no-store",
       }
     );
 
-    const data = await response.json();
+    const data = await result.json();
 
-    if (!response.ok) {
+    if (!result.ok) {
+      console.error("Institution verification update failed:", data);
+
       return NextResponse.json(
-        { error: "Institution registration failed" },
-        { status: response.status }
+        { error: "Unable to update institution verification status" },
+        { status: result.status }
       );
     }
 
-    return NextResponse.json(
-      {
-        message: "Institution submitted for admin verification",
-        institution: data[0],
-      },
-      { status: 201 }
-    );
+    if (!data.length) {
+      return NextResponse.json(
+        { error: "Institution not found" },
+        { status: 404 }
+      );
+    }
+
+    return NextResponse.json({
+      message: `Institution ${status} successfully`,
+      institution: data[0],
+    });
   } catch {
     return NextResponse.json(
-      { error: "Something went wrong during registration" },
+      { error: "Something went wrong" },
       { status: 500 }
     );
   }
