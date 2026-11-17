@@ -28,9 +28,7 @@ export default function ResetPasswordPage() {
       const error = params.get("error_description");
 
       if (error) {
-        if (active) {
-          setMessage(error);
-        }
+        if (active) setMessage(error);
         return;
       }
 
@@ -65,7 +63,9 @@ export default function ResetPasswordPage() {
 
         if (active) {
           setReady(true);
-          setMessage("Recovery link verified. Choose your new password.");
+          setMessage(
+            "Recovery link verified. Choose your new password."
+          );
         }
       } catch (error) {
         if (active) {
@@ -87,7 +87,6 @@ export default function ResetPasswordPage() {
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-
     setMessage("");
 
     if (password.length < 6) {
@@ -115,13 +114,9 @@ export default function ResetPasswordPage() {
       }
 
       const { error: updateError } =
-        await supabase.auth.updateUser({
-          password,
-        });
+        await supabase.auth.updateUser({ password });
 
-      if (updateError) {
-        throw updateError;
-      }
+      if (updateError) throw updateError;
 
       await supabase.auth.signOut();
 
@@ -148,22 +143,25 @@ export default function ResetPasswordPage() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-[#f7f8f2] px-5 py-10">
-      <div className="w-full max-w-md rounded-3xl bg-white p-8 shadow-xl">
-        <Link href="/" className="text-3xl font-black text-emerald-900">
-          ALIQO<span className="text-amber-500">.</span>
+    <main className="flex min-h-screen items-center justify-center bg-[#F5F0E6] px-5 py-10">
+      <div className="w-full max-w-md rounded-3xl border border-[#DED5C2] bg-white p-8 shadow-xl">
+        <Link
+          href="/"
+          className="text-3xl font-black text-[#123D2B]"
+        >
+          ALIQO<span className="text-[#D4AF37]">.</span>
         </Link>
 
-        <h1 className="mt-8 text-3xl font-black text-emerald-950">
+        <h1 className="mt-8 text-3xl font-black text-[#123D2B]">
           Reset Your Password
         </h1>
 
-        <p className="mt-3 text-sm text-slate-500">
+        <p className="mt-3 text-sm leading-6 text-[#68766D]">
           Enter and confirm your new account password.
         </p>
 
         {message && (
-          <div className="mt-6 rounded-xl bg-emerald-50 p-4 text-sm leading-6 text-emerald-900">
+          <div className="mt-6 rounded-xl border border-[#DED5C2] bg-[#F5F0E6] p-4 text-sm leading-6 text-[#123D2B]">
             {message}
           </div>
         )}
@@ -178,7 +176,7 @@ export default function ResetPasswordPage() {
               placeholder="New password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full rounded-xl border p-4 outline-none focus:border-emerald-700"
+              className="w-full rounded-xl border border-[#DED5C2] bg-white p-4 text-[#123D2B] outline-none focus:border-[#D4AF37] focus:ring-2 focus:ring-[#D4AF37]/20"
             />
 
             <input
@@ -189,13 +187,13 @@ export default function ResetPasswordPage() {
               placeholder="Confirm new password"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
-              className="w-full rounded-xl border p-4 outline-none focus:border-emerald-700"
+              className="w-full rounded-xl border border-[#DED5C2] bg-white p-4 text-[#123D2B] outline-none focus:border-[#D4AF37] focus:ring-2 focus:ring-[#D4AF37]/20"
             />
 
             <button
               type="submit"
               disabled={loading}
-              className="w-full rounded-xl bg-emerald-900 py-4 font-bold text-white disabled:opacity-50"
+              className="w-full rounded-xl bg-[#123D2B] py-4 font-bold text-white transition hover:bg-[#1B563C] hover:text-[#E8C95B] disabled:cursor-not-allowed disabled:opacity-50"
             >
               {loading ? "Updating..." : "Update Password"}
             </button>
@@ -204,7 +202,7 @@ export default function ResetPasswordPage() {
 
         <Link
           href="/login"
-          className="mt-7 block text-center text-sm font-semibold text-emerald-900"
+          className="mt-7 block text-center text-sm font-semibold text-[#123D2B] transition hover:text-[#D4AF37]"
         >
           Back to ALIQO Login
         </Link>
