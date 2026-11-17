@@ -69,36 +69,36 @@ export default function TermsPage() {
   ];
 
   return (
-    <main className="min-h-screen bg-[#F3F7F1] text-[#17251B]">
-      <header className="border-b border-[#D6C58B]/30 bg-[#0B1A11] px-6 py-5">
-        <div className="mx-auto flex max-w-5xl items-center justify-between">
+    <main className="min-h-screen bg-[#F5F0E6] text-[#123D2B]">
+      <header className="border-b border-[#D4AF37]/30 bg-[#123D2B] px-6 py-5">
+        <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-3">
           <a
             href="/"
-            className="text-3xl font-extrabold tracking-wider text-[#E4C35D]"
+            className="text-3xl font-black tracking-tight text-white"
           >
-            ALIQO
+            ALI<span className="text-[#D4AF37]">QO</span>
           </a>
-          <span className="text-sm font-medium text-[#E4C35D]">
+          <span className="text-sm font-semibold text-[#D4AF37]">
             Terms & Conditions
           </span>
         </div>
       </header>
 
-      <section className="bg-[#10251A] px-6 py-16 text-center">
-        <p className="mb-3 text-sm font-bold uppercase tracking-[0.25em] text-[#E4C35D]">
+      <section className="bg-[#123D2B] px-6 py-16 text-center">
+        <p className="mb-3 text-sm font-bold uppercase tracking-[0.25em] text-[#D4AF37]">
           ALIQO LEGAL INFORMATION
         </p>
-        <h1 className="text-4xl font-extrabold text-white md:text-5xl">
+        <h1 className="text-4xl font-black text-white md:text-5xl">
           Terms & Conditions
         </h1>
-        <p className="mt-5 text-sm text-green-100">
+        <p className="mt-5 text-sm text-[#F5F0E6]/80">
           Last updated: November 2026
         </p>
       </section>
 
       <section className="mx-auto max-w-4xl px-5 py-12">
-        <div className="rounded-2xl border border-[#DCE5D9] bg-white p-6 shadow-sm md:p-10">
-          <p className="mb-8 leading-8 text-[#526356]">
+        <div className="rounded-3xl border border-[#DED5C2] bg-white p-6 shadow-sm md:p-10">
+          <p className="mb-8 leading-8 text-[#68766D]">
             Welcome to ALIQO. These terms explain the rules and conditions
             for using our website and services. Please read them carefully.
           </p>
@@ -106,17 +106,17 @@ export default function TermsPage() {
           <div className="space-y-9">
             {sections.map((section) => (
               <section key={section.title}>
-                <h2 className="mb-3 border-l-4 border-[#C6A33D] pl-4 text-xl font-bold text-[#183522]">
+                <h2 className="mb-3 border-l-4 border-[#D4AF37] pl-4 text-xl font-bold text-[#123D2B]">
                   {section.title}
                 </h2>
-                <p className="leading-8 text-[#526356]">
+                <p className="leading-8 text-[#68766D]">
                   {section.content}
                 </p>
 
                 {section.title === "10. Privacy Policy" && (
                   <a
                     href="/privacy"
-                    className="mt-3 inline-block font-semibold text-[#98751D] underline underline-offset-4 hover:text-[#183522]"
+                    className="mt-3 inline-block font-semibold text-[#85631B] underline underline-offset-4 transition hover:text-[#123D2B]"
                   >
                     Read ALIQO Privacy Policy →
                   </a>
@@ -125,7 +125,7 @@ export default function TermsPage() {
                 {section.title === "13. Contact ALIQO" && (
                   <a
                     href="mailto:aliqo37311011@gmail.com"
-                    className="mt-3 inline-block font-semibold text-[#98751D] underline underline-offset-4 hover:text-[#183522]"
+                    className="mt-3 inline-block font-semibold text-[#85631B] underline underline-offset-4 transition hover:text-[#123D2B]"
                   >
                     aliqo37311011@gmail.com
                   </a>
@@ -134,10 +134,10 @@ export default function TermsPage() {
             ))}
           </div>
 
-          <div className="mt-12 border-t border-[#DCE5D9] pt-8">
+          <div className="mt-12 border-t border-[#DED5C2] pt-8">
             <a
               href="/"
-              className="inline-flex rounded-xl bg-[#183522] px-7 py-3 font-semibold text-white transition hover:bg-[#0B1A11]"
+              className="inline-flex rounded-xl bg-[#123D2B] px-7 py-3 font-semibold text-[#D4AF37] transition hover:bg-[#1B563C]"
             >
               ← Back to Home
             </a>
@@ -145,12 +145,12 @@ export default function TermsPage() {
         </div>
       </section>
 
-      <footer className="bg-[#090F0B] px-6 py-7 text-center">
-        <p className="text-sm text-green-100">
+      <footer className="bg-[#123D2B] px-6 py-7 text-center">
+        <p className="text-sm text-[#F5F0E6]/80">
           © 2026 ALIQO. All rights reserved.
         </p>
-        <p className="mt-2 text-xs text-[#C6A33D]">
-          Search Smarter. Discover More.
+        <p className="mt-2 text-xs font-semibold text-[#D4AF37]">
+          ALIQO — Discover More. Do More.
         </p>
       </footer>
     </main>
