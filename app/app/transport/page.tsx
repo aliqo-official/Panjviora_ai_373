@@ -47,20 +47,20 @@ export default function TransportPage() {
   const [to, setTo] = useState("Lahore");
   const [date, setDate] = useState("");
   const [minDate, setMinDate] = useState("");
-
-useEffect(() => {
-  const today = new Date();
-  const localDate = [
-    today.getFullYear(),
-    String(today.getMonth() + 1).padStart(2, "0"),
-    String(today.getDate()).padStart(2, "0"),
-  ].join("-");
-
-  setMinDate(localDate);
-}, []);
   const [passengers, setPassengers] = useState("1");
   const [message, setMessage] = useState("");
   const [searchDetails, setSearchDetails] = useState("");
+
+  useEffect(() => {
+    const today = new Date();
+    const localDate = [
+      today.getFullYear(),
+      String(today.getMonth() + 1).padStart(2, "0"),
+      String(today.getDate()).padStart(2, "0"),
+    ].join("-");
+
+    setMinDate(localDate);
+  }, []);
 
   function swapCities() {
     setFrom(to);
@@ -104,21 +104,27 @@ useEffect(() => {
   }
 
   return (
-    <main className="min-h-screen bg-[#F3F6F1] text-[#10271D]">
-      <header className="border-b border-[#D9E2D8] bg-[#10271D] px-5 py-5 text-white">
-        <div className="mx-auto flex max-w-6xl items-center justify-between">
-          <a href="/" className="text-2xl font-black">
-            ALI<span className="text-[#E4C35D]">QO</span>
+    <main className="min-h-screen bg-[#F5F0E6] text-[#123D2B]">
+      <header className="border-b border-[#D4AF37]/30 bg-[#123D2B] px-5 py-5 text-white shadow-sm">
+        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4">
+          <a href="/" className="text-2xl font-black tracking-wide">
+            ALI<span className="text-[#D4AF37]">QO</span>
           </a>
 
           <nav className="flex items-center gap-4 text-sm font-semibold sm:gap-6">
-            <a href="/" className="transition hover:text-[#E4C35D]">
+            <a href="/" className="transition hover:text-[#D4AF37]">
               Home
             </a>
-            <a href="/marketplace" className="transition hover:text-[#E4C35D]">
+            <a
+              href="/marketplace"
+              className="transition hover:text-[#D4AF37]"
+            >
               Marketplace
             </a>
-            <a href="/advertisements" className="transition hover:text-[#E4C35D]">
+            <a
+              href="/advertisements"
+              className="transition hover:text-[#D4AF37]"
+            >
               Advertisements
             </a>
           </nav>
@@ -131,11 +137,11 @@ useEffect(() => {
             ALIQO TRAVEL SERVICES
           </p>
 
-          <h1 className="mt-4 text-4xl font-black sm:text-5xl">
+          <h1 className="mt-4 text-4xl font-black text-[#123D2B] sm:text-5xl">
             Travel Across Your World
           </h1>
 
-          <p className="mx-auto mt-4 max-w-xl text-sm leading-7 text-[#647468]">
+          <p className="mx-auto mt-4 max-w-xl text-sm leading-7 text-[#68766D]">
             Discover bus, train and airline travel options through one
             convenient platform.
           </p>
@@ -143,7 +149,7 @@ useEffect(() => {
       </section>
 
       <section className="mx-auto max-w-6xl px-5 pb-16">
-        <div className="rounded-3xl border border-[#D9E2D8] bg-white p-6 shadow-sm sm:p-9">
+        <div className="rounded-3xl border border-[#DED5C2] bg-white p-6 shadow-sm sm:p-9">
           <div className="grid gap-4 sm:grid-cols-3">
             {options.map((option) => (
               <button
@@ -156,19 +162,22 @@ useEffect(() => {
                 }}
                 className={`rounded-2xl border p-5 text-left transition ${
                   transport === option.id
-                    ? "border-[#C49A32] bg-[#F7F0D9]"
-                    : "border-[#D9E2D8] bg-white hover:border-[#C49A32]"
+                    ? "border-[#D4AF37] bg-[#F5F0E6] shadow-sm"
+                    : "border-[#DED5C2] bg-white hover:border-[#D4AF37] hover:bg-[#F5F0E6]/60"
                 }`}
               >
                 <span className="text-3xl">{option.icon}</span>
-                <h2 className="mt-3 text-lg font-extrabold text-[#173B2B]">
+
+                <h2 className="mt-3 text-lg font-extrabold text-[#123D2B]">
                   {option.name} Booking
                 </h2>
-                <p className="mt-2 text-sm leading-6 text-[#647468]">
+
+                <p className="mt-2 text-sm leading-6 text-[#68766D]">
                   {option.description}
                 </p>
+
                 {transport === option.id && (
-                  <span className="mt-3 inline-flex rounded-full bg-[#173B2B] px-3 py-1 text-xs font-bold text-[#F3D77C]">
+                  <span className="mt-3 inline-flex rounded-full bg-[#123D2B] px-3 py-1 text-xs font-bold text-[#D4AF37]">
                     Selected
                   </span>
                 )}
@@ -177,10 +186,10 @@ useEffect(() => {
           </div>
 
           <div className="mb-6 mt-9">
-            <h2 className="text-2xl font-black text-[#173B2B]">
+            <h2 className="text-2xl font-black text-[#123D2B]">
               Find Your Journey
             </h2>
-            <p className="mt-2 text-sm text-[#647468]">
+            <p className="mt-2 text-sm text-[#68766D]">
               Select your travel details to get started.
             </p>
           </div>
@@ -188,13 +197,13 @@ useEffect(() => {
           <form onSubmit={handleSearch} className="space-y-6">
             <div className="grid gap-4 md:grid-cols-[1fr_auto_1fr] md:items-end">
               <label className="block">
-                <span className="mb-2 block text-sm font-bold">
+                <span className="mb-2 block text-sm font-bold text-[#123D2B]">
                   Departure City
                 </span>
                 <select
                   value={from}
                   onChange={(event) => setFrom(event.target.value)}
-                  className="w-full rounded-xl border border-[#D9E2D8] bg-white p-4 text-[#10271D] outline-none focus:border-[#C49A32]"
+                  className="w-full rounded-xl border border-[#DED5C2] bg-white p-4 text-[#123D2B] outline-none transition focus:border-[#D4AF37] focus:ring-2 focus:ring-[#D4AF37]/20"
                 >
                   {cities.map((city) => (
                     <option key={city} value={city}>
@@ -208,19 +217,19 @@ useEffect(() => {
                 type="button"
                 onClick={swapCities}
                 aria-label="Swap departure and destination"
-                className="rounded-full border border-[#D4AF37] px-5 py-3 text-xl font-bold text-[#85631B] transition hover:bg-[#F7F0D9]"
+                className="rounded-full border border-[#D4AF37] px-5 py-3 text-xl font-bold text-[#123D2B] transition hover:bg-[#F5F0E6]"
               >
                 ⇄
               </button>
 
               <label className="block">
-                <span className="mb-2 block text-sm font-bold">
+                <span className="mb-2 block text-sm font-bold text-[#123D2B]">
                   Destination City
                 </span>
                 <select
                   value={to}
                   onChange={(event) => setTo(event.target.value)}
-                  className="w-full rounded-xl border border-[#D9E2D8] bg-white p-4 text-[#10271D] outline-none focus:border-[#C49A32]"
+                  className="w-full rounded-xl border border-[#DED5C2] bg-white p-4 text-[#123D2B] outline-none transition focus:border-[#D4AF37] focus:ring-2 focus:ring-[#D4AF37]/20"
                 >
                   {cities.map((city) => (
                     <option key={city} value={city}>
@@ -233,7 +242,7 @@ useEffect(() => {
 
             <div className="grid gap-5 md:grid-cols-2">
               <label className="block">
-                <span className="mb-2 block text-sm font-bold">
+                <span className="mb-2 block text-sm font-bold text-[#123D2B]">
                   Travel Date
                 </span>
                 <input
@@ -242,18 +251,18 @@ useEffect(() => {
                   min={minDate}
                   onChange={(event) => setDate(event.target.value)}
                   required
-                  className="w-full rounded-xl border border-[#D9E2D8] bg-white p-4 outline-none focus:border-[#C49A32]"
+                  className="w-full rounded-xl border border-[#DED5C2] bg-white p-4 text-[#123D2B] outline-none transition focus:border-[#D4AF37] focus:ring-2 focus:ring-[#D4AF37]/20"
                 />
               </label>
 
               <label className="block">
-                <span className="mb-2 block text-sm font-bold">
+                <span className="mb-2 block text-sm font-bold text-[#123D2B]">
                   Passengers
                 </span>
                 <select
                   value={passengers}
                   onChange={(event) => setPassengers(event.target.value)}
-                  className="w-full rounded-xl border border-[#D9E2D8] bg-white p-4 outline-none focus:border-[#C49A32]"
+                  className="w-full rounded-xl border border-[#DED5C2] bg-white p-4 text-[#123D2B] outline-none transition focus:border-[#D4AF37] focus:ring-2 focus:ring-[#D4AF37]/20"
                 >
                   {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((number) => (
                     <option key={number} value={number}>
@@ -265,25 +274,33 @@ useEffect(() => {
             </div>
 
             {message && (
-              <p role="alert" className="rounded-xl bg-red-50 p-4 text-sm font-semibold text-red-700">
+              <p
+                role="alert"
+                className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-700"
+              >
                 {message}
               </p>
             )}
 
             <button
               type="submit"
-              className="w-full rounded-full bg-[#173B2B] px-6 py-4 text-sm font-bold text-[#F3D77C] transition hover:bg-[#10271D]"
+              className="w-full rounded-full bg-[#123D2B] px-6 py-4 text-sm font-bold text-[#D4AF37] shadow-sm transition hover:bg-[#1B563C]"
             >
-              Search {transport === "bus" ? "Buses" : transport === "train" ? "Trains" : "Flights"}
+              Search{" "}
+              {transport === "bus"
+                ? "Buses"
+                : transport === "train"
+                  ? "Trains"
+                  : "Flights"}
             </button>
           </form>
 
           {searchDetails && (
-            <div className="mt-6 rounded-2xl border border-[#D9E2D8] bg-[#F3F6F1] p-5">
-              <h3 className="font-extrabold text-[#173B2B]">
+            <div className="mt-6 rounded-2xl border border-[#D4AF37]/50 bg-[#F5F0E6] p-5">
+              <h3 className="font-extrabold text-[#123D2B]">
                 Your Search Details
               </h3>
-              <p className="mt-2 text-sm leading-7 text-[#647468]">
+              <p className="mt-2 text-sm leading-7 text-[#68766D]">
                 {searchDetails}
               </p>
               <p className="mt-3 text-xs leading-6 text-[#85631B]">
@@ -300,7 +317,7 @@ useEffect(() => {
           <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#A17C26]">
             EXPLORE ALIQO
           </p>
-          <h2 className="mt-3 text-3xl font-black text-[#173B2B]">
+          <h2 className="mt-3 text-3xl font-black text-[#123D2B]">
             Travel Made Convenient
           </h2>
         </div>
@@ -309,13 +326,13 @@ useEffect(() => {
           {options.map((option) => (
             <article
               key={option.id}
-              className="rounded-3xl border border-[#D9E2D8] bg-white p-7 shadow-sm transition hover:-translate-y-1 hover:border-[#C49A32] hover:shadow-xl"
+              className="rounded-3xl border border-[#DED5C2] bg-white p-7 shadow-sm transition hover:-translate-y-1 hover:border-[#D4AF37] hover:shadow-xl"
             >
               <span className="text-4xl">{option.icon}</span>
-              <h3 className="mt-5 text-xl font-extrabold text-[#173B2B]">
+              <h3 className="mt-5 text-xl font-extrabold text-[#123D2B]">
                 {option.name} Travel
               </h3>
-              <p className="mt-3 text-sm leading-7 text-[#647468]">
+              <p className="mt-3 text-sm leading-7 text-[#68766D]">
                 {option.description}.
               </p>
               <button
@@ -326,7 +343,7 @@ useEffect(() => {
                   setMessage("");
                   window.scrollTo({ top: 300, behavior: "smooth" });
                 }}
-                className="mt-5 rounded-full bg-[#D4AF37] px-5 py-3 text-sm font-bold text-[#10271D] transition hover:bg-[#E4C35D]"
+                className="mt-5 rounded-full bg-[#D4AF37] px-5 py-3 text-sm font-bold text-[#123D2B] transition hover:bg-[#E8C95B]"
               >
                 Select {option.name}
               </button>
@@ -335,7 +352,7 @@ useEffect(() => {
         </div>
       </section>
 
-      <footer className="bg-[#090F0B] px-5 py-8 text-center text-sm text-[#A9B7AA]">
+      <footer className="bg-[#123D2B] px-5 py-8 text-center text-sm text-white">
         © 2026 ALIQO. All rights reserved.
       </footer>
     </main>
