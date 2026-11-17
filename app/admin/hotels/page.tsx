@@ -134,78 +134,111 @@ export default function AdminHotelsPage() {
 
   const statusStyle = (status: Hotel["status"]) => {
     if (status === "approved") {
-      return "border-green-500/40 bg-green-500/15 text-green-300";
+      return "border-green-200 bg-green-50 text-green-800";
     }
+
     if (status === "rejected") {
-      return "border-red-500/40 bg-red-500/15 text-red-300";
+      return "border-red-200 bg-red-50 text-red-700";
     }
-    return "border-yellow-500/40 bg-yellow-500/15 text-yellow-300";
+
+    return "border-[#D4AF37]/40 bg-[#F5F0E6] text-[#8A681B]";
   };
 
   return (
-    <main className="min-h-screen bg-[#071b13] p-4 text-white md:p-8">
+    <main className="min-h-screen bg-[#F5F0E6] p-4 text-[#123D2B] md:p-8">
       <div className="mx-auto max-w-7xl">
 
         {/* Header */}
-        <div className="mb-8 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-[#c9a646]/30 bg-[#103b29] p-6 shadow-xl">
-          <div>
-            <p className="mb-2 text-xs font-bold uppercase tracking-[0.3em] text-[#d6b75b]">
-              ALIQO Administration
-            </p>
-            <h1 className="text-2xl font-extrabold text-[#f4d77b] md:text-3xl">
-              Hotels Management
-            </h1>
-            <p className="mt-2 text-sm text-green-100/70">
-              Review and manage hotel registration applications.
-            </p>
-          </div>
+        <header className="mb-8 overflow-hidden rounded-3xl border border-[#D4AF37]/40 bg-[#123D2B] p-6 shadow-xl md:p-8">
+          <div className="flex flex-wrap items-center justify-between gap-5">
+            <div>
+              <a
+                href="/admin"
+                className="text-2xl font-black tracking-wide text-white"
+              >
+                ALI<span className="text-[#E8C95B]">QO</span>
+              </a>
 
-          <button
-            onClick={loadHotels}
-            disabled={loading}
-            className="rounded-xl border border-[#e0bd5d] bg-[#d0aa45] px-6 py-3 font-bold text-[#101810] shadow-lg transition hover:bg-[#f0d47b] disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {loading ? "Loading..." : "↻ Refresh"}
-          </button>
-        </div>
+              <p className="mb-2 mt-5 text-xs font-bold uppercase tracking-[0.3em] text-[#E8C95B]">
+                ALIQO Administration
+              </p>
+
+              <h1 className="text-2xl font-extrabold text-white md:text-3xl">
+                Hotels Management
+              </h1>
+
+              <p className="mt-2 text-sm text-[#E1E8DF]">
+                Review and manage hotel registration applications.
+              </p>
+
+              <div className="mt-5 h-1 w-20 rounded-full bg-[#D4AF37]" />
+            </div>
+
+            <div className="flex flex-wrap gap-3">
+              <a
+                href="/admin"
+                className="rounded-xl border border-[#D4AF37]/60 px-4 py-3 font-semibold text-[#E8C95B] transition hover:bg-[#1B563C]"
+              >
+                ← Admin Dashboard
+              </a>
+
+              <button
+                type="button"
+                onClick={loadHotels}
+                disabled={loading}
+                className="rounded-xl bg-gradient-to-r from-[#D4AF37] to-[#E8C95B] px-6 py-3 font-bold text-[#123D2B] shadow-md transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {loading ? "Loading..." : "↻ Refresh"}
+              </button>
+            </div>
+          </div>
+        </header>
 
         {/* Statistics */}
-        <div className="mb-7 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <section className="mb-7 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {stats.map((item, index) => (
             <div
               key={item.label}
-              className="rounded-2xl border border-[#c9a646]/30 bg-[#103b29] p-5 shadow-lg transition hover:-translate-y-1 hover:border-[#d6b75b]"
+              className="rounded-2xl border border-[#DED5C2] bg-white p-5 shadow-sm transition hover:-translate-y-1 hover:border-[#D4AF37] hover:shadow-lg"
             >
-              <p className="text-sm font-medium text-green-100/70">
+              <p className="text-sm font-semibold text-[#68766D]">
                 {item.label}
               </p>
-              <p className="mt-3 text-4xl font-extrabold text-[#f4d77b]">
+
+              <p className="mt-3 text-4xl font-extrabold text-[#123D2B]">
                 {item.value}
               </p>
+
               <div
                 className={`mt-4 h-1 w-14 rounded-full ${
-                  index === 0 ? "bg-[#d6b75b]" : "bg-[#27734c]"
+                  index === 0 ? "bg-[#D4AF37]" : "bg-[#1B563C]"
                 }`}
               />
             </div>
           ))}
-        </div>
+        </section>
 
-        {/* Success message */}
+        {/* Success Message */}
         {message && (
-          <div className="mb-5 rounded-xl border border-green-400/40 bg-green-900/40 p-4 text-green-200">
-            ✓ {message}
+          <div className="mb-5 rounded-xl border border-green-200 bg-green-50 p-4 text-green-800">
+            <p className="font-semibold">✓ {message}</p>
           </div>
         )}
 
-        {/* Error message */}
+        {/* Error Message */}
         {error && (
-          <div className="mb-5 rounded-xl border border-red-400/40 bg-red-950/50 p-5 text-red-200">
+          <div className="mb-5 rounded-xl border border-red-200 bg-red-50 p-5 text-red-800">
             <p className="font-bold">Request failed</p>
-            <p className="mt-2 text-sm">{error}</p>
+
+            <p className="mt-2 break-words text-sm">
+              {error}
+            </p>
+
             <button
+              type="button"
               onClick={loadHotels}
-              className="mt-4 rounded-lg border border-red-300/40 px-4 py-2 text-sm font-semibold hover:bg-red-900/50"
+              disabled={loading}
+              className="mt-4 rounded-lg border border-red-300 px-4 py-2 text-sm font-semibold transition hover:bg-red-100 disabled:opacity-50"
             >
               Try Again
             </button>
@@ -213,74 +246,100 @@ export default function AdminHotelsPage() {
         )}
 
         {/* Filters */}
-        <div className="mb-6 rounded-2xl border border-[#c9a646]/25 bg-[#103b29] p-4">
-          <p className="mb-3 text-sm font-bold text-[#e7ca78]">
-            Filter Applications
-          </p>
+        <section className="mb-6 rounded-2xl border border-[#DED5C2] bg-white p-5 shadow-sm">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-black text-[#123D2B]">
+                Hotel Applications
+              </h2>
 
-          <div className="flex flex-wrap gap-2">
+              <p className="mt-1 text-sm text-[#68766D]">
+                Filter and review hotel registrations.
+              </p>
+            </div>
+
+            <span className="text-sm font-semibold text-[#68766D]">
+              {filteredHotels.length} of {hotels.length} hotels
+            </span>
+          </div>
+
+          <div className="mt-5 flex flex-wrap gap-2">
             {filters.map((status) => (
               <button
+                type="button"
                 key={status}
                 onClick={() => setFilter(status)}
-                className={`rounded-lg border px-4 py-2 text-sm font-semibold capitalize transition ${
+                className={`rounded-xl border px-4 py-2.5 text-sm font-bold capitalize transition ${
                   filter === status
-                    ? "border-[#e4c15d] bg-[#d0aa45] text-[#101810]"
-                    : "border-green-700 bg-[#071b13] text-green-100 hover:border-[#d6b75b] hover:text-[#f4d77b]"
+                    ? "border-[#123D2B] bg-[#123D2B] text-white shadow-sm"
+                    : "border-[#DED5C2] bg-[#FDFBF7] text-[#536457] hover:border-[#D4AF37] hover:bg-[#F5F0E6]"
                 }`}
               >
                 {status === "all" ? "All Hotels" : status}
               </button>
             ))}
           </div>
-        </div>
+        </section>
 
-        {/* Hotel results */}
+        {/* Hotel Results */}
         {loading ? (
-          <div className="rounded-2xl border border-[#c9a646]/30 bg-[#103b29] p-12 text-center text-[#e7ca78]">
-            Loading hotel applications...
+          <div className="rounded-2xl border border-[#DED5C2] bg-white p-12 text-center shadow-sm">
+            <div className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-4 border-[#DED5C2] border-t-[#D4AF37]" />
+
+            <p className="font-semibold text-[#8A681B]">
+              Loading hotel applications...
+            </p>
           </div>
         ) : error ? (
-          <div className="rounded-2xl border border-[#c9a646]/20 bg-[#103b29] p-10 text-center text-green-100/70">
+          <div className="rounded-2xl border border-[#DED5C2] bg-white p-10 text-center text-[#68766D]">
             Hotel information could not be loaded. Please resolve the request error above.
           </div>
         ) : filteredHotels.length === 0 ? (
-          <div className="rounded-2xl border border-[#c9a646]/30 bg-[#103b29] p-12 text-center">
-            <p className="text-xl font-bold text-[#f4d77b]">
+          <div className="rounded-2xl border border-[#DED5C2] bg-white p-12 text-center shadow-sm">
+            <div className="mb-4 text-4xl text-[#B58B2B]">⌂</div>
+
+            <p className="text-xl font-bold text-[#123D2B]">
               No Hotel Applications Found
             </p>
-            <p className="mt-2 text-sm text-green-100/60">
+
+            <p className="mt-2 text-sm text-[#68766D]">
               Hotel applications will appear here when submitted.
             </p>
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
             {filteredHotels.map((hotel) => (
-              <div
+              <article
                 key={hotel.id}
-                className="overflow-hidden rounded-2xl border border-[#c9a646]/30 bg-[#103b29] shadow-xl transition hover:border-[#d6b75b]"
+                className="overflow-hidden rounded-2xl border border-[#DED5C2] bg-white shadow-sm transition hover:border-[#D4AF37] hover:shadow-lg"
               >
                 {hotel.image_url && (
                   <img
                     src={hotel.image_url}
                     alt={hotel.hotel_name}
-                    className="h-52 w-full border-b border-[#c9a646]/30 object-cover"
+                    className="h-52 w-full border-b border-[#DED5C2] object-cover"
                   />
                 )}
 
-                <div className="p-5">
+                <div className="p-5 sm:p-6">
+                  {/* Hotel Heading */}
                   <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
                     <div>
-                      <h2 className="text-xl font-extrabold text-[#f4d77b]">
+                      <p className="text-xs font-bold tracking-wider text-[#8A681B]">
+                        HOTEL PROFILE
+                      </p>
+
+                      <h2 className="mt-2 text-xl font-extrabold text-[#123D2B]">
                         {hotel.hotel_name}
                       </h2>
-                      <p className="mt-1 text-sm text-green-100/60">
+
+                      <p className="mt-1 text-sm text-[#68766D]">
                         {hotel.city}
                       </p>
                     </div>
 
                     <span
-                      className={`rounded-full border px-3 py-1 text-xs font-bold capitalize ${statusStyle(
+                      className={`rounded-full border px-3 py-1.5 text-xs font-bold capitalize ${statusStyle(
                         hotel.status
                       )}`}
                     >
@@ -288,68 +347,76 @@ export default function AdminHotelsPage() {
                     </span>
                   </div>
 
-                  <div className="space-y-3 break-words text-sm text-green-50/90">
-                    <p>
-                      <strong className="text-[#e7ca78]">Owner:</strong>{" "}
+                  {/* Hotel Information */}
+                  <div className="space-y-4 rounded-xl border border-[#DED5C2] bg-[#F5F0E6] p-4 text-sm text-[#536457]">
+                    <p className="break-words">
+                      <strong className="text-[#8A681B]">Owner:</strong>{" "}
                       {hotel.owner_name}
                     </p>
-                    <p>
-                      <strong className="text-[#e7ca78]">Email:</strong>{" "}
+
+                    <p className="break-words">
+                      <strong className="text-[#8A681B]">Email:</strong>{" "}
                       {hotel.email}
                     </p>
+
                     <p>
-                      <strong className="text-[#e7ca78]">Phone:</strong>{" "}
+                      <strong className="text-[#8A681B]">Phone:</strong>{" "}
                       {hotel.phone}
                     </p>
 
                     {hotel.whatsapp_number && (
                       <p>
-                        <strong className="text-[#e7ca78]">WhatsApp:</strong>{" "}
+                        <strong className="text-[#8A681B]">WhatsApp:</strong>{" "}
                         {hotel.whatsapp_number}
                       </p>
                     )}
 
-                    <p>
-                      <strong className="text-[#e7ca78]">Address:</strong>{" "}
+                    <p className="break-words">
+                      <strong className="text-[#8A681B]">Address:</strong>{" "}
                       {hotel.address}
                     </p>
 
                     {hotel.description && (
-                      <p>
-                        <strong className="text-[#e7ca78]">
+                      <div>
+                        <strong className="text-[#8A681B]">
                           Description:
-                        </strong>{" "}
-                        {hotel.description}
-                      </p>
+                        </strong>
+
+                        <p className="mt-1 whitespace-pre-wrap">
+                          {hotel.description}
+                        </p>
+                      </div>
                     )}
 
                     {hotel.website_url && (
-                      <p>
-                        <strong className="text-[#e7ca78]">Website:</strong>{" "}
+                      <p className="break-words">
+                        <strong className="text-[#8A681B]">Website:</strong>{" "}
                         <a
                           href={hotel.website_url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="break-all text-[#f4d77b] underline hover:text-white"
+                          className="break-all font-semibold text-[#8A681B] underline transition hover:text-[#123D2B]"
                         >
                           {hotel.website_url}
                         </a>
                       </p>
                     )}
 
-                    <p className="border-t border-[#c9a646]/20 pt-3 text-xs text-green-100/50">
+                    <p className="border-t border-[#DED5C2] pt-3 text-xs text-[#68766D]">
                       Applied: {new Date(hotel.created_at).toLocaleString()}
                     </p>
                   </div>
 
+                  {/* Approval Actions */}
                   {hotel.status === "pending" && (
-                    <div className="mt-5 flex flex-wrap gap-3 border-t border-[#c9a646]/25 pt-5">
+                    <div className="mt-5 flex flex-wrap gap-3 border-t border-[#DED5C2] pt-5">
                       <button
+                        type="button"
                         onClick={() =>
                           updateStatus(hotel.id, "approved")
                         }
                         disabled={updatingId === hotel.id}
-                        className="rounded-lg border border-[#e0bd5d] bg-[#d0aa45] px-5 py-2.5 text-sm font-bold text-[#101810] transition hover:bg-[#f0d47b] disabled:opacity-50"
+                        className="rounded-xl bg-[#123D2B] px-5 py-2.5 text-sm font-bold text-white transition hover:bg-[#1B563C] disabled:cursor-not-allowed disabled:opacity-50"
                       >
                         {updatingId === hotel.id
                           ? "Updating..."
@@ -357,25 +424,36 @@ export default function AdminHotelsPage() {
                       </button>
 
                       <button
+                        type="button"
                         onClick={() =>
                           updateStatus(hotel.id, "rejected")
                         }
                         disabled={updatingId === hotel.id}
-                        className="rounded-lg border border-red-400/50 bg-black px-5 py-2.5 text-sm font-bold text-red-300 transition hover:bg-red-950 disabled:opacity-50"
+                        className="rounded-xl border border-red-200 bg-red-50 px-5 py-2.5 text-sm font-bold text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50"
                       >
                         ✕ Reject Hotel
                       </button>
                     </div>
                   )}
                 </div>
-              </div>
+              </article>
             ))}
           </div>
         )}
 
-        <div className="mt-10 border-t border-[#c9a646]/20 pt-5 text-center text-xs text-green-100/40">
-          ALIQO • Hotels Administration
-        </div>
+        {/* Footer */}
+        <footer className="mt-10 border-t border-[#DED5C2] pt-5 text-center">
+          <a
+            href="/admin"
+            className="font-semibold text-[#8A681B] transition hover:text-[#123D2B] hover:underline"
+          >
+            ← Back to Admin Dashboard
+          </a>
+
+          <p className="mt-4 text-xs text-[#68766D]">
+            ALIQO • Hotels Administration
+          </p>
+        </footer>
       </div>
     </main>
   );
