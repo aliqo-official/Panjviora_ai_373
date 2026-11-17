@@ -136,93 +136,117 @@ export default function AdminDealsPage() {
 
   function statusStyle(status: Deal["status"]) {
     if (status === "approved") {
-      return "border border-green-500/40 bg-green-500/15 text-green-300";
+      return "border border-green-200 bg-green-50 text-green-800";
     }
 
     if (status === "rejected") {
-      return "border border-red-500/40 bg-red-500/15 text-red-300";
+      return "border border-red-200 bg-red-50 text-red-700";
     }
 
-    return "border border-[#D4AF37]/40 bg-[#D4AF37]/15 text-[#D4AF37]";
+    return "border border-[#D4AF37]/40 bg-[#F5F0E6] text-[#8A681B]";
   }
 
   return (
-    <main className="min-h-screen bg-[#080D0A] px-4 py-8 text-[#F5F5F0] sm:px-6">
+    <main className="min-h-screen bg-[#F5F0E6] px-4 py-8 text-[#123D2B] sm:px-6">
       <div className="mx-auto max-w-6xl">
 
         {/* Header */}
-        <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <p className="font-bold tracking-[0.25em] text-[#D4AF37]">
-              ALIQO ADMIN
-            </p>
+        <header className="mb-8 rounded-3xl border border-[#D4AF37]/40 bg-[#123D2B] p-6 shadow-xl sm:p-8">
+          <div className="flex flex-wrap items-center justify-between gap-5">
+            <div>
+              <p className="font-bold tracking-[0.25em] text-[#E8C95B]">
+                ALIQO ADMIN
+              </p>
 
-            <h1 className="mt-2 text-3xl font-bold text-[#F5F5F0]">
-              Deals Management
-            </h1>
+              <h1 className="mt-3 text-3xl font-black text-white sm:text-4xl">
+                Deals Management
+              </h1>
 
-            <p className="mt-2 text-[#B8C2BA]">
-              Review and manage submitted business offers.
-            </p>
+              <p className="mt-3 text-sm text-[#E1E8DF] sm:text-base">
+                Review and manage submitted business offers.
+              </p>
+
+              <div className="mt-5 h-1 w-20 rounded-full bg-[#D4AF37]" />
+            </div>
+
+            <div className="flex flex-wrap gap-3">
+              <Link
+                href="/admin"
+                className="rounded-xl border border-[#D4AF37]/60 px-4 py-2.5 font-semibold text-[#E8C95B] transition hover:bg-[#1B563C]"
+              >
+                ← Main Dashboard
+              </Link>
+
+              <button
+                type="button"
+                onClick={loadDeals}
+                disabled={loading}
+                className="rounded-xl bg-gradient-to-r from-[#D4AF37] to-[#E8C95B] px-5 py-2.5 font-bold text-[#123D2B] shadow-sm transition hover:brightness-105 disabled:opacity-50"
+              >
+                {loading ? "Loading..." : "↻ Refresh"}
+              </button>
+            </div>
           </div>
-
-          <div className="flex flex-wrap gap-3">
-            <Link
-              href="/admin"
-              className="rounded-lg border border-[#D4AF37]/50 px-4 py-2 font-semibold text-[#D4AF37] transition hover:bg-[#123D2B]"
-            >
-              ← Main Dashboard
-            </Link>
-
-            <button
-              onClick={loadDeals}
-              className="rounded-lg bg-[#D4AF37] px-5 py-2 font-bold text-[#080D0A] transition hover:bg-[#E6C65A]"
-            >
-              Refresh
-            </button>
-          </div>
-        </div>
+        </header>
 
         {/* Statistics */}
-        <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <div className="rounded-2xl border border-[#D4AF37]/30 bg-[#123D2B] p-5">
-            <p className="text-sm text-[#E5DDBD]">Total Deals</p>
-            <p className="mt-2 text-3xl font-bold text-[#D4AF37]">
-              {deals.length}
-            </p>
-          </div>
+        <section className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {[
+            {
+              label: "Total Deals",
+              count: deals.length,
+              icon: "▤",
+            },
+            {
+              label: "Pending",
+              count: pending,
+              icon: "◷",
+            },
+            {
+              label: "Approved",
+              count: approved,
+              icon: "✓",
+            },
+            {
+              label: "Rejected",
+              count: rejected,
+              icon: "×",
+            },
+          ].map((stat) => (
+            <div
+              key={stat.label}
+              className="rounded-2xl border border-[#DED5C2] bg-white p-5 shadow-sm transition hover:-translate-y-1 hover:border-[#D4AF37] hover:shadow-lg"
+            >
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-sm font-semibold text-[#68766D]">
+                  {stat.label}
+                </p>
 
-          <div className="rounded-2xl border border-[#D4AF37]/30 bg-[#101813] p-5">
-            <p className="text-sm text-[#D4AF37]">Pending</p>
-            <p className="mt-2 text-3xl font-bold text-[#D4AF37]">
-              {pending}
-            </p>
-          </div>
+                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#F5F0E6] text-xl font-bold text-[#A17C26]">
+                  {stat.icon}
+                </span>
+              </div>
 
-          <div className="rounded-2xl border border-green-500/30 bg-[#101813] p-5">
-            <p className="text-sm text-green-300">Approved</p>
-            <p className="mt-2 text-3xl font-bold text-green-300">
-              {approved}
-            </p>
-          </div>
+              <p className="mt-3 text-3xl font-black text-[#123D2B]">
+                {stat.count}
+              </p>
 
-          <div className="rounded-2xl border border-red-500/30 bg-[#101813] p-5">
-            <p className="text-sm text-red-300">Rejected</p>
-            <p className="mt-2 text-3xl font-bold text-red-300">
-              {rejected}
-            </p>
-          </div>
-        </div>
+              <div className="mt-4 h-1 w-full rounded-full bg-[#F5F0E6]">
+                <div className="h-1 w-1/3 rounded-full bg-[#D4AF37]" />
+              </div>
+            </div>
+          ))}
+        </section>
 
         {/* Error Message */}
         {error && (
-          <div className="mb-6 rounded-xl border border-red-500/40 bg-red-500/10 p-4 text-red-300">
-            {error}
+          <div className="mb-6 rounded-xl border border-red-200 bg-red-50 p-4 text-red-700">
+            <p>{error}</p>
 
             <p className="mt-2">
               <Link
                 href="/admin"
-                className="font-bold text-[#D4AF37] underline"
+                className="font-bold text-[#8A681B] underline"
               >
                 Go to Admin Login
               </Link>
@@ -231,35 +255,46 @@ export default function AdminDealsPage() {
         )}
 
         {/* Deals Filter */}
-        <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
-          <h2 className="text-xl font-bold text-[#D4AF37]">
-            Submitted Deals
-          </h2>
+        <section className="mb-6 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-[#DED5C2] bg-white p-5 shadow-sm">
+          <div>
+            <h2 className="text-xl font-black text-[#123D2B]">
+              Submitted Deals
+            </h2>
+
+            <p className="mt-1 text-sm text-[#68766D]">
+              Review business offers and manage their approval status.
+            </p>
+          </div>
 
           <select
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
-            className="rounded-lg border border-[#D4AF37]/50 bg-[#101813] px-4 py-2 text-[#F5F5F0] outline-none focus:border-[#D4AF37]"
+            className="min-w-44 rounded-xl border border-[#DED5C2] bg-[#FDFBF7] px-4 py-2.5 text-[#123D2B] outline-none focus:border-[#D4AF37] focus:ring-2 focus:ring-[#D4AF37]/20"
           >
             <option value="all">All Deals</option>
             <option value="pending">Pending</option>
             <option value="approved">Approved</option>
             <option value="rejected">Rejected</option>
           </select>
-        </div>
+        </section>
 
         {/* Deals List */}
         {loading ? (
-          <div className="rounded-2xl border border-[#D4AF37]/20 bg-[#101813] p-10 text-center text-[#D4AF37]">
-            Loading deals...
+          <div className="rounded-2xl border border-[#DED5C2] bg-white p-10 text-center shadow-sm">
+            <div className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-4 border-[#DED5C2] border-t-[#D4AF37]" />
+            <p className="font-semibold text-[#8A681B]">
+              Loading deals...
+            </p>
           </div>
         ) : filteredDeals.length === 0 ? (
-          <div className="rounded-2xl border border-[#D4AF37]/20 bg-[#101813] p-10 text-center">
-            <p className="text-lg font-semibold text-[#F5F5F0]">
+          <div className="rounded-2xl border border-[#DED5C2] bg-white p-10 text-center shadow-sm">
+            <div className="mb-4 text-4xl text-[#B58B2B]">▤</div>
+
+            <p className="text-lg font-bold text-[#123D2B]">
               No deals found.
             </p>
 
-            <p className="mt-2 text-sm text-[#B8C2BA]">
+            <p className="mt-2 text-sm text-[#68766D]">
               Submitted offers will appear here.
             </p>
           </div>
@@ -268,21 +303,21 @@ export default function AdminDealsPage() {
             {filteredDeals.map((deal) => (
               <article
                 key={deal.id}
-                className="rounded-2xl border border-[#D4AF37]/25 bg-[#101813] p-5 shadow-lg shadow-black/20 transition hover:border-[#D4AF37]/60 sm:p-6"
+                className="rounded-2xl border border-[#DED5C2] bg-white p-5 shadow-sm transition hover:border-[#D4AF37] hover:shadow-lg sm:p-6"
               >
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
-                    <p className="text-sm font-semibold text-[#D4AF37]">
+                    <p className="text-sm font-bold text-[#8A681B]">
                       {deal.business_name} · {deal.category}
                     </p>
 
-                    <h3 className="mt-2 text-xl font-bold text-[#F5F5F0]">
+                    <h3 className="mt-2 text-xl font-black text-[#123D2B]">
                       {deal.title}
                     </h3>
                   </div>
 
                   <span
-                    className={`rounded-full px-3 py-1 text-xs font-bold uppercase ${statusStyle(
+                    className={`rounded-full px-4 py-2 text-xs font-bold uppercase ${statusStyle(
                       deal.status
                     )}`}
                   >
@@ -290,28 +325,28 @@ export default function AdminDealsPage() {
                   </span>
                 </div>
 
-                <p className="mt-4 whitespace-pre-wrap leading-7 text-[#D0D8D1]">
+                <p className="mt-4 whitespace-pre-wrap leading-7 text-[#536457]">
                   {deal.description}
                 </p>
 
-                <div className="mt-5 grid gap-3 rounded-xl border border-[#D4AF37]/15 bg-[#123D2B]/50 p-4 text-sm text-[#D0D8D1] sm:grid-cols-2">
+                <div className="mt-5 grid gap-3 rounded-xl border border-[#DED5C2] bg-[#F5F0E6] p-4 text-sm text-[#536457] sm:grid-cols-2">
                   <p>
-                    <strong className="text-[#D4AF37]">Contact:</strong>{" "}
+                    <strong className="text-[#8A681B]">Contact:</strong>{" "}
                     {deal.contact_name}
                   </p>
 
-                  <p>
-                    <strong className="text-[#D4AF37]">Email:</strong>{" "}
+                  <p className="break-all">
+                    <strong className="text-[#8A681B]">Email:</strong>{" "}
                     {deal.email}
                   </p>
 
                   <p>
-                    <strong className="text-[#D4AF37]">Valid Until:</strong>{" "}
+                    <strong className="text-[#8A681B]">Valid Until:</strong>{" "}
                     {deal.valid_until || "Not specified"}
                   </p>
 
                   <p>
-                    <strong className="text-[#D4AF37]">Submitted:</strong>{" "}
+                    <strong className="text-[#8A681B]">Submitted:</strong>{" "}
                     {new Date(deal.created_at).toLocaleString()}
                   </p>
                 </div>
@@ -322,35 +357,38 @@ export default function AdminDealsPage() {
                       href={deal.offer_url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="font-semibold text-[#D4AF37] underline hover:text-[#E6C65A]"
+                      className="font-bold text-[#8A681B] underline decoration-[#D4AF37] underline-offset-4 hover:text-[#123D2B]"
                     >
-                      Visit Offer Website
+                      Visit Offer Website ↗
                     </a>
                   </p>
                 )}
 
                 {/* Actions */}
-                <div className="mt-6 flex flex-wrap gap-3 border-t border-[#D4AF37]/20 pt-5">
+                <div className="mt-6 flex flex-wrap gap-3 border-t border-[#DED5C2] pt-5">
                   <button
+                    type="button"
                     disabled={updatingId === deal.id}
                     onClick={() => updateStatus(deal.id, "approved")}
-                    className="rounded-lg bg-[#D4AF37] px-5 py-2 font-bold text-[#080D0A] transition hover:bg-[#E6C65A] disabled:opacity-50"
+                    className="rounded-xl bg-[#123D2B] px-5 py-2.5 font-bold text-white transition hover:bg-[#1B563C] disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    {updatingId === deal.id ? "Updating..." : "Approve"}
+                    {updatingId === deal.id ? "Updating..." : "✓ Approve"}
                   </button>
 
                   <button
+                    type="button"
                     disabled={updatingId === deal.id}
                     onClick={() => updateStatus(deal.id, "rejected")}
-                    className="rounded-lg border border-red-500/50 bg-red-500/10 px-5 py-2 font-bold text-red-300 transition hover:bg-red-500/20 disabled:opacity-50"
+                    className="rounded-xl border border-red-200 bg-red-50 px-5 py-2.5 font-bold text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     Reject
                   </button>
 
                   <button
+                    type="button"
                     disabled={deletingId === deal.id}
                     onClick={() => deleteDeal(deal.id)}
-                    className="rounded-lg border border-red-500/50 px-5 py-2 font-bold text-red-300 transition hover:bg-red-500/10 disabled:opacity-50"
+                    className="rounded-xl border border-red-200 px-5 py-2.5 font-bold text-red-700 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {deletingId === deal.id ? "Deleting..." : "Delete"}
                   </button>
@@ -359,6 +397,7 @@ export default function AdminDealsPage() {
             ))}
           </div>
         )}
+
       </div>
     </main>
   );
