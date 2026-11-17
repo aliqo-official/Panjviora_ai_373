@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 
 type Institution = {
@@ -19,12 +19,12 @@ type Institution = {
   cover_image_url?: string | null;
 };
 
-const types = [
-  { value: "", label: "All Institutions" },
-  { value: "school", label: "Schools" },
-  { value: "college", label: "Colleges" },
-  { value: "university", label: "Universities" },
-  { value: "academy", label: "Academies" },
+const institutionTypes = [
+  { label: "All Institutions", value: "" },
+  { label: "Schools", value: "school" },
+  { label: "Colleges", value: "college" },
+  { label: "Universities", value: "university" },
+  { label: "Academies", value: "academy" },
 ];
 
 export default function EducationPage() {
@@ -36,10 +36,8 @@ export default function EducationPage() {
   const [error, setError] = useState("");
   const [retryCount, setRetryCount] = useState(0);
 
-  useEffect(() => {
-    const controller = new AbortController();
-
-    async function loadInstitutions() {
+  const fetchInstitutions = useCallback(
+    async (signal: AbortSignal) => {
       setLoading(true);
       setError("");
 
@@ -50,13 +48,12 @@ export default function EducationPage() {
         if (city.trim()) params.set("city", city.trim());
         if (search.trim()) params.set("search", search.trim());
 
-        const query = params.toString();
-
         const response = await fetch(
-          `/api/education/directory${query ? `?${query}` : ""}`,
+          `/api/education/directory?${params.toString()}`,
           {
-            signal: controller.signal,
+            method: "GET",
             cache: "no-store",
+            signal,
           }
         );
 
@@ -64,110 +61,177 @@ export default function EducationPage() {
 
         if (!response.ok) {
           throw new Error(
-            data.error || "Unable to load institutions."
+            data?.error || "Unable to load institutions."
           );
         }
 
-        if (!Array.isArray(data.institutions)) {
-          throw new Error("Invalid directory response.");
+        if (!Array.isArray(data?.institutions)) {
+          throw new Error("Invalid response received from server.");
         }
 
         setInstitutions(data.institutions);
       } catch (err) {
-        if (
-          err instanceof Error &&
-          err.name === "AbortError"
-        ) {
-          return;
-        }
+        if (err instanceof Error && err.name === "AbortError") return;
 
+        setInstitutions([]);
         setError(
           err instanceof Error
             ? err.message
-            : "Something went wrong."
+            : "Something went wrong. Please try again."
         );
       } finally {
-        if (!controller.signal.aborted) {
-          setLoading(false);
-        }
+        if (!signal.aborted) setLoading(false);
       }
-    }
+    },
+    [type, city, search, retryCount]
+  );
 
-    // Debounce search requests
-    const timer = setTimeout(() => {
-      loadInstitutions();
+  useEffect(() => {
+    const controller = new AbortController();
+
+    const timeout = setTimeout(() => {
+      fetchInstitutions(controller.signal);
     }, 350);
 
     return () => {
-      clearTimeout(timer);
+      clearTimeout(timeout);
       controller.abort();
     };
-  }, [type, city, search, retryCount]);
+  }, [fetchInstitutions]);
 
-  function handleRetry() {
-    setRetryCount((previous) => previous + 1);
-  }
-
-  function clearFilters() {
+  const clearFilters = () => {
     setSearch("");
     setCity("");
     setType("");
-    setRetryCount((previous) => previous + 1);
-  }
+    setRetryCount((count) => count + 1);
+  };
+
+  const retry = () => {
+    setRetryCount((count) => count + 1);
+  };
+
+  const getTypeLabel = (value: string) => {
+    return (
+      institutionTypes.find((item) => item.value === value)?.label ||
+      value
+    );
+  };
 
   return (
-    <main className="min-h-screen bg-[#F5F0E6] text-[#123D2B]">
+    <main className="min-h-screen bg-[#f8f7f2] text-[#17251d]">
       {/* Hero Section */}
-      <section className="bg-[#123D2B] px-5 py-16 text-center text-white">
-        <div className="mx-auto max-w-4xl">
-          <p className="mb-3 text-sm font-semibold uppercase tracking-[0.2em] text-[#D4AF37]">
-            ALIQO Education
-          </p>
+      <section className="relative overflow-hidden bg-[#103d2b] px-5 py-20 text-white">
+        <div className="absolute -right-20 -top-20 h-72 w-72 rounded-full bg-[#d5ad55]/10 blur-3xl" />
+        <div className="absolute -bottom-24 -left-20 h-72 w-72 rounded-full bg-black/20 blur-3xl" />
 
-          <h1 className="text-3xl font-bold sm:text-5xl">
-            Discover Educational Institutions
+        <div className="relative mx-auto max-w-7xl">
+          <div className="mb-4 inline-flex rounded-full border border-[#d5ad55]/40 bg-[#d5ad55]/10 px-4 py-2 text-sm font-semibold text-[#e8c777]">
+            ALIQO EDUCATION DIRECTORY
+          </div>
+
+          <h1 className="max-w-3xl text-4xl font-extrabold leading-tight md:text-6xl">
+            Discover the Right
+            <span className="block text-[#e2bd69]">
+              Educational Institution
+            </span>
           </h1>
 
-          <p className="mx-auto mt-4 max-w-2xl text-sm leading-7 text-white/80 sm:text-base">
-            Explore schools, colleges, universities and academies
-            across Pakistan. Find programs and connect with institutions.
+          <p className="mt-6 max-w-2xl text-base leading-7 text-white/75 md:text-lg">
+            Explore schools, colleges, universities and academies.
+            Find institutions that match your educational goals.
           </p>
+
+          <div className="mt-9 flex flex-wrap gap-3">
+            <a
+              href="#institutions"
+              className="rounded-xl bg-[#d5ad55] px-7 py-3 font-bold text-[#17251d] transition hover:bg-[#e7c879]"
+            >
+              Explore Institutions
+            </a>
+
+            <Link
+              href="/"
+              className="rounded-xl border border-white/30 px-7 py-3 font-semibold text-white transition hover:bg-white/10"
+            >
+              Back to Home
+            </Link>
+          </div>
         </div>
       </section>
 
-      {/* Search Section */}
-      <section className="mx-auto max-w-7xl px-5 py-10">
-        <div className="mb-8 rounded-2xl border border-[#D4AF37]/40 bg-white p-5 shadow-sm">
-          <h2 className="mb-4 text-lg font-bold">
-            Find an Institution
+      {/* Directory */}
+      <section
+        id="institutions"
+        className="mx-auto max-w-7xl px-5 py-14"
+      >
+        <div className="mb-9">
+          <p className="text-sm font-bold uppercase tracking-[0.2em] text-[#b18b37]">
+            Find Your Future
+          </p>
+
+          <h2 className="mt-2 text-3xl font-extrabold text-[#103d2b] md:text-4xl">
+            Educational Institutions
           </h2>
 
-          <div className="grid gap-4 md:grid-cols-3">
+          <p className="mt-3 max-w-2xl text-[#657168]">
+            Search and explore verified educational institutions
+            available in the ALIQO directory.
+          </p>
+        </div>
+
+        {/* Filters */}
+        <div className="mb-9 grid gap-4 rounded-2xl border border-[#e8e3d6] bg-white p-5 shadow-sm md:grid-cols-3">
+          <div>
+            <label
+              htmlFor="education-search"
+              className="mb-2 block text-sm font-bold text-[#243b2d]"
+            >
+              Search Institution
+            </label>
+
             <input
+              id="education-search"
               type="search"
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search institution..."
-              aria-label="Search institution"
-              className="w-full rounded-xl border border-[#123D2B]/20 bg-[#F5F0E6] px-4 py-3 outline-none focus:border-[#D4AF37]"
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Institution name..."
+              className="w-full rounded-xl border border-[#deded5] bg-[#fafaf7] px-4 py-3 outline-none transition focus:border-[#b18b37] focus:ring-2 focus:ring-[#d5ad55]/20"
             />
+          </div>
+
+          <div>
+            <label
+              htmlFor="education-city"
+              className="mb-2 block text-sm font-bold text-[#243b2d]"
+            >
+              City
+            </label>
 
             <input
+              id="education-city"
               type="text"
               value={city}
-              onChange={(e) => setCity(e.target.value)}
+              onChange={(event) => setCity(event.target.value)}
               placeholder="Enter city..."
-              aria-label="Filter by city"
-              className="w-full rounded-xl border border-[#123D2B]/20 bg-[#F5F0E6] px-4 py-3 outline-none focus:border-[#D4AF37]"
+              className="w-full rounded-xl border border-[#deded5] bg-[#fafaf7] px-4 py-3 outline-none transition focus:border-[#b18b37] focus:ring-2 focus:ring-[#d5ad55]/20"
             />
+          </div>
+
+          <div>
+            <label
+              htmlFor="education-type"
+              className="mb-2 block text-sm font-bold text-[#243b2d]"
+            >
+              Institution Type
+            </label>
 
             <select
+              id="education-type"
               value={type}
-              onChange={(e) => setType(e.target.value)}
-              aria-label="Institution type"
-              className="w-full rounded-xl border border-[#123D2B]/20 bg-[#F5F0E6] px-4 py-3 outline-none focus:border-[#D4AF37]"
+              onChange={(event) => setType(event.target.value)}
+              className="w-full rounded-xl border border-[#deded5] bg-[#fafaf7] px-4 py-3 outline-none transition focus:border-[#b18b37] focus:ring-2 focus:ring-[#d5ad55]/20"
             >
-              {types.map((item) => (
+              {institutionTypes.map((item) => (
                 <option key={item.value} value={item.value}>
                   {item.label}
                 </option>
@@ -175,50 +239,62 @@ export default function EducationPage() {
             </select>
           </div>
 
-          <div className="mt-4 flex justify-end">
+          <div className="md:col-span-3">
             <button
               type="button"
               onClick={clearFilters}
-              className="rounded-lg border border-[#123D2B]/20 px-4 py-2 text-sm font-semibold transition hover:bg-[#123D2B]/5"
+              className="rounded-lg border border-[#103d2b] px-5 py-2.5 text-sm font-bold text-[#103d2b] transition hover:bg-[#103d2b] hover:text-white"
             >
-              Clear Filters
+              Clear All Filters
             </button>
           </div>
         </div>
 
-        {/* Directory Heading */}
+        {/* Results Heading */}
         <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-2xl font-bold">
-            Education Directory
-          </h2>
+          <h3 className="text-xl font-bold text-[#103d2b]">
+            Explore Institutions
+          </h3>
 
           {!loading && !error && (
-            <span className="rounded-full bg-[#123D2B]/10 px-4 py-2 text-sm font-semibold">
-              {institutions.length} institutions
+            <span className="rounded-full bg-[#103d2b]/10 px-4 py-2 text-sm font-semibold text-[#103d2b]">
+              {institutions.length} Results
             </span>
           )}
         </div>
 
         {/* Loading */}
         {loading && (
-          <div className="rounded-2xl bg-white p-10 text-center shadow-sm">
-            <p className="font-semibold">
-              Loading institutions...
-            </p>
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            {[1, 2, 3].map((item) => (
+              <div
+                key={item}
+                className="animate-pulse overflow-hidden rounded-2xl border border-[#e8e3d6] bg-white"
+              >
+                <div className="h-44 bg-[#e9e8df]" />
+                <div className="space-y-3 p-5">
+                  <div className="h-5 w-3/4 rounded bg-[#e9e8df]" />
+                  <div className="h-4 w-1/2 rounded bg-[#e9e8df]" />
+                  <div className="h-10 rounded bg-[#e9e8df]" />
+                </div>
+              </div>
+            ))}
           </div>
         )}
 
         {/* Error */}
         {!loading && error && (
-          <div className="rounded-2xl border border-red-200 bg-white p-8 text-center">
-            <p className="font-semibold text-red-700">
-              {error}
-            </p>
+          <div className="rounded-2xl border border-red-200 bg-red-50 p-8 text-center">
+            <h3 className="text-xl font-bold text-red-800">
+              Unable to Load Institutions
+            </h3>
+
+            <p className="mt-3 text-sm text-red-700">{error}</p>
 
             <button
               type="button"
-              onClick={handleRetry}
-              className="mt-4 rounded-lg bg-[#123D2B] px-5 py-2 font-semibold text-white hover:bg-[#1b563d]"
+              onClick={retry}
+              className="mt-5 rounded-xl bg-[#103d2b] px-6 py-3 font-bold text-white transition hover:bg-[#18543a]"
             >
               Try Again
             </button>
@@ -227,103 +303,143 @@ export default function EducationPage() {
 
         {/* Empty State */}
         {!loading && !error && institutions.length === 0 && (
-          <div className="rounded-2xl border border-[#D4AF37]/30 bg-white p-10 text-center">
-            <h3 className="text-xl font-bold">
-              No institutions found
+          <div className="rounded-2xl border border-dashed border-[#d7d2c5] bg-white px-6 py-16 text-center">
+            <div className="text-5xl">🎓</div>
+
+            <h3 className="mt-5 text-2xl font-bold text-[#103d2b]">
+              No Institutions Found
             </h3>
 
-            <p className="mt-2 text-sm text-gray-600">
-              Try another search term, city or institution type.
+            <p className="mx-auto mt-3 max-w-md text-[#657168]">
+              No institutions match your current search. Try another
+              search term or clear your filters.
             </p>
 
             <button
               type="button"
               onClick={clearFilters}
-              className="mt-5 rounded-lg bg-[#123D2B] px-5 py-2 font-semibold text-white"
+              className="mt-6 rounded-xl bg-[#d5ad55] px-6 py-3 font-bold text-[#17251d] transition hover:bg-[#e7c879]"
             >
-              Reset Filters
+              Clear Filters
             </button>
           </div>
         )}
 
         {/* Institution Cards */}
         {!loading && !error && institutions.length > 0 && (
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
             {institutions.map((institution) => (
               <article
                 key={institution.id}
-                className="overflow-hidden rounded-2xl border border-[#D4AF37]/30 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-lg"
+                className="group overflow-hidden rounded-2xl border border-[#e8e3d6] bg-white shadow-sm transition duration-300 hover:-translate-y-1 hover:border-[#d5ad55] hover:shadow-xl"
               >
-                {institution.cover_image_url ? (
-                  <img
-                    src={institution.cover_image_url}
-                    alt={`${institution.institution_name} cover`}
-                    className="h-36 w-full object-cover"
-                  />
-                ) : (
-                  <div className="flex h-36 items-center justify-center bg-[#123D2B]">
-                    <span className="text-4xl font-bold text-[#D4AF37]">
-                      ALIQO
-                    </span>
-                  </div>
-                )}
+                <div className="relative h-48 overflow-hidden bg-[#103d2b]">
+                  {institution.cover_image_url ? (
+                    <img
+                      src={institution.cover_image_url}
+                      alt={`${institution.institution_name} cover`}
+                      className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
+                    />
+                  ) : (
+                    <div className="flex h-full items-center justify-center bg-gradient-to-br from-[#103d2b] to-[#071d14]">
+                      <span className="text-6xl text-[#d5ad55]">
+                        🎓
+                      </span>
+                    </div>
+                  )}
 
-                <div className="p-5">
-                  <div className="mb-3 flex items-center gap-3">
-                    {institution.logo_url ? (
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
+
+                  <span className="absolute bottom-4 left-4 rounded-full bg-[#d5ad55] px-3 py-1.5 text-xs font-extrabold uppercase tracking-wide text-[#17251d]">
+                    {institution.institution_type}
+                  </span>
+
+                  {institution.logo_url && (
+                    <div className="absolute right-4 top-4 flex h-16 w-16 items-center justify-center overflow-hidden rounded-xl border-2 border-white bg-white shadow-md">
                       <img
                         src={institution.logo_url}
                         alt={`${institution.institution_name} logo`}
-                        className="h-14 w-14 rounded-xl border border-gray-100 object-cover"
+                        className="h-full w-full object-contain"
                       />
-                    ) : (
-                      <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-[#123D2B]/10 text-xl font-bold">
-                        {institution.institution_name
-                          .charAt(0)
-                          .toUpperCase()}
-                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="p-5">
+                  <h3 className="line-clamp-2 text-xl font-extrabold text-[#103d2b] transition group-hover:text-[#a17a2d]">
+                    {institution.institution_name}
+                  </h3>
+
+                  <p className="mt-2 text-sm font-semibold text-[#a17a2d]">
+                    {getTypeLabel(institution.institution_type)}
+                  </p>
+
+                  {institution.description && (
+                    <p className="mt-3 line-clamp-3 text-sm leading-6 text-[#657168]">
+                      {institution.description}
+                    </p>
+                  )}
+
+                  <div className="mt-5 space-y-2 border-t border-[#eeeae0] pt-4 text-sm text-[#657168]">
+                    {institution.city && (
+                      <p>
+                        <span className="mr-2">📍</span>
+                        {institution.city}
+                        {institution.province
+                          ? `, ${institution.province}`
+                          : ""}
+                      </p>
                     )}
 
-                    <div className="min-w-0">
-                      <span className="text-xs font-semibold uppercase tracking-wide text-[#A17B16]">
-                        {institution.institution_type}
-                      </span>
+                    {institution.address && (
+                      <p className="line-clamp-2">
+                        <span className="mr-2">🏫</span>
+                        {institution.address}
+                      </p>
+                    )}
 
-                      <h3 className="line-clamp-2 font-bold">
-                        {institution.institution_name}
-                      </h3>
-                    </div>
+                    {institution.phone && (
+                      <p>
+                        <span className="mr-2">📞</span>
+                        {institution.phone}
+                      </p>
+                    )}
                   </div>
 
-                  <p className="mb-3 min-h-12 text-sm leading-6 text-gray-600">
-                    {institution.description
-                      ? institution.description.slice(0, 120)
-                      : "Explore institution details and available programs."}
-                  </p>
-
-                  <p className="mb-4 text-sm text-gray-600">
-                    <span className="font-semibold text-[#123D2B]">
-                      Location:
-                    </span>{" "}
-                    {[institution.city, institution.province]
-                      .filter(Boolean)
-                      .join(", ") || "Location not provided"}
-                  </p>
-
                   <Link
-                    href={`/education/${institution.id}`}
-                    className="block rounded-xl bg-[#123D2B] px-4 py-3 text-center font-semibold text-white transition hover:bg-[#1b563d]"
+                    href={`/education/${encodeURIComponent(
+                      institution.id
+                    )}`}
+                    className="mt-6 flex w-full items-center justify-center rounded-xl bg-[#103d2b] px-5 py-3 font-bold text-white transition hover:bg-[#18543a]"
                   >
-                    View Institution
-                    <span className="ml-2 text-[#D4AF37]">
-                      →
-                    </span>
+                    View Institution Details
+                    <span className="ml-2 text-[#e2bd69]">→</span>
                   </Link>
                 </div>
               </article>
             ))}
           </div>
         )}
+      </section>
+
+      {/* Footer CTA */}
+      <section className="bg-[#103d2b] px-5 py-12 text-center text-white">
+        <div className="mx-auto max-w-3xl">
+          <h2 className="text-2xl font-extrabold md:text-3xl">
+            Your Educational Journey Starts Here
+          </h2>
+
+          <p className="mt-3 text-white/70">
+            Discover educational opportunities through ALIQO.
+          </p>
+
+          <Link
+            href="/"
+            className="mt-6 inline-flex rounded-xl bg-[#d5ad55] px-7 py-3 font-bold text-[#17251d] transition hover:bg-[#e7c879]"
+          >
+            Explore ALIQO
+          </Link>
+        </div>
       </section>
     </main>
   );
