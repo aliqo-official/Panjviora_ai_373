@@ -179,80 +179,80 @@ export default function SellerRegisterPage() {
   }
 
   const inputClass =
-    "w-full rounded-xl border border-emerald-900/15 bg-white px-4 py-3.5 text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/10";
+    "w-full rounded-xl border border-[#DED5C2] bg-white px-4 py-3.5 text-[#123D2B] outline-none transition placeholder:text-[#68766D] focus:border-[#D4AF37] focus:ring-2 focus:ring-[#D4AF37]/20";
 
   return (
-    <main className="min-h-screen bg-[#f7f8f2] px-5 py-10 text-slate-800">
+    <main className="min-h-screen bg-[#F5F0E6] px-5 py-10 text-[#123D2B]">
       <div className="mx-auto max-w-5xl">
-        <nav className="flex items-center justify-between">
+        <nav className="flex items-center justify-between gap-3">
           <Link
             href="/"
-            className="text-3xl font-black tracking-tight text-emerald-900"
+            className="text-3xl font-black tracking-tight text-[#123D2B]"
           >
-            ALIQO<span className="text-amber-500">.</span>
+            ALIQO<span className="text-[#D4AF37]">.</span>
           </Link>
 
           <Link
             href="/"
-            className="rounded-full border border-emerald-900/20 px-5 py-2 text-sm font-semibold text-emerald-900 transition hover:bg-emerald-900 hover:text-white"
+            className="rounded-full border border-[#123D2B]/20 px-5 py-2 text-sm font-semibold text-[#123D2B] transition hover:bg-[#123D2B] hover:text-white"
           >
             ← Back to Home
           </Link>
         </nav>
 
-        <div className="mt-12 grid overflow-hidden rounded-3xl border border-emerald-900/10 bg-white shadow-xl shadow-emerald-950/5 md:grid-cols-2">
-          <section className="relative overflow-hidden bg-emerald-950 p-8 text-white md:p-12">
-            <div className="absolute -right-20 -top-20 h-64 w-64 rounded-full border border-amber-400/20" />
-            <div className="absolute -right-10 -top-10 h-44 w-44 rounded-full border border-amber-400/20" />
+        <div className="mt-12 grid overflow-hidden rounded-3xl border border-[#DED5C2] bg-white shadow-xl shadow-[#123D2B]/10 md:grid-cols-2">
+          <section className="relative overflow-hidden bg-[#123D2B] p-8 text-white md:p-12">
+            <div className="absolute -right-20 -top-20 h-64 w-64 rounded-full border border-[#D4AF37]/25" />
+            <div className="absolute -right-10 -top-10 h-44 w-44 rounded-full border border-[#D4AF37]/25" />
 
-            <span className="inline-block rounded-full border border-amber-400/30 bg-amber-400/10 px-4 py-2 text-xs font-bold tracking-widest text-amber-300">
+            <span className="inline-block rounded-full border border-[#D4AF37]/40 bg-[#D4AF37]/10 px-4 py-2 text-xs font-bold tracking-widest text-[#E8C95B]">
               ALIQO SELLER PROGRAM
             </span>
 
             <h1 className="mt-9 text-4xl font-black leading-tight md:text-5xl">
               Grow Your
-              <span className="block text-amber-400">
+              <span className="block text-[#D4AF37]">
                 Business With ALIQO
               </span>
             </h1>
 
-            <p className="mt-6 leading-8 text-emerald-100/80">
+            <p className="mt-6 leading-8 text-white/80">
               Join our growing marketplace. Create your seller account,
               introduce your products and reach more customers.
             </p>
 
             <div className="mt-10 space-y-6">
               <div className="flex gap-4">
-                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-amber-400 text-xl font-bold text-emerald-950">
+                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#D4AF37] text-xl font-bold text-[#123D2B]">
                   1
                 </span>
                 <div>
                   <h3 className="font-bold text-white">Free Registration</h3>
-                  <p className="mt-1 text-sm text-emerald-100/70">
+                  <p className="mt-1 text-sm text-white/70">
                     No seller account registration fee.
                   </p>
                 </div>
               </div>
 
               <div className="flex gap-4">
-                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-amber-400 text-xl font-bold text-emerald-950">
+                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#D4AF37] text-xl font-bold text-[#123D2B]">
                   2
                 </span>
                 <div>
                   <h3 className="font-bold text-white">Admin Approval</h3>
-                  <p className="mt-1 text-sm text-emerald-100/70">
+                  <p className="mt-1 text-sm text-white/70">
                     Your application will be reviewed by ALIQO.
                   </p>
                 </div>
               </div>
 
               <div className="flex gap-4">
-                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-amber-400 text-xl font-bold text-emerald-950">
+                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#D4AF37] text-xl font-bold text-[#123D2B]">
                   3
                 </span>
                 <div>
                   <h3 className="font-bold text-white">Start Selling</h3>
-                  <p className="mt-1 text-sm text-emerald-100/70">
+                  <p className="mt-1 text-sm text-white/70">
                     Product selling tools will be available after approval
                     and launch.
                   </p>
@@ -260,12 +260,12 @@ export default function SellerRegisterPage() {
               </div>
             </div>
 
-            <div className="mt-12 rounded-2xl border border-amber-400/25 bg-white/5 p-5">
-              <p className="text-sm font-semibold text-amber-300">
+            <div className="mt-12 rounded-2xl border border-[#D4AF37]/30 bg-white/5 p-5">
+              <p className="text-sm font-semibold text-[#E8C95B]">
                 ALIQO PROPOSED COMMISSION
               </p>
               <p className="mt-2 text-4xl font-black text-white">5%</p>
-              <p className="mt-2 text-sm text-emerald-100/70">
+              <p className="mt-2 text-sm text-white/70">
                 On completed sales only. No commission on cancelled or
                 refunded orders.
               </p>
@@ -274,15 +274,15 @@ export default function SellerRegisterPage() {
 
           <section className="p-7 md:p-10">
             <div>
-              <p className="text-sm font-bold uppercase tracking-widest text-amber-600">
+              <p className="text-sm font-bold uppercase tracking-widest text-[#B18B20]">
                 Seller Account
               </p>
 
-              <h2 className="mt-2 text-3xl font-black text-emerald-950">
+              <h2 className="mt-2 text-3xl font-black text-[#123D2B]">
                 {token ? "Business Information" : "Join ALIQO Today"}
               </h2>
 
-              <p className="mt-3 text-sm leading-6 text-slate-500">
+              <p className="mt-3 text-sm leading-6 text-[#68766D]">
                 {token
                   ? "Complete your business details to submit your seller application."
                   : "Create your account or login to continue."}
@@ -290,14 +290,14 @@ export default function SellerRegisterPage() {
             </div>
 
             {message && (
-              <div className="mt-6 rounded-xl border border-emerald-700/20 bg-emerald-50 p-4 text-sm leading-6 text-emerald-900">
+              <div className="mt-6 rounded-xl border border-[#D4AF37]/40 bg-[#F5F0E6] p-4 text-sm leading-6 text-[#123D2B]">
                 {message}
               </div>
             )}
 
             {!token ? (
               <>
-                <div className="mt-8 grid grid-cols-2 rounded-xl bg-emerald-50 p-1">
+                <div className="mt-8 grid grid-cols-2 rounded-xl bg-[#F5F0E6] p-1">
                   <button
                     type="button"
                     onClick={() => {
@@ -306,8 +306,8 @@ export default function SellerRegisterPage() {
                     }}
                     className={`rounded-lg py-3 text-sm font-bold transition ${
                       mode === "signup"
-                        ? "bg-emerald-900 text-white shadow"
-                        : "text-emerald-900 hover:bg-white"
+                        ? "bg-[#123D2B] text-white shadow"
+                        : "text-[#123D2B] hover:bg-white"
                     }`}
                   >
                     Create Account
@@ -321,8 +321,8 @@ export default function SellerRegisterPage() {
                     }}
                     className={`rounded-lg py-3 text-sm font-bold transition ${
                       mode === "login"
-                        ? "bg-emerald-900 text-white shadow"
-                        : "text-emerald-900 hover:bg-white"
+                        ? "bg-[#123D2B] text-white shadow"
+                        : "text-[#123D2B] hover:bg-white"
                     }`}
                   >
                     Login
@@ -331,7 +331,7 @@ export default function SellerRegisterPage() {
 
                 <form onSubmit={handleAuth} className="mt-7 space-y-5">
                   <div>
-                    <label className="mb-2 block text-sm font-bold text-slate-700">
+                    <label className="mb-2 block text-sm font-bold text-[#123D2B]">
                       Email Address
                     </label>
                     <input
@@ -347,7 +347,7 @@ export default function SellerRegisterPage() {
                   </div>
 
                   <div>
-                    <label className="mb-2 block text-sm font-bold text-slate-700">
+                    <label className="mb-2 block text-sm font-bold text-[#123D2B]">
                       Password
                     </label>
                     <input
@@ -367,7 +367,7 @@ export default function SellerRegisterPage() {
                   <button
                     type="submit"
                     disabled={loading}
-                    className="w-full rounded-xl bg-emerald-900 py-4 font-bold text-white shadow-lg shadow-emerald-900/15 transition hover:bg-emerald-800 disabled:opacity-50"
+                    className="w-full rounded-xl bg-[#123D2B] py-4 font-bold text-white shadow-lg shadow-[#123D2B]/15 transition hover:bg-[#1B563C] hover:text-[#E8C95B] disabled:opacity-50"
                   >
                     {loading
                       ? "Please wait..."
@@ -377,11 +377,11 @@ export default function SellerRegisterPage() {
                   </button>
                 </form>
 
-                <p className="mt-5 text-center text-sm text-slate-500">
+                <p className="mt-5 text-center text-sm text-[#68766D]">
                   Already using ALIQO?{" "}
                   <Link
                     href="/login?next=%2Fseller%2Fregister"
-                    className="font-bold text-emerald-900 underline"
+                    className="font-bold text-[#123D2B] underline decoration-[#D4AF37] underline-offset-4"
                   >
                     Open shared login
                   </Link>
@@ -389,12 +389,12 @@ export default function SellerRegisterPage() {
               </>
             ) : (
               <>
-                <div className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-emerald-50 p-4">
+                <div className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#DED5C2] bg-[#F5F0E6] p-4">
                   <div>
-                    <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-[#1B563C]">
                       Logged in account
                     </p>
-                    <p className="mt-1 break-all text-sm font-bold text-emerald-950">
+                    <p className="mt-1 break-all text-sm font-bold text-[#123D2B]">
                       {email}
                     </p>
                   </div>
@@ -414,7 +414,7 @@ export default function SellerRegisterPage() {
                   className="mt-7 space-y-4"
                 >
                   <div>
-                    <label className="mb-2 block text-sm font-bold text-slate-700">
+                    <label className="mb-2 block text-sm font-bold text-[#123D2B]">
                       Business Name
                     </label>
                     <input
@@ -428,7 +428,7 @@ export default function SellerRegisterPage() {
                   </div>
 
                   <div>
-                    <label className="mb-2 block text-sm font-bold text-slate-700">
+                    <label className="mb-2 block text-sm font-bold text-[#123D2B]">
                       Owner Full Name
                     </label>
                     <input
@@ -442,7 +442,7 @@ export default function SellerRegisterPage() {
                   </div>
 
                   <div>
-                    <label className="mb-2 block text-sm font-bold text-slate-700">
+                    <label className="mb-2 block text-sm font-bold text-[#123D2B]">
                       Phone Number
                     </label>
                     <input
@@ -457,7 +457,7 @@ export default function SellerRegisterPage() {
                   </div>
 
                   <div>
-                    <label className="mb-2 block text-sm font-bold text-slate-700">
+                    <label className="mb-2 block text-sm font-bold text-[#123D2B]">
                       Business Category
                     </label>
                     <select
@@ -477,7 +477,7 @@ export default function SellerRegisterPage() {
                   </div>
 
                   <div>
-                    <label className="mb-2 block text-sm font-bold text-slate-700">
+                    <label className="mb-2 block text-sm font-bold text-[#123D2B]">
                       City
                     </label>
                     <input
@@ -493,7 +493,7 @@ export default function SellerRegisterPage() {
                   <button
                     type="submit"
                     disabled={loading}
-                    className="w-full rounded-xl bg-emerald-900 py-4 font-bold text-white shadow-lg transition hover:bg-emerald-800 disabled:opacity-50"
+                    className="w-full rounded-xl bg-[#123D2B] py-4 font-bold text-white shadow-lg transition hover:bg-[#1B563C] hover:text-[#E8C95B] disabled:opacity-50"
                   >
                     {loading ? "Submitting..." : "Submit Seller Application →"}
                   </button>
@@ -501,20 +501,20 @@ export default function SellerRegisterPage() {
               </>
             )}
 
-            <div className="mt-7 border-t border-slate-100 pt-5 text-center">
-              <p className="text-xs leading-6 text-slate-500">
+            <div className="mt-7 border-t border-[#DED5C2] pt-5 text-center">
+              <p className="text-xs leading-6 text-[#68766D]">
                 Registration is free. The proposed 5% commission applies
                 only to completed sales. Selling features will be enabled
                 after approval and launch.
               </p>
-              <p className="mt-4 text-sm font-bold text-emerald-900">
+              <p className="mt-4 text-sm font-bold text-[#123D2B]">
                 ALIQO — Discover More. Do More.
               </p>
             </div>
           </section>
         </div>
 
-        <footer className="py-8 text-center text-sm text-slate-500">
+        <footer className="py-8 text-center text-sm text-[#68766D]">
           © 2026 ALIQO. All rights reserved.
         </footer>
       </div>
