@@ -1,32 +1,33 @@
 
 @import "tailwindcss";
 
-/* ALIQO Official Brand Theme */
+/* ALIQO Premium Green, Gold & Cream Theme */
 :root {
-  color-scheme: dark;
+  color-scheme: light;
 
-  --background: #080D0A;
-  --foreground: #F5F5F0;
+  --background: #F5F0E6;
+  --foreground: #123D2B;
 
   --aliqo-green: #123D2B;
   --aliqo-green-light: #1B563C;
   --aliqo-gold: #D4AF37;
   --aliqo-gold-light: #E8C95B;
-  --aliqo-black: #080D0A;
-  --aliqo-card: #111A14;
-  --aliqo-border: #294332;
-  --aliqo-muted: #A8B3AA;
+  --aliqo-cream: #F5F0E6;
+  --aliqo-white: #FFFFFF;
+  --aliqo-card: #FFFFFF;
+  --aliqo-border: #DED5C2;
+  --aliqo-muted: #68766D;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-
   --color-aliqo-green: var(--aliqo-green);
   --color-aliqo-green-light: var(--aliqo-green-light);
   --color-aliqo-gold: var(--aliqo-gold);
   --color-aliqo-gold-light: var(--aliqo-gold-light);
-  --color-aliqo-black: var(--aliqo-black);
+  --color-aliqo-cream: var(--aliqo-cream);
+  --color-aliqo-white: var(--aliqo-white);
   --color-aliqo-card: var(--aliqo-card);
   --color-aliqo-border: var(--aliqo-border);
   --color-aliqo-muted: var(--aliqo-muted);
@@ -40,26 +41,20 @@
 }
 
 html {
-  background: var(--background);
+  background: var(--aliqo-cream);
   scroll-behavior: smooth;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
+  background: var(--aliqo-cream);
+  color: var(--aliqo-green);
   font-family: Arial, Helvetica, sans-serif;
   margin: 0;
   min-height: 100vh;
 }
 
-/* Text and links */
-h1,
-h2,
-h3,
-h4,
-h5,
-h6 {
-  color: var(--foreground);
+h1, h2, h3, h4, h5, h6 {
+  color: var(--aliqo-green);
 }
 
 a {
@@ -70,13 +65,10 @@ a:hover {
   color: var(--aliqo-gold);
 }
 
-/* Form fields */
-input,
-textarea,
-select {
-  color: var(--foreground);
-  background-color: var(--aliqo-card);
-  border-color: var(--aliqo-border);
+input, textarea, select {
+  color: var(--aliqo-green);
+  background-color: var(--aliqo-white);
+  border: 1px solid var(--aliqo-border);
 }
 
 input::placeholder,
@@ -91,19 +83,17 @@ select:focus {
   border-color: var(--aliqo-gold);
 }
 
-/* Selection */
 ::selection {
   background: var(--aliqo-gold);
-  color: var(--aliqo-black);
+  color: var(--aliqo-green);
 }
 
-/* Scrollbar */
 ::-webkit-scrollbar {
   width: 9px;
 }
 
 ::-webkit-scrollbar-track {
-  background: var(--aliqo-black);
+  background: var(--aliqo-cream);
 }
 
 ::-webkit-scrollbar-thumb {
@@ -115,7 +105,6 @@ select:focus {
   background: var(--aliqo-gold);
 }
 
-/* Keyboard accessibility */
 :focus-visible {
   outline: 2px solid var(--aliqo-gold);
   outline-offset: 2px;
