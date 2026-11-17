@@ -16,6 +16,13 @@ type RoomInput = {
   is_active?: boolean;
 };
 
+function jsonError(message: string, status: number) {
+  return NextResponse.json(
+    { success: false, message },
+    { status }
+  );
+}
+
 async function authenticate(request: NextRequest) {
   if (!supabaseUrl || !supabaseAnonKey) {
     return {
@@ -85,83 +92,6 @@ function getSupabaseForUser(token: string) {
   });
 }
 
-function validateRoom(data: RoomInput) {
-  if (
-    typeof data.room_type !== "string" ||
-    !data.room_type.trim() ||
-    data.room_type.trim().length > 100
-  ) {
-    return "Valid room type is required (maximum 100 characters).";
-  }
-
-  if (
-    typeof data.price_per_night !== "number" ||
-    !Number.isFinite(data.price_per_night) ||
-    data.price_per_night < 0
-  ) {
-    return "Valid room price is required.";
-  }
-
-  if (
-    !Number.isInteger(data.capacity) ||
-    Number(data.capacity) < 1
-  ) {
-    return "Room capacity must be at least 1.";
-  }
-
-  if (
-    !Number.isInteger(data.total_rooms) ||
-    Number(data.total_rooms) < 0
-  ) {
-    return "Total rooms must be zero or greater.";
-  }
-
-  if (
-    data.description !== undefined &&
-    data.description !== null &&
-    (typeof data.description !== "string" ||
-      data.description.length > 3000)
-  ) {
-    return "Description must not exceed 3000 characters.";
-  }
-
-  if (
-    data.amenities !== undefined &&
-    (!Array.isArray(data.amenities) ||
-      data.amenities.length > 50 ||
-      !data.amenities.every(
-        (item) => typeof item === "string" && item.length <= 100
-      ))
-  ) {
-    return "Invalid room amenities.";
-  }
-
-  if (data.image_url !== undefined && data.image_url !== null) {
-    if (typeof data.image_url !== "string") {
-      return "Invalid room image URL.";
-    }
-
-    try {
-      const imageUrl = new URL(data.image_url);
-
-      if (!["http:", "https:"].includes(imageUrl.protocol)) {
-        return "Image URL must use HTTP or HTTPS.";
-      }
-    } catch {
-      return "Invalid room image URL.";
-    }
-  }
-
-  if (
-    data.is_active !== undefined &&
-    typeof data.is_active !== "boolean"
-  ) {
-    return "Invalid room status.";
-  }
-
-  return null;
-}
-
 async function getOwnerHotel(userId: string, token: string) {
   const supabase = getSupabaseForUser(token);
 
@@ -191,24 +121,159 @@ async function getOwnerHotel(userId: string, token: string) {
   };
 }
 
+function validateRoom(data: RoomInput) {
+  if (
+    typeof data.room_type !== "string" ||
+    !data.room_type.trim() ||
+    data.room_type.trim().length > 100
+  ) {
+    return "Valid room type is required (maximum 100 characters).";
+  }
+
+  if (
+    typeof data.price_per_night !== "number" ||
+    !Number.isFinite(data.price_per_night) ||
+    data.price_per_night < 0 ||
+    data.price_per_night > 100000000
+  ) {
+    return "Room price must be between 0 and 100,000,000.";
+  }
+
+  if (
+    !Number.isInteger(data.capacity) ||
+    Number(data.capacity) < 1 ||
+    Number(data.capacity) > 100
+  ) {
+    return "Room capacity must be between 1 and 100.";
+  }
+
+  if (
+    !Number.isInteger(data.total_rooms) ||
+    Number(data.total_rooms) < 0 ||
+    Number(data.total_rooms) > 100000
+  ) {
+    return "Total rooms must be between 0 and 100,000.";
+  }
+
+  if (
+    data.description !== undefined &&
+    data.description !== null &&
+    (typeof data.description !== "string" ||
+      data.description.length > 3000)
+  ) {
+    return "Description must not exceed 3000 characters.";
+  }
+
+  if (
+    data.amenities !== undefined &&
+    (!Array.isArray(data.amenities) ||
+      data.amenities.length > 50 ||
+      !data.amenities.every(
+        (item) =>
+          typeof item === "string" &&
+          item.trim().length > 0 &&
+          item.length <= 100
+      ))
+  ) {
+    return "Invalid room amenities.";
+  }
+
+  if (data.image_url !== undefined && data.image_url !== null) {
+    if (
+      typeof data.image_url !== "string" ||
+      data.image_url.length > 2048
+    ) {
+      return "Invalid room image URL.";
+    }
+
+    try {
+      const imageUrl = new URL(data.image_url);
+
+      if (!["http:", "https:"].includes(imageUrl.protocol)) {
+        return "Image URL must use HTTP or HTTPS.";
+      }
+    } catch {
+      return "Invalid room image URL.";
+    }
+  }
+
+  if (
+    data.is_active !== undefined &&
+    typeof data.is_active !== "boolean"
+  ) {
+    return "Invalid room status.";
+  }
+
+  return null;
+}
+
+function isValidUuid(value: unknown): value is string {
+  return (
+    typeof value === "string" &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+      value
+    )
+  );
+}
+
+// Calculate the maximum number of rooms reserved
+// at the same time by pending and confirmed bookings.
+function calculatePeakReservedRooms(
+  bookings: {
+    check_in: string;
+    check_out: string;
+    rooms_booked: number;
+  }[]
+) {
+  const events: { date: string; change: number }[] = [];
+
+  for (const booking of bookings) {
+    events.push({
+      date: booking.check_in,
+      change: Number(booking.rooms_booked),
+    });
+
+    events.push({
+      date: booking.check_out,
+      change: -Number(booking.rooms_booked),
+    });
+  }
+
+  // Checkout releases inventory before same-day check-in.
+  events.sort((a, b) => {
+    if (a.date !== b.date) {
+      return a.date.localeCompare(b.date);
+    }
+
+    return a.change - b.change;
+  });
+
+  let reserved = 0;
+  let peak = 0;
+
+  for (const event of events) {
+    reserved += event.change;
+    peak = Math.max(peak, reserved);
+  }
+
+  return peak;
+}
+
 // GET: View rooms belonging to the authenticated hotel owner.
 export async function GET(request: NextRequest) {
   try {
     const auth = await authenticate(request);
 
     if (!auth.user || !auth.token) {
-      return NextResponse.json(
-        { success: false, message: auth.error },
-        { status: 401 }
-      );
+      return jsonError(auth.error || "Authentication required.", 401);
     }
 
     const result = await getOwnerHotel(auth.user.id, auth.token);
 
     if (!result.hotel) {
-      return NextResponse.json(
-        { success: false, message: result.error },
-        { status: 403 }
+      return jsonError(
+        result.error || "Hotel access denied.",
+        403
       );
     }
 
@@ -221,21 +286,17 @@ export async function GET(request: NextRequest) {
       .order("created_at", { ascending: false });
 
     if (error) {
-      return NextResponse.json(
-        { success: false, message: "Unable to load rooms." },
-        { status: 500 }
-      );
+      console.error("Hotel rooms GET error:", error);
+      return jsonError("Unable to load rooms.", 500);
     }
 
     return NextResponse.json({
       success: true,
-      rooms: data,
+      rooms: data || [],
     });
-  } catch {
-    return NextResponse.json(
-      { success: false, message: "Internal server error." },
-      { status: 500 }
-    );
+  } catch (error) {
+    console.error("Hotel rooms GET unexpected error:", error);
+    return jsonError("Internal server error.", 500);
   }
 }
 
@@ -245,29 +306,28 @@ export async function POST(request: NextRequest) {
     const auth = await authenticate(request);
 
     if (!auth.user || !auth.token) {
-      return NextResponse.json(
-        { success: false, message: auth.error },
-        { status: 401 }
-      );
+      return jsonError(auth.error || "Authentication required.", 401);
     }
 
     const result = await getOwnerHotel(auth.user.id, auth.token);
 
     if (!result.hotel) {
-      return NextResponse.json(
-        { success: false, message: result.error },
-        { status: 403 }
+      return jsonError(
+        result.error || "Hotel access denied.",
+        403
       );
     }
 
     const body = await request.json();
+
+    if (!body || typeof body !== "object" || Array.isArray(body)) {
+      return jsonError("Invalid room data.", 400);
+    }
+
     const validationError = validateRoom(body);
 
     if (validationError) {
-      return NextResponse.json(
-        { success: false, message: validationError },
-        { status: 400 }
-      );
+      return jsonError(validationError, 400);
     }
 
     const supabase = getSupabaseForUser(auth.token);
@@ -276,23 +336,23 @@ export async function POST(request: NextRequest) {
       .from("hotel_rooms")
       .insert({
         hotel_id: result.hotel.id,
-        room_type: body.room_type.trim(),
-        description: body.description ?? null,
+        room_type: body.room_type!.trim(),
+        description: body.description?.trim() || null,
         price_per_night: body.price_per_night,
         capacity: body.capacity,
         total_rooms: body.total_rooms,
-        amenities: body.amenities ?? [],
-        image_url: body.image_url ?? null,
+        amenities: (body.amenities || []).map(
+          (item: string) => item.trim()
+        ),
+        image_url: body.image_url?.trim() || null,
         is_active: body.is_active ?? true,
       })
       .select()
       .single();
 
     if (error) {
-      return NextResponse.json(
-        { success: false, message: "Unable to create room." },
-        { status: 500 }
-      );
+      console.error("Hotel room POST error:", error);
+      return jsonError("Unable to create room.", 500);
     }
 
     return NextResponse.json(
@@ -303,32 +363,27 @@ export async function POST(request: NextRequest) {
       },
       { status: 201 }
     );
-  } catch {
-    return NextResponse.json(
-      { success: false, message: "Invalid request or server error." },
-      { status: 400 }
-    );
+  } catch (error) {
+    console.error("Hotel room POST unexpected error:", error);
+    return jsonError("Invalid request or server error.", 400);
   }
 }
 
-// PATCH: Update an existing room.
+// PATCH: Update an existing room securely.
 export async function PATCH(request: NextRequest) {
   try {
     const auth = await authenticate(request);
 
     if (!auth.user || !auth.token) {
-      return NextResponse.json(
-        { success: false, message: auth.error },
-        { status: 401 }
-      );
+      return jsonError(auth.error || "Authentication required.", 401);
     }
 
     const result = await getOwnerHotel(auth.user.id, auth.token);
 
     if (!result.hotel) {
-      return NextResponse.json(
-        { success: false, message: result.error },
-        { status: 403 }
+      return jsonError(
+        result.error || "Hotel access denied.",
+        403
       );
     }
 
@@ -336,13 +391,11 @@ export async function PATCH(request: NextRequest) {
 
     if (
       !body ||
-      typeof body.id !== "string" ||
-      !body.id.trim()
+      typeof body !== "object" ||
+      Array.isArray(body) ||
+      !isValidUuid(body.id)
     ) {
-      return NextResponse.json(
-        { success: false, message: "Room ID is required." },
-        { status: 400 }
-      );
+      return jsonError("Valid room ID is required.", 400);
     }
 
     const updates: RoomInput = {};
@@ -365,10 +418,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     if (Object.keys(updates).length === 0) {
-      return NextResponse.json(
-        { success: false, message: "No room changes provided." },
-        { status: 400 }
-      );
+      return jsonError("No room changes provided.", 400);
     }
 
     const validationError = validateRoom({
@@ -381,13 +431,55 @@ export async function PATCH(request: NextRequest) {
     });
 
     if (validationError) {
-      return NextResponse.json(
-        { success: false, message: validationError },
-        { status: 400 }
-      );
+      return jsonError(validationError, 400);
     }
 
     const supabase = getSupabaseForUser(auth.token);
+
+    const { data: existingRoom, error: roomCheckError } = await supabase
+      .from("hotel_rooms")
+      .select("id, total_rooms")
+      .eq("id", body.id)
+      .eq("hotel_id", result.hotel.id)
+      .maybeSingle();
+
+    if (roomCheckError) {
+      console.error("Room ownership check error:", roomCheckError);
+      return jsonError("Unable to verify room ownership.", 500);
+    }
+
+    if (!existingRoom) {
+      return jsonError("Room not found or access denied.", 404);
+    }
+
+    if ("total_rooms" in updates) {
+      const { data: bookings, error: bookingsError } = await supabase
+        .from("hotel_bookings")
+        .select("check_in, check_out, rooms_booked")
+        .eq("room_id", body.id)
+        .eq("hotel_id", result.hotel.id)
+        .in("status", ["pending", "confirmed"]);
+
+      if (bookingsError) {
+        console.error("Room inventory booking check error:", bookingsError);
+        return jsonError(
+          "Unable to verify existing room bookings.",
+          500
+        );
+      }
+
+      const peakReserved = calculatePeakReservedRooms(bookings || []);
+
+      if (Number(updates.total_rooms) < peakReserved) {
+        return NextResponse.json(
+          {
+            success: false,
+            message: `Total rooms cannot be less than ${peakReserved}, because existing pending or confirmed bookings require this inventory.`,
+          },
+          { status: 409 }
+        );
+      }
+    }
 
     const { data, error } = await supabase
       .from("hotel_rooms")
@@ -398,17 +490,12 @@ export async function PATCH(request: NextRequest) {
       .maybeSingle();
 
     if (error) {
-      return NextResponse.json(
-        { success: false, message: "Unable to update room." },
-        { status: 500 }
-      );
+      console.error("Hotel room PATCH error:", error);
+      return jsonError("Unable to update room.", 500);
     }
 
     if (!data) {
-      return NextResponse.json(
-        { success: false, message: "Room not found or access denied." },
-        { status: 404 }
-      );
+      return jsonError("Room not found or access denied.", 404);
     }
 
     return NextResponse.json({
@@ -416,48 +503,57 @@ export async function PATCH(request: NextRequest) {
       message: "Room updated successfully.",
       room: data,
     });
-  } catch {
-    return NextResponse.json(
-      { success: false, message: "Invalid request or server error." },
-      { status: 400 }
-    );
+  } catch (error) {
+    console.error("Hotel room PATCH unexpected error:", error);
+    return jsonError("Invalid request or server error.", 400);
   }
 }
 
-// DELETE: Safely remove a room or deactivate it if bookings exist.
+// DELETE: Preserve all booking history.
+// Rooms with any booking record are deactivated, not deleted.
 export async function DELETE(request: NextRequest) {
   try {
     const auth = await authenticate(request);
 
     if (!auth.user || !auth.token) {
-      return NextResponse.json(
-        { success: false, message: auth.error },
-        { status: 401 }
-      );
+      return jsonError(auth.error || "Authentication required.", 401);
     }
 
     const result = await getOwnerHotel(auth.user.id, auth.token);
 
     if (!result.hotel) {
-      return NextResponse.json(
-        { success: false, message: result.error },
-        { status: 403 }
+      return jsonError(
+        result.error || "Hotel access denied.",
+        403
       );
     }
 
     const { searchParams } = new URL(request.url);
     const roomId = searchParams.get("id");
 
-    if (!roomId) {
-      return NextResponse.json(
-        { success: false, message: "Room ID is required." },
-        { status: 400 }
-      );
+    if (!isValidUuid(roomId)) {
+      return jsonError("Valid room ID is required.", 400);
     }
 
     const supabase = getSupabaseForUser(auth.token);
 
-    // Check whether this room has booking history.
+    const { data: existingRoom, error: roomCheckError } = await supabase
+      .from("hotel_rooms")
+      .select("id")
+      .eq("id", roomId)
+      .eq("hotel_id", result.hotel.id)
+      .maybeSingle();
+
+    if (roomCheckError) {
+      console.error("Room DELETE ownership check error:", roomCheckError);
+      return jsonError("Unable to verify room ownership.", 500);
+    }
+
+    if (!existingRoom) {
+      return jsonError("Room not found or access denied.", 404);
+    }
+
+    // Check ALL booking statuses, not just pending or confirmed.
     const { data: booking, error: bookingError } = await supabase
       .from("hotel_bookings")
       .select("id")
@@ -467,13 +563,14 @@ export async function DELETE(request: NextRequest) {
       .maybeSingle();
 
     if (bookingError) {
-      return NextResponse.json(
-        { success: false, message: "Unable to verify room bookings." },
-        { status: 500 }
+      console.error("Room booking history check error:", bookingError);
+      return jsonError(
+        "Unable to verify room booking history.",
+        500
       );
     }
 
-    // Preserve rooms with booking history by deactivating them.
+    // Preserve booking history by deactivating the room.
     if (booking) {
       const { data, error } = await supabase
         .from("hotel_rooms")
@@ -484,26 +581,22 @@ export async function DELETE(request: NextRequest) {
         .maybeSingle();
 
       if (error) {
-        return NextResponse.json(
-          { success: false, message: "Unable to deactivate room." },
-          { status: 500 }
-        );
+        console.error("Room deactivation error:", error);
+        return jsonError("Unable to deactivate room.", 500);
       }
 
       if (!data) {
-        return NextResponse.json(
-          { success: false, message: "Room not found or access denied." },
-          { status: 404 }
-        );
+        return jsonError("Room not found or access denied.", 404);
       }
 
       return NextResponse.json({
         success: true,
-        message: "Room deactivated. Existing booking history has been preserved.",
+        message:
+          "Room deactivated. All existing booking history has been preserved.",
       });
     }
 
-    // No bookings exist, so permanent deletion is allowed.
+    // No booking history exists: permanent deletion is allowed.
     const { data, error } = await supabase
       .from("hotel_rooms")
       .delete()
@@ -513,30 +606,23 @@ export async function DELETE(request: NextRequest) {
       .maybeSingle();
 
     if (error) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: "Unable to delete room. Please check whether bookings exist.",
-        },
-        { status: 500 }
+      console.error("Room permanent DELETE error:", error);
+      return jsonError(
+        "Unable to delete room. Please check existing records.",
+        500
       );
     }
 
     if (!data) {
-      return NextResponse.json(
-        { success: false, message: "Room not found or access denied." },
-        { status: 404 }
-      );
+      return jsonError("Room not found or access denied.", 404);
     }
 
     return NextResponse.json({
       success: true,
       message: "Room deleted successfully.",
     });
-  } catch {
-    return NextResponse.json(
-      { success: false, message: "Internal server error." },
-      { status: 500 }
-    );
+  } catch (error) {
+    console.error("Hotel room DELETE unexpected error:", error);
+    return jsonError("Internal server error.", 500);
   }
 }
