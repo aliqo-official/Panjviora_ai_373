@@ -105,7 +105,7 @@ export default function AdminProductsPage() {
   const filteredProducts = useMemo(() => {
     return products.filter((product) => {
       const matchesFilter = filter === "all" || product.status === filter;
-      const term = search.toLowerCase();
+      const term = search.toLowerCase().trim();
 
       const matchesSearch =
         product.product_name.toLowerCase().includes(term) ||
@@ -123,38 +123,67 @@ export default function AdminProductsPage() {
       maximumFractionDigits: 2,
     }).format(price);
 
-  return (
-    <main className="min-h-screen bg-[#050806] text-white p-4 md:p-8">
-      <div className="max-w-7xl mx-auto">
-        <header className="flex flex-wrap items-center justify-between gap-4 mb-8">
-          <div>
-            <Link href="/admin" className="text-[#D6AE45] text-sm hover:text-[#F2D47A] hover:underline">
-              ← Back to Admin Dashboard
-            </Link>
-            <h1 className="text-3xl md:text-4xl font-bold mt-3 text-[#F2D47A]">
-              ALIQO Product Approval
-            </h1>
-            <p className="text-gray-400 mt-2">
-              Review and manage products submitted by sellers.
-            </p>
-          </div>
+  function getStatusStyle(status: Product["status"]) {
+    switch (status) {
+      case "approved":
+        return "border-green-200 bg-green-50 text-green-800";
+      case "rejected":
+        return "border-red-200 bg-red-50 text-red-700";
+      default:
+        return "border-[#D4AF37]/40 bg-[#F5F0E6] text-[#8A681B]";
+    }
+  }
 
-          <button
-            onClick={loadProducts}
-            disabled={loading}
-            className="rounded-xl bg-[#D6AE45] px-5 py-3 font-bold text-black hover:bg-[#F2D47A] disabled:opacity-50"
-          >
-            {loading ? "Loading..." : "↻ Refresh"}
-          </button>
+  return (
+    <main className="min-h-screen bg-[#F5F0E6] p-4 text-[#123D2B] sm:p-6 md:p-8">
+      <div className="mx-auto max-w-7xl">
+
+        {/* Header */}
+        <header className="mb-8 rounded-3xl border border-[#D4AF37]/40 bg-[#123D2B] p-6 shadow-xl md:p-8">
+          <div className="flex flex-wrap items-center justify-between gap-5">
+            <div>
+              <Link
+                href="/admin"
+                className="text-sm font-semibold text-[#E8C95B] transition hover:text-white hover:underline"
+              >
+                ← Back to Admin Dashboard
+              </Link>
+
+              <p className="mt-5 text-xs font-bold uppercase tracking-[0.3em] text-[#E8C95B]">
+                ALIQO Administration
+              </p>
+
+              <h1 className="mt-2 text-3xl font-black text-white md:text-4xl">
+                Product Approval
+              </h1>
+
+              <p className="mt-3 text-sm text-[#E1E8DF]">
+                Review and manage products submitted by sellers.
+              </p>
+
+              <div className="mt-5 h-1 w-20 rounded-full bg-[#D4AF37]" />
+            </div>
+
+            <button
+              type="button"
+              onClick={loadProducts}
+              disabled={loading}
+              className="rounded-xl bg-gradient-to-r from-[#D4AF37] to-[#E8C95B] px-5 py-3 font-bold text-[#123D2B] shadow-md transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {loading ? "Loading..." : "↻ Refresh Products"}
+            </button>
+          </div>
         </header>
 
+        {/* Error */}
         {error && (
-          <div className="mb-6 rounded-xl border border-red-500/40 bg-red-500/10 p-4 text-red-300">
-            {error}
+          <div className="mb-6 rounded-xl border border-red-200 bg-red-50 p-4 text-red-800">
+            <p className="font-semibold">{error}</p>
           </div>
         )}
 
-        <section className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+        {/* Statistics */}
+        <section className="mb-8 grid grid-cols-2 gap-4 md:grid-cols-4">
           {[
             { label: "All Products", value: counts.all },
             { label: "Pending", value: counts.pending },
@@ -163,29 +192,47 @@ export default function AdminProductsPage() {
           ].map((item) => (
             <div
               key={item.label}
-              className="rounded-2xl border border-[#A88936]/40 bg-[#102019] p-5 shadow-lg shadow-black/30"
+              className="rounded-2xl border border-[#DED5C2] bg-white p-5 shadow-sm transition hover:-translate-y-1 hover:border-[#D4AF37] hover:shadow-lg"
             >
-              <p className="text-sm text-gray-400">{item.label}</p>
-              <p className="text-3xl font-bold text-[#D6AE45] mt-2">
+              <p className="text-sm font-semibold text-[#68766D]">
+                {item.label}
+              </p>
+
+              <p className="mt-3 text-3xl font-black text-[#123D2B]">
                 {item.value}
               </p>
+
+              <div className="mt-4 h-1 w-12 rounded-full bg-[#D4AF37]" />
             </div>
           ))}
         </section>
 
-        <section className="rounded-2xl border border-[#A88936]/40 bg-[#102019] p-4 md:p-6 shadow-xl shadow-black/40">
-          <div className="flex flex-col md:flex-row gap-4 justify-between mb-6">
+        {/* Product Management */}
+        <section className="rounded-2xl border border-[#DED5C2] bg-white p-4 shadow-sm md:p-6">
+
+          <div className="mb-6">
+            <h2 className="text-xl font-black text-[#123D2B]">
+              Manage Seller Products
+            </h2>
+
+            <p className="mt-1 text-sm text-[#68766D]">
+              Search, review, approve or reject seller submissions.
+            </p>
+          </div>
+
+          {/* Search and Filter */}
+          <div className="mb-6 flex flex-col justify-between gap-4 md:flex-row">
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search product, category or seller ID..."
-              className="w-full md:max-w-md rounded-xl border border-[#A88936]/40 bg-[#050806] px-4 py-3 text-white outline-none focus:border-[#D6AE45] placeholder:text-gray-500"
+              className="w-full rounded-xl border border-[#DED5C2] bg-[#FDFBF7] px-4 py-3 text-[#123D2B] outline-none placeholder:text-[#8A958C] focus:border-[#D4AF37] focus:ring-2 focus:ring-[#D4AF37]/20 md:max-w-md"
             />
 
             <select
               value={filter}
               onChange={(e) => setFilter(e.target.value)}
-              className="rounded-xl border border-[#A88936]/40 bg-[#050806] px-4 py-3 text-white outline-none focus:border-[#D6AE45]"
+              className="rounded-xl border border-[#DED5C2] bg-[#FDFBF7] px-4 py-3 text-[#123D2B] outline-none focus:border-[#D4AF37]"
             >
               <option value="all">All Products</option>
               <option value="pending">Pending</option>
@@ -194,92 +241,118 @@ export default function AdminProductsPage() {
             </select>
           </div>
 
+          <p className="mb-5 text-sm font-semibold text-[#68766D]">
+            Showing {filteredProducts.length} of {products.length} products
+          </p>
+
           {loading ? (
-            <p className="text-center text-gray-400 py-12">Loading products...</p>
+            <div className="py-12 text-center">
+              <div className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-4 border-[#DED5C2] border-t-[#D4AF37]" />
+
+              <p className="font-semibold text-[#8A681B]">
+                Loading products...
+              </p>
+            </div>
           ) : filteredProducts.length === 0 ? (
-            <div className="text-center py-14">
-              <p className="text-xl font-semibold text-[#D6AE45]">No products found</p>
-              <p className="text-gray-400 mt-2">
+            <div className="rounded-xl border border-[#DED5C2] bg-[#F5F0E6] py-14 text-center">
+              <p className="text-xl font-bold text-[#123D2B]">
+                No products found
+              </p>
+
+              <p className="mt-2 text-sm text-[#68766D]">
                 Seller submissions will appear here.
               </p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+            <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
               {filteredProducts.map((product) => (
                 <article
                   key={product.id}
-                  className="overflow-hidden rounded-2xl border border-[#A88936]/40 bg-[#050806] shadow-lg shadow-black/40"
+                  className="overflow-hidden rounded-2xl border border-[#DED5C2] bg-white shadow-sm transition hover:-translate-y-1 hover:border-[#D4AF37] hover:shadow-lg"
                 >
+                  {/* Product Image */}
                   {product.image_url ? (
                     <img
                       src={product.image_url}
                       alt={product.product_name}
-                      className="h-52 w-full object-cover bg-[#102019]"
+                      className="h-52 w-full bg-[#F5F0E6] object-cover"
                     />
                   ) : (
-                    <div className="h-52 flex items-center justify-center bg-[#102019] text-[#D6AE45]">
+                    <div className="flex h-52 items-center justify-center bg-[#F5F0E6] text-sm font-semibold text-[#8A681B]">
                       No Product Image
                     </div>
                   )}
 
                   <div className="p-5">
+
+                    {/* Category and Status */}
                     <div className="flex items-center justify-between gap-2">
-                      <span className="text-xs text-[#D6AE45] uppercase tracking-wider">
+                      <span className="text-xs font-bold uppercase tracking-wider text-[#8A681B]">
                         {product.category}
                       </span>
+
                       <span
-                        className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                          product.status === "approved"
-                            ? "bg-green-500/15 text-green-400"
-                            : product.status === "rejected"
-                            ? "bg-red-500/15 text-red-400"
-                            : "bg-[#D6AE45]/15 text-[#F2D47A]"
-                        }`}
+                        className={`rounded-full border px-3 py-1 text-xs font-bold capitalize ${getStatusStyle(product.status)}`}
                       >
                         {product.status}
                       </span>
                     </div>
 
-                    <h2 className="text-xl font-bold mt-3 text-white">
+                    {/* Product Information */}
+                    <h2 className="mt-3 text-xl font-black text-[#123D2B]">
                       {product.product_name}
                     </h2>
 
-                    <p className="text-[#D6AE45] text-lg font-bold mt-2">
+                    <p className="mt-2 text-lg font-black text-[#8A681B]">
                       {money(Number(product.price))}
                     </p>
 
-                    <p className="text-sm text-gray-400 mt-2">
-                      Stock: {product.stock_quantity}
-                    </p>
+                    <div className="mt-4 rounded-xl border border-[#DED5C2] bg-[#F5F0E6] p-3">
+                      <p className="text-sm font-semibold text-[#536457]">
+                        Stock Quantity:{" "}
+                        <span className="font-black text-[#123D2B]">
+                          {product.stock_quantity}
+                        </span>
+                      </p>
+                    </div>
 
-                    <p className="text-sm text-gray-400 mt-3 break-all">
-                      Seller ID: {product.seller_id}
+                    <p className="mt-3 break-all text-xs text-[#68766D]">
+                      <span className="font-bold text-[#8A681B]">
+                        Seller ID:
+                      </span>{" "}
+                      {product.seller_id}
                     </p>
 
                     {product.description && (
-                      <p className="text-sm text-gray-300 mt-3 line-clamp-3">
+                      <p className="mt-3 line-clamp-3 text-sm leading-relaxed text-[#536457]">
                         {product.description}
                       </p>
                     )}
 
-                    <p className="text-xs text-gray-500 mt-4">
-                      Submitted: {new Date(product.created_at).toLocaleString()}
+                    <p className="mt-4 border-t border-[#DED5C2] pt-3 text-xs text-[#68766D]">
+                      Submitted:{" "}
+                      {new Date(product.created_at).toLocaleString()}
                     </p>
 
+                    {/* Approval Actions */}
                     {product.status === "pending" && (
-                      <div className="grid grid-cols-2 gap-3 mt-5">
+                      <div className="mt-5 grid grid-cols-2 gap-3">
                         <button
+                          type="button"
                           onClick={() => updateStatus(product.id, "approved")}
                           disabled={updating === product.id}
-                          className="rounded-xl bg-[#D6AE45] px-3 py-3 font-bold text-black hover:bg-[#F2D47A] disabled:opacity-50"
+                          className="rounded-xl bg-[#123D2B] px-3 py-3 font-bold text-white transition hover:bg-[#1B563C] disabled:cursor-not-allowed disabled:opacity-50"
                         >
-                          {updating === product.id ? "Please wait..." : "✓ Approve"}
+                          {updating === product.id
+                            ? "Please wait..."
+                            : "✓ Approve"}
                         </button>
 
                         <button
+                          type="button"
                           onClick={() => updateStatus(product.id, "rejected")}
                           disabled={updating === product.id}
-                          className="rounded-xl border border-red-500/50 bg-red-500/10 px-3 py-3 font-semibold text-red-400 hover:bg-red-500/20 disabled:opacity-50"
+                          className="rounded-xl border border-red-200 bg-red-50 px-3 py-3 font-bold text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50"
                         >
                           ✕ Reject
                         </button>
@@ -292,8 +365,18 @@ export default function AdminProductsPage() {
           )}
         </section>
 
-        <footer className="text-center text-[#D6AE45]/70 text-sm mt-8">
-          ALIQO Admin • Product Management
+        {/* Footer */}
+        <footer className="mt-8 border-t border-[#DED5C2] pt-6 text-center">
+          <Link
+            href="/admin"
+            className="font-semibold text-[#8A681B] transition hover:text-[#123D2B] hover:underline"
+          >
+            ← Back to Admin Dashboard
+          </Link>
+
+          <p className="mt-3 text-sm text-[#68766D]">
+            ALIQO Admin • Product Management
+          </p>
         </footer>
       </div>
     </main>
