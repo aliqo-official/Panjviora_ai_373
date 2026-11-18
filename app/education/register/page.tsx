@@ -316,13 +316,11 @@ export default function EducationRegisterPage() {
                 onChange={handleChange}
                 required
               >
-                <option value="">Select institution type</option>
-                <option value="school">School</option>
-                <option value="college">College</option>
-                <option value="university">University</option>
-                <option value="academy">Academy</option>
-                <option value="institute">Institute</option>
-                <option value="other">Other</option>
+               <option value="">Select institution type</option>
+<option value="school">School</option>
+<option value="college">College</option>
+<option value="university">University</option>
+<option value="academy">Academy</option>
               </select>
             </div>
 
