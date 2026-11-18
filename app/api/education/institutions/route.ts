@@ -2,6 +2,22 @@
 import { NextRequest, NextResponse } from "next/server";
 
 const ADMIN_EMAIL = "aliqo37311011@gmail.com";
+const MAX_BODY_BYTES = 8 * 1024;
+
+const UUID_REGEX =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function jsonResponse(
+  body: Record<string, unknown>,
+  status = 200
+) {
+  return NextResponse.json(body, {
+    status,
+    headers: {
+      "Cache-Control": "no-store, max-age=0",
+    },
+  });
+}
 
 async function verifyAdmin(request: NextRequest) {
   try {
@@ -28,7 +44,10 @@ async function verifyAdmin(request: NextRequest) {
 
     const user = await authResponse.json();
 
-    if (user.email?.toLowerCase() !== ADMIN_EMAIL) {
+    if (
+      typeof user.email !== "string" ||
+      user.email.toLowerCase() !== ADMIN_EMAIL
+    ) {
       return null;
     }
 
@@ -42,20 +61,17 @@ async function verifyAdmin(request: NextRequest) {
   }
 }
 
-// GET: Load all institution applications for admin review.
+// GET: Load institution applications for admin review.
 export async function GET(request: NextRequest) {
   const admin = await verifyAdmin(request);
 
   if (!admin) {
-    return NextResponse.json(
-      { error: "Unauthorized" },
-      { status: 401 }
-    );
+    return jsonResponse({ error: "Unauthorized" }, 401);
   }
 
   try {
     const result = await fetch(
-      `${admin.supabaseUrl}/rest/v1/institutions?select=*&order=created_at.desc`,
+      `${admin.supabaseUrl}/rest/v1/institutions?select=id,owner_user_id,institution_name,institution_type,email,phone,whatsapp_number,website_url,country,province,city,address,description,logo_url,cover_image_url,verification_status,is_active,admin_notes,created_at,updated_at&order=created_at.desc`,
       {
         headers: {
           apikey: admin.supabaseKey,
@@ -65,22 +81,29 @@ export async function GET(request: NextRequest) {
       }
     );
 
-    const data = await result.json();
-
     if (!result.ok) {
-      return NextResponse.json(
+      console.error(
+        "Institution applications load failed:",
+        await result.text()
+      );
+
+      return jsonResponse(
         { error: "Unable to load institution applications" },
-        { status: result.status }
+        result.status
       );
     }
 
-    return NextResponse.json({
+    const data = await result.json();
+
+    return jsonResponse({
       institutions: data,
     });
-  } catch {
-    return NextResponse.json(
+  } catch (error) {
+    console.error("Institution applications GET error:", error);
+
+    return jsonResponse(
       { error: "Database connection failed" },
-      { status: 500 }
+      500
     );
   }
 }
@@ -90,55 +113,87 @@ export async function PATCH(request: NextRequest) {
   const admin = await verifyAdmin(request);
 
   if (!admin) {
-    return NextResponse.json(
-      { error: "Unauthorized" },
-      { status: 401 }
-    );
+    return jsonResponse({ error: "Unauthorized" }, 401);
   }
 
   try {
-    let body: Record<string, unknown>;
+    const contentType = request.headers.get("content-type") || "";
 
-    try {
-      body = await request.json();
-    } catch {
-      return NextResponse.json(
-        { error: "Invalid JSON request" },
-        { status: 400 }
+    if (!contentType.toLowerCase().includes("application/json")) {
+      return jsonResponse(
+        { error: "Content-Type must be application/json" },
+        415
       );
     }
 
-    const institutionId =
-      typeof body.institution_id === "string"
-        ? body.institution_id.trim()
-        : "";
-
-    const status = body.status;
-
-    const adminNotes =
-      typeof body.admin_notes === "string"
-        ? body.admin_notes.trim().slice(0, 2000)
-        : "";
-
-    const uuidRegex =
-      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    const rawBody = await request.text();
 
     if (
-      !uuidRegex.test(institutionId) ||
-      !["approved", "rejected"].includes(String(status))
+      new TextEncoder().encode(rawBody).byteLength >
+      MAX_BODY_BYTES
     ) {
-      return NextResponse.json(
+      return jsonResponse(
+        { error: "Request body is too large" },
+        413
+      );
+    }
+
+    let body: unknown;
+
+    try {
+      body = JSON.parse(rawBody);
+    } catch {
+      return jsonResponse(
+        { error: "Invalid JSON request" },
+        400
+      );
+    }
+
+    if (
+      !body ||
+      typeof body !== "object" ||
+      Array.isArray(body)
+    ) {
+      return jsonResponse(
+        { error: "Invalid request body" },
+        400
+      );
+    }
+
+    const payload = body as Record<string, unknown>;
+
+    const institutionId =
+      typeof payload.institution_id === "string"
+        ? payload.institution_id.trim()
+        : "";
+
+    const status = payload.status;
+
+    const adminNotes =
+      typeof payload.admin_notes === "string"
+        ? payload.admin_notes.trim().slice(0, 2000)
+        : "";
+
+    if (
+      !UUID_REGEX.test(institutionId) ||
+      (status !== "approved" && status !== "rejected")
+    ) {
+      return jsonResponse(
         { error: "Invalid institution ID or status" },
-        { status: 400 }
+        400
       );
     }
 
     if (status === "rejected" && !adminNotes) {
-      return NextResponse.json(
+      return jsonResponse(
         { error: "Please provide a reason for rejection" },
-        { status: 400 }
+        400
       );
     }
+
+    // Approved institutions must be active to appear publicly.
+    // Rejected institutions must remain inactive.
+    const isActive = status === "approved";
 
     const result = await fetch(
       `${admin.supabaseUrl}/rest/v1/institutions?id=eq.${encodeURIComponent(institutionId)}`,
@@ -152,6 +207,7 @@ export async function PATCH(request: NextRequest) {
         },
         body: JSON.stringify({
           verification_status: status,
+          is_active: isActive,
           admin_notes: adminNotes || null,
           updated_at: new Date().toISOString(),
         }),
@@ -159,32 +215,37 @@ export async function PATCH(request: NextRequest) {
       }
     );
 
+    if (!result.ok) {
+      console.error(
+        "Institution verification update failed:",
+        await result.text()
+      );
+
+      return jsonResponse(
+        { error: "Unable to update institution verification status" },
+        result.status
+      );
+    }
+
     const data = await result.json();
 
-    if (!result.ok) {
-      console.error("Institution verification update failed:", data);
-
-      return NextResponse.json(
-        { error: "Unable to update institution verification status" },
-        { status: result.status }
-      );
-    }
-
-    if (!data.length) {
-      return NextResponse.json(
+    if (!Array.isArray(data) || data.length === 0) {
+      return jsonResponse(
         { error: "Institution not found" },
-        { status: 404 }
+        404
       );
     }
 
-    return NextResponse.json({
+    return jsonResponse({
       message: `Institution ${status} successfully`,
       institution: data[0],
     });
-  } catch {
-    return NextResponse.json(
+  } catch (error) {
+    console.error("Institution verification PATCH error:", error);
+
+    return jsonResponse(
       { error: "Something went wrong" },
-      { status: 500 }
+      500
     );
   }
 }
