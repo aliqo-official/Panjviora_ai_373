@@ -82,6 +82,7 @@ async function publicQuery(
         ...extraHeaders,
       },
       cache: "no-store",
+      signal: AbortSignal.timeout(15000),
     }
   );
 }
@@ -176,13 +177,21 @@ export async function GET(request: NextRequest) {
       const institutionResult = await publicQuery(
         `institutions?id=eq.${encodeURIComponent(
           institutionId
-        )}&verification_status=eq.approved&is_active=eq.true&select=id,institution_name,institution_type,description,email,phone,whatsapp_number,website_url,country,province,city,address,logo_url,cover_image_url,created_at`
+        )}&select=id,institution_name,institution_type,description,email,phone,whatsapp_number,website_url,country,province,city,address,logo_url,cover_image_url,created_at`
       );
 
       if (!institutionResult.ok) {
+        const details = await institutionResult.text();
+
+        console.error(
+          "Education institution query failed:",
+          institutionResult.status,
+          details
+        );
+
         return json(
           { error: "Unable to load institution." },
-          institutionResult.status
+          500
         );
       }
 
@@ -222,11 +231,21 @@ export async function GET(request: NextRequest) {
         !campusResult.ok ||
         !programResult.ok
       ) {
+        const campusError = campusResult.ok
+          ? null
+          : await campusResult.text();
+
+        const programError = programResult.ok
+          ? null
+          : await programResult.text();
+
         console.error(
           "Education details query failed:",
           {
             campusStatus: campusResult.status,
+            campusError,
             programStatus: programResult.status,
+            programError,
           }
         );
 
@@ -260,7 +279,6 @@ export async function GET(request: NextRequest) {
         );
       }
 
-      // Format program fee ranges.
       const formattedPrograms = programs.map(
         (program) => {
           const feeMin = program.fee_min;
@@ -292,8 +310,7 @@ export async function GET(request: NextRequest) {
 
           return {
             ...program,
-            degree_level:
-              program.program_type ?? null,
+            degree_level: program.program_type ?? null,
             fee,
           };
         }
@@ -342,8 +359,6 @@ export async function GET(request: NextRequest) {
 
     const filters = [
       "select=id,institution_name,institution_type,description,phone,whatsapp_number,website_url,country,province,city,address,logo_url,cover_image_url,created_at",
-      "verification_status=eq.approved",
-      "is_active=eq.true",
     ];
 
     if (type) {
@@ -354,17 +369,13 @@ export async function GET(request: NextRequest) {
 
     if (city) {
       filters.push(
-        `city=ilike.${encodeURIComponent(
-          `*${city}*`
-        )}`
+        `city=ilike.${encodeURIComponent(`*${city}*`)}`
       );
     }
 
     if (province) {
       filters.push(
-        `province=ilike.${encodeURIComponent(
-          `*${province}*`
-        )}`
+        `province=ilike.${encodeURIComponent(`*${province}*`)}`
       );
     }
 
@@ -389,9 +400,14 @@ export async function GET(request: NextRequest) {
     );
 
     if (!result.ok) {
+      const errorDetails = await result.text();
+
       console.error(
         "Education directory query failed:",
-        result.status
+        {
+          status: result.status,
+          details: errorDetails,
+        }
       );
 
       return json(
@@ -399,7 +415,7 @@ export async function GET(request: NextRequest) {
           error:
             "Unable to load education directory.",
         },
-        result.status
+        500
       );
     }
 
