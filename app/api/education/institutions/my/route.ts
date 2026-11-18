@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Verify the logged-in Supabase user.
+    // Verify authenticated Supabase user.
     const userResponse = await fetch(
       `${SUPABASE_URL}/auth/v1/user`,
       {
@@ -60,7 +60,8 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Load only institutions owned by this authenticated user.
+    // Load only institutions belonging to the authenticated owner.
+    // RLS also applies because the user's JWT is forwarded.
     const params = new URLSearchParams({
       owner_user_id: `eq.${user.id}`,
       select: [
@@ -80,7 +81,6 @@ export async function GET(request: NextRequest) {
         "cover_image_url",
         "verification_status",
         "is_active",
-        "admin_notes",
         "created_at",
         "updated_at",
       ].join(","),
@@ -99,6 +99,11 @@ export async function GET(request: NextRequest) {
     );
 
     if (!institutionResponse.ok) {
+      console.error(
+        "Education institutions query failed:",
+        institutionResponse.status
+      );
+
       return response(
         { error: "Unable to load institution information." },
         502
