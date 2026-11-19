@@ -7,6 +7,17 @@ const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 const UUID_REGEX =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
+const ALLOWED_STATUSES = [
+  "new",
+  "contacted",
+  "in_review",
+  "accepted",
+  "rejected",
+  "closed",
+] as const;
+
+type InquiryStatus = (typeof ALLOWED_STATUSES)[number];
+
 function response(data: unknown, status = 200) {
   return NextResponse.json(data, { status });
 }
@@ -17,6 +28,14 @@ function clean(value: unknown, max = 1000): string {
 
 function validEmail(value: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+}
+
+function isObject(value: unknown): value is Record<string, unknown> {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    !Array.isArray(value)
+  );
 }
 
 async function verifyUser(token: string) {
@@ -51,12 +70,20 @@ async function dbRequest(
   });
 }
 
+function getBearerToken(request: NextRequest): string | null {
+  const authorization = request.headers.get("authorization");
+
+  if (!authorization) return null;
+
+  const match = authorization.match(/^Bearer\s+(.+)$/i);
+
+  return match?.[1]?.trim() || null;
+}
+
 // GET: Institution owner can view their own inquiries.
 export async function GET(request: NextRequest) {
   try {
-    const token = request.headers
-      .get("authorization")
-      ?.replace(/^Bearer\s+/i, "");
+    const token = getBearerToken(request);
 
     if (!token) {
       return response({ error: "Authentication required." }, 401);
@@ -83,13 +110,19 @@ export async function GET(request: NextRequest) {
     );
 
     if (!institutionResult.ok) {
-      return response({ error: "Unable to verify institution ownership." }, 400);
+      return response(
+        { error: "Unable to verify institution ownership." },
+        400
+      );
     }
 
     const institutions = await institutionResult.json();
 
     if (!institutions.length) {
-      return response({ error: "Institution not found or access denied." }, 403);
+      return response(
+        { error: "Institution not found or access denied." },
+        403
+      );
     }
 
     const inquiriesResult = await dbRequest(
@@ -102,7 +135,8 @@ export async function GET(request: NextRequest) {
     }
 
     return response({ inquiries: await inquiriesResult.json() });
-  } catch {
+  } catch (error) {
+    console.error("Education inquiry GET error:", error);
     return response({ error: "Something went wrong." }, 500);
   }
 }
@@ -113,7 +147,13 @@ export async function POST(request: NextRequest) {
     let body: Record<string, unknown>;
 
     try {
-      body = await request.json();
+      const parsed = await request.json();
+
+      if (!isObject(parsed)) {
+        return response({ error: "Invalid JSON request." }, 400);
+      }
+
+      body = parsed;
     } catch {
       return response({ error: "Invalid JSON request." }, 400);
     }
@@ -140,7 +180,10 @@ export async function POST(request: NextRequest) {
       message.length < 5
     ) {
       return response(
-        { error: "Please provide a valid name, phone number and message." },
+        {
+          error:
+            "Please provide a valid name, phone number and message.",
+        },
         400
       );
     }
@@ -158,9 +201,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Optional authentication. Never trust a user ID supplied in the body.
-    const authToken = request.headers
-      .get("authorization")
-      ?.replace(/^Bearer\s+/i, "");
+    const authToken = getBearerToken(request);
 
     let studentUserId: string | null = null;
     let insertToken = SUPABASE_ANON_KEY;
@@ -190,7 +231,10 @@ export async function POST(request: NextRequest) {
 
     if (!institutions.length) {
       return response(
-        { error: "This institution is not currently accepting public inquiries." },
+        {
+          error:
+            "This institution is not currently accepting public inquiries.",
+        },
         404
       );
     }
@@ -234,7 +278,10 @@ export async function POST(request: NextRequest) {
 
       if (program.campus_id && program.campus_id !== campusId) {
         return response(
-          { error: "Please select the campus associated with this program." },
+          {
+            error:
+              "Please select the campus associated with this program.",
+          },
           400
         );
       }
@@ -270,7 +317,9 @@ export async function POST(request: NextRequest) {
       console.error("Education inquiry insert failed:", error);
 
       return response(
-        { error: "Unable to submit inquiry. Please try again." },
+        {
+          error: "Unable to submit inquiry. Please try again.",
+        },
         400
       );
     }
@@ -286,6 +335,192 @@ export async function POST(request: NextRequest) {
     );
   } catch (error) {
     console.error("Education inquiry API error:", error);
+    return response({ error: "Something went wrong." }, 500);
+  }
+}
+
+// PATCH: Institution owner can update inquiry status and admin notes.
+export async function PATCH(request: NextRequest) {
+  try {
+    const token = getBearerToken(request);
+
+    if (!token) {
+      return response({ error: "Authentication required." }, 401);
+    }
+
+    const user = await verifyUser(token);
+
+    if (!user) {
+      return response({ error: "Invalid authentication." }, 401);
+    }
+
+    let body: Record<string, unknown>;
+
+    try {
+      const parsed = await request.json();
+
+      if (!isObject(parsed)) {
+        return response({ error: "Invalid JSON request." }, 400);
+      }
+
+      body = parsed;
+    } catch {
+      return response({ error: "Invalid JSON request." }, 400);
+    }
+
+    // Only these request fields are accepted.
+    const allowedKeys = [
+      "inquiry_id",
+      "institution_id",
+      "status",
+      "admin_notes",
+    ];
+
+    if (Object.keys(body).some((key) => !allowedKeys.includes(key))) {
+      return response(
+        { error: "Request contains unsupported fields." },
+        400
+      );
+    }
+
+    const inquiryId = clean(body.inquiry_id, 36);
+    const institutionId = clean(body.institution_id, 36);
+
+    if (
+      !UUID_REGEX.test(inquiryId) ||
+      !UUID_REGEX.test(institutionId)
+    ) {
+      return response(
+        { error: "Valid inquiry_id and institution_id are required." },
+        400
+      );
+    }
+
+    const hasStatus = Object.prototype.hasOwnProperty.call(
+      body,
+      "status"
+    );
+
+    const hasNotes = Object.prototype.hasOwnProperty.call(
+      body,
+      "admin_notes"
+    );
+
+    if (!hasStatus && !hasNotes) {
+      return response(
+        { error: "Provide a status or admin_notes update." },
+        400
+      );
+    }
+
+    const updates: Record<string, unknown> = {};
+
+    if (hasStatus) {
+      if (
+        typeof body.status !== "string" ||
+        !ALLOWED_STATUSES.includes(body.status as InquiryStatus)
+      ) {
+        return response(
+          {
+            error: `Invalid status. Allowed values: ${ALLOWED_STATUSES.join(", ")}.`,
+          },
+          400
+        );
+      }
+
+      updates.status = body.status;
+    }
+
+    if (hasNotes) {
+      if (
+        body.admin_notes !== null &&
+        typeof body.admin_notes !== "string"
+      ) {
+        return response(
+          { error: "admin_notes must be text or null." },
+          400
+        );
+      }
+
+      if (typeof body.admin_notes === "string") {
+        if (body.admin_notes.length > 2000) {
+          return response(
+            { error: "Admin notes cannot exceed 2000 characters." },
+            400
+          );
+        }
+
+        updates.admin_notes = body.admin_notes.trim() || null;
+      } else {
+        updates.admin_notes = null;
+      }
+    }
+
+    // Verify that the authenticated user owns this institution.
+    const institutionResult = await dbRequest(
+      `institutions?id=eq.${institutionId}&owner_user_id=eq.${user.id}&select=id`,
+      token
+    );
+
+    if (!institutionResult.ok) {
+      return response(
+        { error: "Unable to verify institution ownership." },
+        400
+      );
+    }
+
+    const institutions = await institutionResult.json();
+
+    if (!institutions.length) {
+      return response(
+        { error: "Institution not found or access denied." },
+        403
+      );
+    }
+
+    // RLS also checks ownership when the database update is executed.
+    updates.updated_at = new Date().toISOString();
+
+    const updateResult = await dbRequest(
+      `institution_inquiries?id=eq.${inquiryId}&institution_id=eq.${institutionId}&select=*`,
+      token,
+      {
+        method: "PATCH",
+        headers: {
+          Prefer: "return=representation",
+        },
+        body: JSON.stringify(updates),
+      }
+    );
+
+    if (!updateResult.ok) {
+      const error = await updateResult.json().catch(() => null);
+      console.error("Education inquiry update failed:", error);
+
+      return response(
+        { error: "Unable to update inquiry. Please try again." },
+        400
+      );
+    }
+
+    const updatedInquiries = await updateResult.json();
+
+    if (!updatedInquiries.length) {
+      return response(
+        {
+          error:
+            "Inquiry not found or you do not have permission to update it.",
+        },
+        404
+      );
+    }
+
+    return response({
+      message: "Admission inquiry updated successfully.",
+      inquiry: updatedInquiries[0],
+    });
+  } catch (error) {
+    console.error("Education inquiry PATCH error:", error);
     return response({ error: "Something went wrong." }, 500);
   }
 }
