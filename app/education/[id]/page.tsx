@@ -54,6 +54,51 @@ interface ApiResponse {
   error?: string;
 }
 
+function cleanText(value?: string | null): string {
+  return (value || "").replace(/\s+/g, " ").trim();
+}
+
+function formatLocation(parts: Array<string | null | undefined>): string {
+  const result: string[] = [];
+
+  for (const part of parts) {
+    const value = cleanText(part);
+    if (!value) continue;
+
+    const duplicate = result.some(
+      (existing) =>
+        existing.toLowerCase() === value.toLowerCase()
+    );
+
+    if (!duplicate) result.push(value);
+  }
+
+  return result.join(", ");
+}
+
+function formatCampusLocation(campus: Campus): string {
+  const address = cleanText(campus.address);
+  const city = cleanText(campus.city);
+  const province = cleanText(campus.province);
+
+  // Avoid repeating city/province when already present in the address.
+  const addressLower = address.toLowerCase();
+
+  const cityAlreadyIncluded =
+    city &&
+    addressLower.includes(city.toLowerCase());
+
+  const provinceAlreadyIncluded =
+    province &&
+    addressLower.includes(province.toLowerCase());
+
+  return formatLocation([
+    address,
+    cityAlreadyIncluded ? null : city,
+    provinceAlreadyIncluded ? null : province,
+  ]);
+}
+
 function getWhatsAppLink(number: string): string {
   let digits = number.replace(/\D/g, "");
 
@@ -69,7 +114,7 @@ function getWhatsAppLink(number: string): string {
 }
 
 function formatFee(program: Program): string | null {
-  if (program.fee) {
+  if (program.fee != null && String(program.fee).trim() !== "") {
     return String(program.fee);
   }
 
@@ -86,6 +131,36 @@ function formatFee(program: Program): string | null {
   }
 
   return null;
+}
+
+function formatProgramTypes(program: Program): string {
+  const types = [
+    cleanText(program.program_type),
+    cleanText(program.degree_level),
+  ].filter(Boolean);
+
+  const uniqueTypes = types.filter(
+    (value, index) =>
+      types.findIndex(
+        (item) => item.toLowerCase() === value.toLowerCase()
+      ) === index
+  );
+
+  return uniqueTypes
+    .map((value) =>
+      value.charAt(0).toUpperCase() + value.slice(1)
+    )
+    .join(" • ");
+}
+
+function formatInstitutionType(value?: string | null): string {
+  const type = cleanText(value);
+
+  if (!type) return "Educational Institution";
+
+  return type
+    .replace(/[_-]/g, " ")
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
 function InstitutionDetailsContent() {
@@ -178,8 +253,8 @@ function InstitutionDetailsContent() {
   if (error || !institution) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-[#F7F3E8] px-5 py-12">
-        <div className="w-full max-w-lg rounded-3xl bg-white p-8 text-center shadow-lg">
-          <div className="text-5xl">!</div>
+        <div className="w-full max-w-lg rounded-3xl border border-[#D6B45B]/40 bg-white p-8 text-center shadow-lg">
+          <div className="text-5xl font-bold text-[#D6B45B]">!</div>
 
           <h1 className="mt-4 text-2xl font-extrabold text-[#064B38]">
             Institution Not Available
@@ -199,7 +274,7 @@ function InstitutionDetailsContent() {
 
           <a
             href="/education"
-            className="ml-3 inline-block rounded-xl border-2 border-[#D6B45B] px-7 py-3 font-bold text-[#064B38]"
+            className="ml-3 inline-block rounded-xl border-2 border-[#D6B45B] px-7 py-3 font-bold text-[#064B38] transition-colors hover:bg-[#F7F3E8]"
           >
             Back to Directory
           </a>
@@ -209,15 +284,13 @@ function InstitutionDetailsContent() {
   }
 
   const institutionName =
-    institution.institution_name?.trim() || "Institution";
+    cleanText(institution.institution_name) || "Institution";
 
-  const location = [
+  const location = formatLocation([
     institution.city,
     institution.province,
     institution.country,
-  ]
-    .filter(Boolean)
-    .join(", ");
+  ]);
 
   const whatsappLink = institution.whatsapp_number
     ? getWhatsAppLink(institution.whatsapp_number)
@@ -231,7 +304,7 @@ function InstitutionDetailsContent() {
       <div className="mx-auto max-w-7xl px-5 pt-6 sm:px-8">
         <a
           href="/education"
-          className="inline-flex items-center gap-2 font-bold text-[#064B38] transition-colors hover:text-[#D6B45B]"
+          className="inline-flex items-center gap-2 rounded-lg font-bold text-[#064B38] transition-colors hover:text-[#B18D36]"
         >
           <span aria-hidden="true">←</span>
           Back to Education Directory
@@ -268,7 +341,7 @@ function InstitutionDetailsContent() {
             )}
 
             <span className="inline-block rounded-full border border-[#D6B45B] bg-[#D6B45B] px-5 py-2 text-sm font-extrabold uppercase tracking-wider text-[#064B38]">
-              {institution.institution_type || "Educational Institution"}
+              {formatInstitutionType(institution.institution_type)}
             </span>
 
             <h1 className="mx-auto mt-6 max-w-4xl text-3xl font-extrabold leading-tight text-white sm:text-5xl">
@@ -289,10 +362,9 @@ function InstitutionDetailsContent() {
 
       {/* Main Content */}
       <div className="mx-auto grid max-w-7xl grid-cols-1 gap-8 px-5 pb-14 sm:px-8 lg:grid-cols-3">
-        {/* Left Content */}
         <div className="space-y-8 lg:col-span-2">
           {/* About Institution */}
-          <section className="rounded-3xl border border-[#D6B45B]/40 bg-white p-7 shadow-sm sm:p-9">
+          <section className="rounded-3xl border border-[#D6B45B]/40 bg-white p-7 shadow-sm transition-shadow hover:shadow-md sm:p-9">
             <div className="mb-5 flex items-center gap-3">
               <div className="h-9 w-1.5 rounded-full bg-[#D6B45B]" />
               <h2 className="text-2xl font-extrabold text-[#064B38]">
@@ -307,7 +379,7 @@ function InstitutionDetailsContent() {
           </section>
 
           {/* Campuses */}
-          <section className="rounded-3xl border border-[#D6B45B]/40 bg-white p-7 shadow-sm sm:p-9">
+          <section className="rounded-3xl border border-[#D6B45B]/40 bg-white p-7 shadow-sm transition-shadow hover:shadow-md sm:p-9">
             <div className="mb-6 flex items-center gap-3">
               <div className="h-9 w-1.5 rounded-full bg-[#D6B45B]" />
               <h2 className="text-2xl font-extrabold text-[#064B38]">
@@ -317,47 +389,54 @@ function InstitutionDetailsContent() {
 
             {campuses.length > 0 ? (
               <div className="grid gap-5 sm:grid-cols-2">
-                {campuses.map((campus, index) => (
-                  <article
-                    key={campus.id || `${campus.campus_name || campus.name}-${index}`}
-                    className="rounded-2xl border border-[#D6B45B]/40 bg-[#F7F3E8] p-6"
-                  >
-                    <h3 className="text-lg font-extrabold text-[#064B38]">
-                      {campus.campus_name || campus.name || `Campus ${index + 1}`}
-                    </h3>
+                {campuses.map((campus, index) => {
+                  const campusLocation = formatCampusLocation(campus);
 
-                    {(campus.address || campus.city || campus.province) && (
-                      <p className="mt-3 text-sm leading-6 text-gray-600">
-                        <span className="mr-2">📍</span>
-                        {[
-                          campus.address,
-                          campus.city,
-                          campus.province,
-                        ]
-                          .filter(Boolean)
-                          .join(", ")}
-                      </p>
-                    )}
+                  return (
+                    <article
+                      key={
+                        campus.id ||
+                        `${campus.campus_name || campus.name}-${index}`
+                      }
+                      className="rounded-2xl border border-[#D6B45B]/40 bg-[#F7F3E8] p-6 transition-all hover:-translate-y-1 hover:shadow-md"
+                    >
+                      <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-[#064B38] text-xl text-[#D6B45B]">
+                        🏫
+                      </div>
 
-                    {campus.phone && (
-                      <a
-                        href={`tel:${campus.phone}`}
-                        className="mt-3 inline-block text-sm font-bold text-[#064B38] hover:text-[#B18D36]"
-                      >
-                        📞 {campus.phone}
-                      </a>
-                    )}
+                      <h3 className="text-lg font-extrabold text-[#064B38]">
+                        {campus.campus_name ||
+                          campus.name ||
+                          `Campus ${index + 1}`}
+                      </h3>
 
-                    {campus.email && (
-                      <a
-                        href={`mailto:${campus.email}`}
-                        className="mt-2 block break-all text-sm font-semibold text-[#064B38] hover:text-[#B18D36]"
-                      >
-                        ✉️ {campus.email}
-                      </a>
-                    )}
-                  </article>
-                ))}
+                      {campusLocation && (
+                        <p className="mt-3 text-sm leading-6 text-gray-600">
+                          <span className="mr-2">📍</span>
+                          {campusLocation}
+                        </p>
+                      )}
+
+                      {campus.phone && (
+                        <a
+                          href={`tel:${campus.phone}`}
+                          className="mt-3 inline-block text-sm font-bold text-[#064B38] hover:text-[#B18D36]"
+                        >
+                          📞 {campus.phone}
+                        </a>
+                      )}
+
+                      {campus.email && (
+                        <a
+                          href={`mailto:${campus.email}`}
+                          className="mt-2 block break-all text-sm font-semibold text-[#064B38] hover:text-[#B18D36]"
+                        >
+                          ✉️ {campus.email}
+                        </a>
+                      )}
+                    </article>
+                  );
+                })}
               </div>
             ) : (
               <p className="rounded-2xl bg-[#F7F3E8] p-6 text-center text-gray-500">
@@ -367,7 +446,7 @@ function InstitutionDetailsContent() {
           </section>
 
           {/* Programs */}
-          <section className="rounded-3xl border border-[#D6B45B]/40 bg-white p-7 shadow-sm sm:p-9">
+          <section className="rounded-3xl border border-[#D6B45B]/40 bg-white p-7 shadow-sm transition-shadow hover:shadow-md sm:p-9">
             <div className="mb-6 flex items-center gap-3">
               <div className="h-9 w-1.5 rounded-full bg-[#D6B45B]" />
               <h2 className="text-2xl font-extrabold text-[#064B38]">
@@ -379,11 +458,15 @@ function InstitutionDetailsContent() {
               <div className="space-y-5">
                 {programs.map((program, index) => {
                   const fee = formatFee(program);
+                  const programTypes = formatProgramTypes(program);
 
                   return (
                     <article
-                      key={program.id || `${program.program_name || program.name}-${index}`}
-                      className="rounded-2xl border border-[#D6B45B]/40 bg-[#F7F3E8] p-6"
+                      key={
+                        program.id ||
+                        `${program.program_name || program.name}-${index}`
+                      }
+                      className="rounded-2xl border border-[#D6B45B]/40 bg-[#F7F3E8] p-6 transition-all hover:shadow-md"
                     >
                       <div className="flex flex-wrap items-start justify-between gap-3">
                         <h3 className="text-lg font-extrabold text-[#064B38]">
@@ -407,11 +490,9 @@ function InstitutionDetailsContent() {
                         )}
                       </div>
 
-                      {(program.program_type || program.degree_level) && (
+                      {programTypes && (
                         <p className="mt-2 text-sm font-semibold text-[#8B702F]">
-                          {[program.program_type, program.degree_level]
-                            .filter(Boolean)
-                            .join(" • ")}
+                          {programTypes}
                         </p>
                       )}
 
@@ -421,32 +502,38 @@ function InstitutionDetailsContent() {
                         </p>
                       )}
 
-                      <div className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
+                      <div className="mt-5 grid gap-4 border-t border-[#D6B45B]/40 pt-4 text-sm sm:grid-cols-2">
                         {program.duration && (
-                          <p className="text-gray-600">
-                            <strong className="text-[#064B38]">
-                              Duration:
-                            </strong>{" "}
-                            {program.duration}
-                          </p>
+                          <div>
+                            <p className="text-xs font-bold uppercase tracking-wider text-gray-400">
+                              Duration
+                            </p>
+                            <p className="mt-1 font-semibold text-[#064B38]">
+                              {program.duration}
+                            </p>
+                          </div>
                         )}
 
                         {fee && (
-                          <p className="text-gray-600">
-                            <strong className="text-[#064B38]">
-                              Fee:
-                            </strong>{" "}
-                            {fee}
-                          </p>
+                          <div>
+                            <p className="text-xs font-bold uppercase tracking-wider text-gray-400">
+                              Fee
+                            </p>
+                            <p className="mt-1 font-semibold text-[#064B38]">
+                              {fee}
+                            </p>
+                          </div>
                         )}
 
                         {program.eligibility && (
-                          <p className="text-gray-600 sm:col-span-2">
-                            <strong className="text-[#064B38]">
-                              Eligibility:
-                            </strong>{" "}
-                            {program.eligibility}
-                          </p>
+                          <div className="sm:col-span-2">
+                            <p className="text-xs font-bold uppercase tracking-wider text-gray-400">
+                              Eligibility
+                            </p>
+                            <p className="mt-1 font-semibold text-[#064B38]">
+                              {program.eligibility}
+                            </p>
+                          </div>
                         )}
                       </div>
                     </article>
@@ -537,7 +624,7 @@ function InstitutionDetailsContent() {
                   Address
                 </p>
                 <p className="mt-1 whitespace-pre-line leading-7 text-gray-600">
-                  {institution.address}
+                  {institution.address.trim()}
                 </p>
               </div>
             )}
@@ -556,9 +643,9 @@ function InstitutionDetailsContent() {
           {institution.phone && (
             <a
               href={`tel:${institution.phone}`}
-              className="mt-7 block rounded-xl bg-[#064B38] px-5 py-3 text-center font-extrabold text-white transition-colors hover:bg-[#043729]"
+              className="mt-7 block rounded-xl bg-[#064B38] px-5 py-3 text-center font-extrabold text-white shadow-sm transition-all hover:bg-[#043729] hover:shadow-md"
             >
-              Contact Institution
+              📞 Contact Institution
             </a>
           )}
 
@@ -567,7 +654,7 @@ function InstitutionDetailsContent() {
               href={whatsappLink}
               target="_blank"
               rel="noopener noreferrer"
-              className="mt-3 block rounded-xl border-2 border-[#D6B45B] px-5 py-3 text-center font-extrabold text-[#064B38] transition-colors hover:bg-[#F7F3E8]"
+              className="mt-3 block rounded-xl border-2 border-[#D6B45B] px-5 py-3 text-center font-extrabold text-[#064B38] transition-all hover:bg-[#F7F3E8]"
             >
               WhatsApp Us
             </a>
@@ -575,48 +662,16 @@ function InstitutionDetailsContent() {
         </aside>
       </div>
 
-      {/* Contact CTA - Always Visible */}
+      {/* Contact CTA */}
       <section className="mx-auto max-w-7xl px-5 pb-14 sm:px-8">
-        <div
-          className="relative isolate overflow-hidden rounded-3xl p-8 text-center shadow-lg sm:p-12"
-          style={{
-            backgroundColor: "#064B38",
-            color: "#FFFFFF",
-          }}
-        >
-          <div
-            className="relative z-10 mx-auto mb-5 h-1.5 w-20 rounded-full"
-            style={{
-              backgroundColor: "#D6B45B",
-              opacity: 1,
-              visibility: "visible",
-            }}
-          />
+        <div className="relative isolate overflow-hidden rounded-3xl bg-gradient-to-br from-[#064B38] to-[#032F24] p-8 text-center shadow-lg sm:p-12">
+          <div className="relative z-10 mx-auto mb-5 h-1.5 w-20 rounded-full bg-[#D6B45B]" />
 
-          <h2
-            className="relative z-10 block text-2xl font-extrabold sm:text-3xl"
-            style={{
-              color: "#FFFFFF",
-              opacity: 1,
-              visibility: "visible",
-              display: "block",
-              transition: "none",
-              textShadow: "0 2px 8px rgba(0,0,0,0.3)",
-            }}
-          >
+          <h2 className="relative z-10 text-2xl font-extrabold text-white sm:text-3xl">
             Interested in {institutionName}?
           </h2>
 
-          <p
-            className="relative z-10 mx-auto mt-4 block max-w-2xl leading-7"
-            style={{
-              color: "#F7F3E8",
-              opacity: 1,
-              visibility: "visible",
-              display: "block",
-              transition: "none",
-            }}
-          >
+          <p className="relative z-10 mx-auto mt-4 max-w-2xl leading-7 text-[#F7F3E8]">
             Contact the institution directly for admission and further details.
           </p>
 
@@ -624,15 +679,9 @@ function InstitutionDetailsContent() {
             {institution.phone && (
               <a
                 href={`tel:${institution.phone}`}
-                className="rounded-xl px-7 py-3 font-extrabold transition-colors"
-                style={{
-                  backgroundColor: "#D6B45B",
-                  color: "#064B38",
-                  opacity: 1,
-                  visibility: "visible",
-                }}
+                className="rounded-xl bg-[#D6B45B] px-7 py-3 font-extrabold text-[#064B38] transition-colors hover:bg-[#E5CA7D]"
               >
-                Contact Institution
+                📞 Contact Institution
               </a>
             )}
 
@@ -641,13 +690,7 @@ function InstitutionDetailsContent() {
                 href={whatsappLink}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="rounded-xl border-2 px-7 py-3 font-bold transition-colors hover:bg-white hover:text-[#064B38]"
-                style={{
-                  borderColor: "#D6B45B",
-                  color: "#FFFFFF",
-                  opacity: 1,
-                  visibility: "visible",
-                }}
+                className="rounded-xl border-2 border-[#D6B45B] px-7 py-3 font-bold text-white transition-colors hover:bg-[#D6B45B] hover:text-[#064B38]"
               >
                 WhatsApp Us
               </a>
