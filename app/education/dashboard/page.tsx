@@ -386,6 +386,7 @@ export default function EducationDashboardPage() {
     setSuccess("");
   };
 
+  // Save or update campus and verify the returned database record.
   const handleCampusSubmit = async (
     event: React.FormEvent<HTMLFormElement>
   ) => {
@@ -396,15 +397,23 @@ export default function EducationDashboardPage() {
       return;
     }
 
+    const isEditing = Boolean(editingCampusId);
+    const expectedCampusName = campusForm.campus_name.trim();
+
+    if (!expectedCampusName || !campusForm.city.trim()) {
+      setError("Campus name and city are required.");
+      return;
+    }
+
     setCampusSaving(true);
     setError("");
     setSuccess("");
 
     try {
-      const isEditing = Boolean(editingCampusId);
-
       const payload = {
         ...campusForm,
+        campus_name: expectedCampusName,
+        city: campusForm.city.trim(),
         institution_id: campusInstitutionId,
         ...(isEditing ? { campus_id: editingCampusId } : {}),
       };
@@ -431,10 +440,39 @@ export default function EducationDashboardPage() {
         throw new Error(data?.error || "Unable to save campus.");
       }
 
+      const savedCampus = data?.campus as Campus | undefined;
+
+      if (!savedCampus?.id) {
+        throw new Error(
+          "The server did not return the saved campus. Please refresh and verify."
+        );
+      }
+
+      if (
+        savedCampus.institution_id !== campusInstitutionId ||
+        savedCampus.campus_name !== expectedCampusName
+      ) {
+        throw new Error(
+          `Campus update could not be verified. Expected "${expectedCampusName}", but the database returned "${savedCampus.campus_name || "unknown"}".`
+        );
+      }
+
+      setCampuses((previous) => {
+        if (isEditing) {
+          return previous.map((campus) =>
+            campus.id === savedCampus.id ? savedCampus : campus
+          );
+        }
+
+        return [savedCampus, ...previous];
+      });
+
       resetCampusForm();
-      await loadCampuses(campusInstitutionId, token);
+
       setSuccess(
-        isEditing ? "Campus updated successfully." : "Campus added successfully."
+        isEditing
+          ? "Campus updated and database record verified successfully."
+          : "Campus added and database record verified successfully."
       );
     } catch (err) {
       setError(
@@ -476,11 +514,22 @@ export default function EducationDashboardPage() {
 
       const data = await response.json();
 
-      if (!response.ok) {
+      if (response.status === 401) {
+        localStorage.removeItem(TOKEN_KEY);
+        setToken("");
+        throw new Error("Your session has expired. Please login again.");
+      }
+
+      if (!response.ok || !data?.campus?.id) {
         throw new Error(data?.error || "Unable to change campus status.");
       }
 
+      if (data.campus.is_active !== !campus.is_active) {
+        throw new Error("Campus status update could not be verified.");
+      }
+
       await loadCampuses(campusInstitutionId, token);
+
       setSuccess(
         campus.is_active
           ? "Campus deactivated successfully."
@@ -520,6 +569,12 @@ export default function EducationDashboardPage() {
       });
 
       const data = await response.json();
+
+      if (response.status === 401) {
+        localStorage.removeItem(TOKEN_KEY);
+        setToken("");
+        throw new Error("Your session has expired. Please login again.");
+      }
 
       if (!response.ok) {
         throw new Error(data?.error || "Unable to delete campus.");
