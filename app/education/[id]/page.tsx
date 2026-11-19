@@ -34,6 +34,7 @@ interface Campus {
 
 interface Program {
   id?: string;
+  campus_id?: string | null;
   program_name?: string | null;
   name?: string | null;
   program_type?: string | null;
@@ -66,8 +67,7 @@ function formatLocation(parts: Array<string | null | undefined>): string {
     if (!value) continue;
 
     const duplicate = result.some(
-      (existing) =>
-        existing.toLowerCase() === value.toLowerCase()
+      (existing) => existing.toLowerCase() === value.toLowerCase()
     );
 
     if (!duplicate) result.push(value);
@@ -80,17 +80,13 @@ function formatCampusLocation(campus: Campus): string {
   const address = cleanText(campus.address);
   const city = cleanText(campus.city);
   const province = cleanText(campus.province);
-
-  // Avoid repeating city/province when already present in the address.
   const addressLower = address.toLowerCase();
 
   const cityAlreadyIncluded =
-    city &&
-    addressLower.includes(city.toLowerCase());
+    city && addressLower.includes(city.toLowerCase());
 
   const provinceAlreadyIncluded =
-    province &&
-    addressLower.includes(province.toLowerCase());
+    province && addressLower.includes(province.toLowerCase());
 
   return formatLocation([
     address,
@@ -147,9 +143,7 @@ function formatProgramTypes(program: Program): string {
   );
 
   return uniqueTypes
-    .map((value) =>
-      value.charAt(0).toUpperCase() + value.slice(1)
-    )
+    .map((value) => value.charAt(0).toUpperCase() + value.slice(1))
     .join(" • ");
 }
 
@@ -173,6 +167,17 @@ function InstitutionDetailsContent() {
   const [programs, setPrograms] = useState<Program[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+
+  // Admission inquiry form state
+  const [studentName, setStudentName] = useState("");
+  const [studentEmail, setStudentEmail] = useState("");
+  const [studentPhone, setStudentPhone] = useState("");
+  const [selectedCampus, setSelectedCampus] = useState("");
+  const [selectedProgram, setSelectedProgram] = useState("");
+  const [studentMessage, setStudentMessage] = useState("");
+  const [inquirySubmitting, setInquirySubmitting] = useState(false);
+  const [inquirySuccess, setInquirySuccess] = useState("");
+  const [inquiryError, setInquiryError] = useState("");
 
   const fetchInstitution = useCallback(
     async (signal?: AbortSignal) => {
@@ -231,11 +236,100 @@ function InstitutionDetailsContent() {
 
   useEffect(() => {
     const controller = new AbortController();
-
     fetchInstitution(controller.signal);
 
     return () => controller.abort();
   }, [fetchInstitution]);
+
+  const submitInquiry = async (
+    event: React.FormEvent<HTMLFormElement>
+  ) => {
+    event.preventDefault();
+
+    setInquirySuccess("");
+    setInquiryError("");
+
+    if (!institution?.id) {
+      setInquiryError("Institution information is unavailable.");
+      return;
+    }
+
+    if (
+      !studentName.trim() ||
+      !studentPhone.trim() ||
+      !studentMessage.trim()
+    ) {
+      setInquiryError("Please complete all required fields.");
+      return;
+    }
+
+    if (studentPhone.trim().length < 7) {
+      setInquiryError("Please enter a valid phone number.");
+      return;
+    }
+
+    const selectedProgramData = programs.find(
+      (program) => program.id === selectedProgram
+    );
+
+    if (
+      selectedProgramData?.campus_id &&
+      selectedProgramData.campus_id !== selectedCampus
+    ) {
+      setInquiryError(
+        "Please select the correct campus for your chosen program."
+      );
+      return;
+    }
+
+    setInquirySubmitting(true);
+
+    try {
+      const response = await fetch("/api/education/inquiries", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          institution_id: institution.id,
+          campus_id: selectedCampus || null,
+          program_id: selectedProgram || null,
+          student_name: studentName.trim(),
+          student_email: studentEmail.trim() || null,
+          student_phone: studentPhone.trim(),
+          message: studentMessage.trim(),
+        }),
+      });
+
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        throw new Error(
+          data.error || data.message || "Unable to submit your inquiry."
+        );
+      }
+
+      setInquirySuccess(
+        data.message ||
+          "Your admission inquiry has been submitted successfully. The institution may contact you soon."
+      );
+
+      setStudentName("");
+      setStudentEmail("");
+      setStudentPhone("");
+      setSelectedCampus("");
+      setSelectedProgram("");
+      setStudentMessage("");
+    } catch (err) {
+      setInquiryError(
+        err instanceof Error
+          ? err.message
+          : "Something went wrong. Please try again."
+      );
+    } finally {
+      setInquirySubmitting(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -546,6 +640,260 @@ function InstitutionDetailsContent() {
               </p>
             )}
           </section>
+
+          {/* Student Admission Inquiry */}
+          <section
+            id="admission-inquiry"
+            className="rounded-3xl border border-[#D6B45B]/40 bg-white p-7 shadow-sm sm:p-9"
+          >
+            <div className="mb-6 flex items-center gap-3">
+              <div className="h-9 w-1.5 rounded-full bg-[#D6B45B]" />
+              <h2 className="text-2xl font-extrabold text-[#064B38]">
+                Admission Inquiry
+              </h2>
+            </div>
+
+            <p className="mb-6 leading-7 text-gray-600">
+              Interested in studying at {institutionName}? Submit your details
+              and the institution can contact you regarding admissions.
+            </p>
+
+            {programs.some(
+              (program) => program.admission_open === false
+            ) && (
+              <div className="mb-6 rounded-2xl border border-amber-300 bg-amber-50 p-4">
+                <p className="font-bold text-amber-800">
+                  Admissions Currently Closed
+                </p>
+                <p className="mt-1 text-sm leading-6 text-amber-700">
+                  You can still submit an inquiry for future admission
+                  opportunities. Submitting an inquiry does not confirm
+                  admission.
+                </p>
+              </div>
+            )}
+
+            {inquirySuccess && (
+              <div
+                role="status"
+                className="mb-6 rounded-2xl border border-green-300 bg-green-50 p-4"
+              >
+                <p className="font-bold text-green-800">
+                  Inquiry Submitted Successfully!
+                </p>
+                <p className="mt-1 text-sm leading-6 text-green-700">
+                  {inquirySuccess}
+                </p>
+              </div>
+            )}
+
+            {inquiryError && (
+              <div
+                role="alert"
+                className="mb-6 rounded-2xl border border-red-300 bg-red-50 p-4"
+              >
+                <p className="font-bold text-red-800">
+                  Submission Failed
+                </p>
+                <p className="mt-1 text-sm leading-6 text-red-700">
+                  {inquiryError}
+                </p>
+              </div>
+            )}
+
+            <form onSubmit={submitInquiry} className="space-y-5">
+              <div className="grid gap-5 sm:grid-cols-2">
+                <div>
+                  <label
+                    htmlFor="studentName"
+                    className="mb-2 block text-sm font-bold text-[#064B38]"
+                  >
+                    Student Name *
+                  </label>
+                  <input
+                    id="studentName"
+                    type="text"
+                    required
+                    maxLength={120}
+                    value={studentName}
+                    onChange={(event) => setStudentName(event.target.value)}
+                    placeholder="Enter your full name"
+                    className="w-full rounded-xl border border-gray-300 bg-[#F7F3E8] px-4 py-3 outline-none transition focus:border-[#064B38] focus:ring-2 focus:ring-[#064B38]/20"
+                  />
+                </div>
+
+                <div>
+                  <label
+                    htmlFor="studentPhone"
+                    className="mb-2 block text-sm font-bold text-[#064B38]"
+                  >
+                    Phone Number *
+                  </label>
+                  <input
+                    id="studentPhone"
+                    type="tel"
+                    required
+                    maxLength={30}
+                    value={studentPhone}
+                    onChange={(event) => setStudentPhone(event.target.value)}
+                    placeholder="03XXXXXXXXX"
+                    className="w-full rounded-xl border border-gray-300 bg-[#F7F3E8] px-4 py-3 outline-none transition focus:border-[#064B38] focus:ring-2 focus:ring-[#064B38]/20"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label
+                  htmlFor="studentEmail"
+                  className="mb-2 block text-sm font-bold text-[#064B38]"
+                >
+                  Email Address (Optional)
+                </label>
+                <input
+                  id="studentEmail"
+                  type="email"
+                  maxLength={254}
+                  value={studentEmail}
+                  onChange={(event) => setStudentEmail(event.target.value)}
+                  placeholder="your@email.com"
+                  className="w-full rounded-xl border border-gray-300 bg-[#F7F3E8] px-4 py-3 outline-none transition focus:border-[#064B38] focus:ring-2 focus:ring-[#064B38]/20"
+                />
+              </div>
+
+              <div className="grid gap-5 sm:grid-cols-2">
+                <div>
+                  <label
+                    htmlFor="selectedCampus"
+                    className="mb-2 block text-sm font-bold text-[#064B38]"
+                  >
+                    Select Campus (Optional)
+                  </label>
+                  <select
+                    id="selectedCampus"
+                    value={selectedCampus}
+                    onChange={(event) => {
+                      const campusId = event.target.value;
+                      setSelectedCampus(campusId);
+
+                      if (
+                        selectedProgram &&
+                        !programs.some(
+                          (program) =>
+                            program.id === selectedProgram &&
+                            (!program.campus_id ||
+                              program.campus_id === campusId)
+                        )
+                      ) {
+                        setSelectedProgram("");
+                      }
+
+                      setInquiryError("");
+                    }}
+                    className="w-full rounded-xl border border-gray-300 bg-[#F7F3E8] px-4 py-3 outline-none focus:border-[#064B38] focus:ring-2 focus:ring-[#064B38]/20"
+                  >
+                    <option value="">Any Campus</option>
+                    {campuses.map((campus, index) => (
+                      <option
+                        key={campus.id || index}
+                        value={campus.id || ""}
+                        disabled={!campus.id}
+                      >
+                        {campus.campus_name ||
+                          campus.name ||
+                          `Campus ${index + 1}`}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label
+                    htmlFor="selectedProgram"
+                    className="mb-2 block text-sm font-bold text-[#064B38]"
+                  >
+                    Select Program (Optional)
+                  </label>
+                  <select
+                    id="selectedProgram"
+                    value={selectedProgram}
+                    onChange={(event) => {
+                      const programId = event.target.value;
+                      const program = programs.find(
+                        (item) => item.id === programId
+                      );
+
+                      setSelectedProgram(programId);
+
+                      if (program?.campus_id) {
+                        setSelectedCampus(program.campus_id);
+                      }
+
+                      setInquiryError("");
+                    }}
+                    className="w-full rounded-xl border border-gray-300 bg-[#F7F3E8] px-4 py-3 outline-none focus:border-[#064B38] focus:ring-2 focus:ring-[#064B38]/20"
+                  >
+                    <option value="">General Inquiry</option>
+                    {programs
+                      .filter(
+                        (program) =>
+                          !program.campus_id ||
+                          !selectedCampus ||
+                          program.campus_id === selectedCampus
+                      )
+                      .map((program, index) => (
+                        <option
+                          key={program.id || index}
+                          value={program.id || ""}
+                          disabled={!program.id}
+                        >
+                          {program.program_name ||
+                            program.name ||
+                            `Program ${index + 1}`}
+                          {program.admission_open === false
+                            ? " (Admissions Closed)"
+                            : ""}
+                        </option>
+                      ))}
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label
+                  htmlFor="studentMessage"
+                  className="mb-2 block text-sm font-bold text-[#064B38]"
+                >
+                  Your Message *
+                </label>
+                <textarea
+                  id="studentMessage"
+                  required
+                  minLength={5}
+                  maxLength={2000}
+                  rows={5}
+                  value={studentMessage}
+                  onChange={(event) => setStudentMessage(event.target.value)}
+                  placeholder="Tell the institution about your admission inquiry..."
+                  className="w-full resize-y rounded-xl border border-gray-300 bg-[#F7F3E8] px-4 py-3 outline-none transition focus:border-[#064B38] focus:ring-2 focus:ring-[#064B38]/20"
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={inquirySubmitting}
+                className="w-full rounded-xl bg-[#064B38] px-6 py-4 font-extrabold text-white shadow-sm transition-all hover:bg-[#043729] disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+              >
+                {inquirySubmitting
+                  ? "Submitting Inquiry..."
+                  : "Submit Admission Inquiry →"}
+              </button>
+
+              <p className="text-xs leading-5 text-gray-500">
+                Your information will be shared with this institution for
+                admission-related communication.
+              </p>
+            </form>
+          </section>
         </div>
 
         {/* Contact Information */}
@@ -672,14 +1020,22 @@ function InstitutionDetailsContent() {
           </h2>
 
           <p className="relative z-10 mx-auto mt-4 max-w-2xl leading-7 text-[#F7F3E8]">
-            Contact the institution directly for admission and further details.
+            Submit an admission inquiry or contact the institution directly
+            for further details.
           </p>
 
           <div className="relative z-10 mt-7 flex flex-wrap justify-center gap-3">
+            <a
+              href="#admission-inquiry"
+              className="rounded-xl bg-[#D6B45B] px-7 py-3 font-extrabold text-[#064B38] transition-colors hover:bg-[#E5CA7D]"
+            >
+              Submit Admission Inquiry
+            </a>
+
             {institution.phone && (
               <a
                 href={`tel:${institution.phone}`}
-                className="rounded-xl bg-[#D6B45B] px-7 py-3 font-extrabold text-[#064B38] transition-colors hover:bg-[#E5CA7D]"
+                className="rounded-xl border-2 border-[#D6B45B] px-7 py-3 font-bold text-white transition-colors hover:bg-[#D6B45B] hover:text-[#064B38]"
               >
                 📞 Contact Institution
               </a>
