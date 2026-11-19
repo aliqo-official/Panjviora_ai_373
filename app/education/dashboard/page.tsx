@@ -966,9 +966,9 @@ export default function EducationDashboardPage() {
         throw new Error("Your session has expired. Please login again.");
       }
 
-      if (!response.ok || !data?.success) {
-        throw new Error(data?.error || "Unable to delete program.");
-      }
+     if (!response.ok) {
+  throw new Error(data?.error || "Unable to delete program.");
+}
 
       if (editingProgramId === program.id) {
         resetProgramForm();
