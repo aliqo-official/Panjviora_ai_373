@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type FormEvent } from "react";
 
 type Institution = {
   id: string;
@@ -51,6 +51,35 @@ type Program = {
   admission_open: boolean;
   is_active: boolean;
   created_at?: string;
+};
+
+type InquiryStatus =
+  | "new"
+  | "contacted"
+  | "in_review"
+  | "accepted"
+  | "rejected"
+  | "closed";
+
+type Inquiry = {
+  id: string;
+  institution_id: string;
+  campus_id: string | null;
+  program_id: string | null;
+  student_user_id: string | null;
+  student_name: string;
+  student_email: string | null;
+  student_phone: string;
+  message: string;
+  status: InquiryStatus;
+  admin_notes: string | null;
+  created_at: string;
+  updated_at?: string;
+};
+
+type InquiryDraft = {
+  status: InquiryStatus;
+  admin_notes: string;
 };
 
 type ProfileForm = {
@@ -129,6 +158,18 @@ const EMPTY_PROGRAM: ProgramForm = {
   admission_open: false,
 };
 
+const INQUIRY_STATUSES: InquiryStatus[] = [
+  "new",
+  "contacted",
+  "in_review",
+  "accepted",
+  "rejected",
+  "closed",
+];
+
+const statusLabel = (status: string) =>
+  status.replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
+
 export default function EducationDashboardPage() {
   const [token, setToken] = useState("");
   const [email, setEmail] = useState("");
@@ -141,16 +182,14 @@ export default function EducationDashboardPage() {
   const [success, setSuccess] = useState("");
 
   const [editingId, setEditingId] = useState("");
-  const [profileForm, setProfileForm] =
-    useState<ProfileForm>(EMPTY_PROFILE);
+  const [profileForm, setProfileForm] = useState<ProfileForm>(EMPTY_PROFILE);
   const [savingProfile, setSavingProfile] = useState(false);
 
   const [campusInstitutionId, setCampusInstitutionId] = useState("");
   const [campuses, setCampuses] = useState<Campus[]>([]);
   const [campusLoading, setCampusLoading] = useState(false);
   const [campusSaving, setCampusSaving] = useState(false);
-  const [campusForm, setCampusForm] =
-    useState<CampusForm>(EMPTY_CAMPUS);
+  const [campusForm, setCampusForm] = useState<CampusForm>(EMPTY_CAMPUS);
   const [editingCampusId, setEditingCampusId] = useState("");
 
   const [programInstitutionId, setProgramInstitutionId] = useState("");
@@ -158,9 +197,33 @@ export default function EducationDashboardPage() {
   const [programCampuses, setProgramCampuses] = useState<Campus[]>([]);
   const [programLoading, setProgramLoading] = useState(false);
   const [programSaving, setProgramSaving] = useState(false);
-  const [programForm, setProgramForm] =
-    useState<ProgramForm>(EMPTY_PROGRAM);
+  const [programForm, setProgramForm] = useState<ProgramForm>(EMPTY_PROGRAM);
   const [editingProgramId, setEditingProgramId] = useState("");
+
+  // Admission inquiries
+  const [inquiryInstitutionId, setInquiryInstitutionId] = useState("");
+  const [inquiryInstitutionName, setInquiryInstitutionName] = useState("");
+  const [inquiries, setInquiries] = useState<Inquiry[]>([]);
+  const [inquiryCampuses, setInquiryCampuses] = useState<Campus[]>([]);
+  const [inquiryPrograms, setInquiryPrograms] = useState<Program[]>([]);
+  const [inquiryLoading, setInquiryLoading] = useState(false);
+  const [savingInquiryId, setSavingInquiryId] = useState("");
+  const [inquiryFilter, setInquiryFilter] = useState("all");
+  const [inquiryDrafts, setInquiryDrafts] = useState<
+    Record<string, InquiryDraft>
+  >({});
+
+  const inputClass =
+    "w-full rounded-xl border border-[#e5dfcf] bg-white px-4 py-3 text-gray-800 outline-none transition focus:border-[#D6B45B] focus:ring-2 focus:ring-[#D6B45B]/20";
+
+  const labelClass = "mb-2 block text-sm font-bold text-[#064B38]";
+
+  const clearSession = useCallback(() => {
+    localStorage.removeItem(TOKEN_KEY);
+    setToken("");
+    setInstitutions([]);
+    setError("Your session has expired. Please login again.");
+  }, []);
 
   const loadInstitutions = useCallback(async (accessToken: string) => {
     setLoading(true);
@@ -175,10 +238,7 @@ export default function EducationDashboardPage() {
       const data = await response.json();
 
       if (response.status === 401) {
-        localStorage.removeItem(TOKEN_KEY);
-        setToken("");
-        setInstitutions([]);
-        setError("Your session has expired. Please login again.");
+        clearSession();
         return;
       }
 
@@ -194,7 +254,7 @@ export default function EducationDashboardPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [clearSession]);
 
   const loadCampuses = useCallback(
     async (institutionId: string, accessToken: string) => {
@@ -215,10 +275,8 @@ export default function EducationDashboardPage() {
         const data = await response.json();
 
         if (response.status === 401) {
-          localStorage.removeItem(TOKEN_KEY);
-          setToken("");
-          setInstitutions([]);
-          throw new Error("Your session has expired. Please login again.");
+          clearSession();
+          return;
         }
 
         if (!response.ok || !Array.isArray(data?.campuses)) {
@@ -234,7 +292,7 @@ export default function EducationDashboardPage() {
         setCampusLoading(false);
       }
     },
-    []
+    [clearSession]
   );
 
   const loadPrograms = useCallback(
@@ -269,22 +327,16 @@ export default function EducationDashboardPage() {
           programResponse.status === 401 ||
           campusResponse.status === 401
         ) {
-          localStorage.removeItem(TOKEN_KEY);
-          setToken("");
-          setInstitutions([]);
-          throw new Error("Your session has expired. Please login again.");
+          clearSession();
+          return;
         }
 
         if (!programResponse.ok || !Array.isArray(programData?.programs)) {
-          throw new Error(
-            programData?.error || "Unable to load programs."
-          );
+          throw new Error(programData?.error || "Unable to load programs.");
         }
 
         if (!campusResponse.ok || !Array.isArray(campusData?.campuses)) {
-          throw new Error(
-            campusData?.error || "Unable to load campuses."
-          );
+          throw new Error(campusData?.error || "Unable to load campuses.");
         }
 
         setPrograms(programData.programs);
@@ -297,7 +349,93 @@ export default function EducationDashboardPage() {
         setProgramLoading(false);
       }
     },
-    []
+    [clearSession]
+  );
+
+  // Load inquiries and their related campus/program names.
+  const loadInquiries = useCallback(
+    async (institutionId: string, accessToken: string) => {
+      if (!institutionId || !accessToken) return;
+
+      setInquiryLoading(true);
+      setError("");
+
+      try {
+        const headers = { Authorization: `Bearer ${accessToken}` };
+
+        const [inquiryResponse, campusResponse, programResponse] =
+          await Promise.all([
+            fetch(
+              `/api/education/inquiries?institution_id=${encodeURIComponent(institutionId)}`,
+              { headers, cache: "no-store" }
+            ),
+            fetch(
+              `/api/education/campuses?institution_id=${encodeURIComponent(institutionId)}`,
+              { headers, cache: "no-store" }
+            ),
+            fetch(
+              `/api/education/programs?institution_id=${encodeURIComponent(institutionId)}`,
+              { headers, cache: "no-store" }
+            ),
+          ]);
+
+        if (
+          inquiryResponse.status === 401 ||
+          campusResponse.status === 401 ||
+          programResponse.status === 401
+        ) {
+          clearSession();
+          return;
+        }
+
+        const inquiryData = await inquiryResponse.json();
+        const campusData = await campusResponse.json();
+        const programData = await programResponse.json();
+
+        if (
+          !inquiryResponse.ok ||
+          !Array.isArray(inquiryData?.inquiries)
+        ) {
+          throw new Error(
+            inquiryData?.error || "Unable to load admission inquiries."
+          );
+        }
+
+        if (!campusResponse.ok || !Array.isArray(campusData?.campuses)) {
+          throw new Error(campusData?.error || "Unable to load campuses.");
+        }
+
+        if (!programResponse.ok || !Array.isArray(programData?.programs)) {
+          throw new Error(programData?.error || "Unable to load programs.");
+        }
+
+        const loadedInquiries = inquiryData.inquiries as Inquiry[];
+
+        setInquiries(loadedInquiries);
+        setInquiryCampuses(campusData.campuses);
+        setInquiryPrograms(programData.programs);
+
+        const drafts: Record<string, InquiryDraft> = {};
+
+        loadedInquiries.forEach((inquiry) => {
+          drafts[inquiry.id] = {
+            status: inquiry.status,
+            admin_notes: inquiry.admin_notes || "",
+          };
+        });
+
+        setInquiryDrafts(drafts);
+      } catch (err) {
+        setError(
+          err instanceof Error
+            ? err.message
+            : "Unable to load admission inquiries."
+        );
+      } finally {
+        setInquiryLoading(false);
+      }
+    },
+    [clearSession]
   );
 
   useEffect(() => {
@@ -311,7 +449,7 @@ export default function EducationDashboardPage() {
     }
   }, [loadInstitutions]);
 
-  const handleLogin = async (event: React.FormEvent<HTMLFormElement>) => {
+  const handleLogin = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setLoading(true);
     setError("");
@@ -380,6 +518,14 @@ export default function EducationDashboardPage() {
     setProgramCampuses([]);
     setEditingProgramId("");
     setProgramForm(EMPTY_PROGRAM);
+
+    setInquiryInstitutionId("");
+    setInquiryInstitutionName("");
+    setInquiries([]);
+    setInquiryCampuses([]);
+    setInquiryPrograms([]);
+    setInquiryDrafts({});
+    setInquiryFilter("all");
   };
 
   const openProfileEditor = (institution: Institution) => {
@@ -405,16 +551,11 @@ export default function EducationDashboardPage() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  const updateProfileField = (
-    field: keyof ProfileForm,
-    value: string
-  ) => {
+  const updateProfileField = (field: keyof ProfileForm, value: string) => {
     setProfileForm((previous) => ({ ...previous, [field]: value }));
   };
 
-  const handleSaveProfile = async (
-    event: React.FormEvent<HTMLFormElement>
-  ) => {
+  const handleSaveProfile = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
     if (!editingId || !token) {
@@ -443,11 +584,9 @@ export default function EducationDashboardPage() {
       const data = await response.json();
 
       if (response.status === 401) {
-        localStorage.removeItem(TOKEN_KEY);
-        setToken("");
-        setInstitutions([]);
+        clearSession();
         setEditingId("");
-        throw new Error("Your session has expired. Please login again.");
+        return;
       }
 
       if (!response.ok || !data?.success) {
@@ -506,14 +645,11 @@ export default function EducationDashboardPage() {
       phone: campus.phone || "",
       email: campus.email || "",
     });
-
     setError("");
     setSuccess("");
   };
 
-  const handleCampusSubmit = async (
-    event: React.FormEvent<HTMLFormElement>
-  ) => {
+  const handleCampusSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
     if (!campusInstitutionId || !token) {
@@ -555,9 +691,8 @@ export default function EducationDashboardPage() {
       const data = await response.json();
 
       if (response.status === 401) {
-        localStorage.removeItem(TOKEN_KEY);
-        setToken("");
-        throw new Error("Your session has expired. Please login again.");
+        clearSession();
+        return;
       }
 
       if (!response.ok) {
@@ -579,15 +714,13 @@ export default function EducationDashboardPage() {
         throw new Error("Campus update could not be verified.");
       }
 
-      setCampuses((previous) => {
-        if (isEditing) {
-          return previous.map((campus) =>
-            campus.id === savedCampus.id ? savedCampus : campus
-          );
-        }
-
-        return [savedCampus, ...previous];
-      });
+      setCampuses((previous) =>
+        isEditing
+          ? previous.map((campus) =>
+              campus.id === savedCampus.id ? savedCampus : campus
+            )
+          : [savedCampus, ...previous]
+      );
 
       resetCampusForm();
 
@@ -637,9 +770,8 @@ export default function EducationDashboardPage() {
       const data = await response.json();
 
       if (response.status === 401) {
-        localStorage.removeItem(TOKEN_KEY);
-        setToken("");
-        throw new Error("Your session has expired. Please login again.");
+        clearSession();
+        return;
       }
 
       if (!response.ok || !data?.campus?.id) {
@@ -693,9 +825,8 @@ export default function EducationDashboardPage() {
       const data = await response.json();
 
       if (response.status === 401) {
-        localStorage.removeItem(TOKEN_KEY);
-        setToken("");
-        throw new Error("Your session has expired. Please login again.");
+        clearSession();
+        return;
       }
 
       if (!response.ok) {
@@ -726,7 +857,7 @@ export default function EducationDashboardPage() {
     await loadPrograms(institution.id, token);
   };
 
-  const updateProgramField = <K extends keyof ProgramForm,>(
+  const updateProgramField = <K extends keyof ProgramForm>(
     field: K,
     value: ProgramForm[K]
   ) => {
@@ -757,9 +888,7 @@ export default function EducationDashboardPage() {
     setSuccess("");
   };
 
-  const handleProgramSubmit = async (
-    event: React.FormEvent<HTMLFormElement>
-  ) => {
+  const handleProgramSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
     if (!programInstitutionId || !token) {
@@ -837,10 +966,8 @@ export default function EducationDashboardPage() {
       const data = await response.json();
 
       if (response.status === 401) {
-        localStorage.removeItem(TOKEN_KEY);
-        setToken("");
-        setInstitutions([]);
-        throw new Error("Your session has expired. Please login again.");
+        clearSession();
+        return;
       }
 
       if (!response.ok || !data?.program?.id) {
@@ -905,10 +1032,8 @@ export default function EducationDashboardPage() {
       const data = await response.json();
 
       if (response.status === 401) {
-        localStorage.removeItem(TOKEN_KEY);
-        setToken("");
-        setInstitutions([]);
-        throw new Error("Your session has expired. Please login again.");
+        clearSession();
+        return;
       }
 
       if (!response.ok || data?.program?.is_active !== nextStatus) {
@@ -960,19 +1085,15 @@ export default function EducationDashboardPage() {
       const data = await response.json();
 
       if (response.status === 401) {
-        localStorage.removeItem(TOKEN_KEY);
-        setToken("");
-        setInstitutions([]);
-        throw new Error("Your session has expired. Please login again.");
+        clearSession();
+        return;
       }
 
-     if (!response.ok) {
-  throw new Error(data?.error || "Unable to delete program.");
-}
-
-      if (editingProgramId === program.id) {
-        resetProgramForm();
+      if (!response.ok) {
+        throw new Error(data?.error || "Unable to delete program.");
       }
+
+      if (editingProgramId === program.id) resetProgramForm();
 
       await loadPrograms(programInstitutionId, token);
       setSuccess("Program deleted successfully.");
@@ -983,16 +1104,128 @@ export default function EducationDashboardPage() {
     }
   };
 
-  const getStatusStyle = (status: string) => {
-    if (status === "approved") return "bg-green-100 text-green-800";
-    if (status === "rejected") return "bg-red-100 text-red-800";
-    return "bg-amber-100 text-amber-800";
+  // Admission inquiry manager actions
+  const openInquiryManager = async (institution: Institution) => {
+    setInquiryInstitutionId(institution.id);
+    setInquiryInstitutionName(institution.institution_name);
+    setInquiries([]);
+    setInquiryCampuses([]);
+    setInquiryPrograms([]);
+    setInquiryDrafts({});
+    setInquiryFilter("all");
+    setError("");
+    setSuccess("");
+
+    window.scrollTo({ top: 0, behavior: "smooth" });
+    await loadInquiries(institution.id, token);
   };
 
-  const inputClass =
-    "w-full rounded-xl border border-[#e5dfcf] bg-white px-4 py-3 text-gray-800 outline-none transition focus:border-[#D6B45B] focus:ring-2 focus:ring-[#D6B45B]/20";
+  const closeInquiryManager = () => {
+    setInquiryInstitutionId("");
+    setInquiryInstitutionName("");
+    setInquiries([]);
+    setInquiryCampuses([]);
+    setInquiryPrograms([]);
+    setInquiryDrafts({});
+    setInquiryFilter("all");
+    setError("");
+    setSuccess("");
+  };
 
-  const labelClass = "mb-2 block text-sm font-bold text-[#064B38]";
+  const updateInquiryDraft = (
+    inquiryId: string,
+    field: keyof InquiryDraft,
+    value: string
+  ) => {
+    setInquiryDrafts((previous) => ({
+      ...previous,
+      [inquiryId]: {
+        status:
+          previous[inquiryId]?.status ||
+          inquiries.find((item) => item.id === inquiryId)?.status ||
+          "new",
+        admin_notes: previous[inquiryId]?.admin_notes || "",
+        [field]: value,
+      },
+    }));
+  };
+
+  const updateInquiry = async (inquiry: Inquiry) => {
+    if (!token || !inquiryInstitutionId) return;
+
+    const draft = inquiryDrafts[inquiry.id];
+
+    if (!draft || !INQUIRY_STATUSES.includes(draft.status)) {
+      setError("Please select a valid inquiry status.");
+      return;
+    }
+
+    setSavingInquiryId(inquiry.id);
+    setError("");
+    setSuccess("");
+
+    try {
+      const response = await fetch("/api/education/inquiries", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          inquiry_id: inquiry.id,
+          institution_id: inquiryInstitutionId,
+          status: draft.status,
+          admin_notes: draft.admin_notes.trim() || null,
+        }),
+        cache: "no-store",
+      });
+
+      const data = await response.json();
+
+      if (response.status === 401) {
+        clearSession();
+        return;
+      }
+
+      if (!response.ok || !data?.inquiry?.id) {
+        throw new Error(data?.error || "Unable to update inquiry.");
+      }
+
+      setInquiries((previous) =>
+        previous.map((item) =>
+          item.id === inquiry.id ? data.inquiry : item
+        )
+      );
+
+      setInquiryDrafts((previous) => ({
+        ...previous,
+        [inquiry.id]: {
+          status: data.inquiry.status,
+          admin_notes: data.inquiry.admin_notes || "",
+        },
+      }));
+
+      setSuccess("Admission inquiry updated successfully.");
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Unable to update inquiry."
+      );
+    } finally {
+      setSavingInquiryId("");
+    }
+  };
+
+  const getStatusStyle = (status: string) => {
+    if (status === "approved" || status === "accepted") {
+      return "bg-green-100 text-green-800";
+    }
+    if (status === "rejected") return "bg-red-100 text-red-800";
+    if (status === "closed") return "bg-gray-200 text-gray-700";
+    if (status === "contacted" || status === "in_review") {
+      return "bg-blue-100 text-blue-800";
+    }
+    return "bg-amber-100 text-amber-800";
+  };
 
   if (initializing) {
     return (
@@ -1077,6 +1310,12 @@ export default function EducationDashboardPage() {
     );
   }
 
+  const filteredInquiries = inquiries.filter(
+    (item) =>
+      inquiryFilter === "all" ||
+      (inquiryDrafts[item.id]?.status || item.status) === inquiryFilter
+  );
+
   return (
     <main className="min-h-screen bg-[#F7F3E8] text-gray-800">
       <header className="bg-[#064B38] px-5 py-5 text-white shadow-lg">
@@ -1127,6 +1366,7 @@ export default function EducationDashboardPage() {
           </div>
         )}
 
+        {/* Institution profile editor */}
         {editingId && (
           <section className="mb-9 rounded-2xl border border-[#D6B45B]/50 bg-white p-6 shadow-md sm:p-8">
             <div className="mb-7 flex flex-wrap items-start justify-between gap-4">
@@ -1251,6 +1491,7 @@ export default function EducationDashboardPage() {
           </section>
         )}
 
+        {/* Campus manager */}
         {campusInstitutionId && (
           <section className="mb-9 rounded-2xl border border-[#D6B45B]/50 bg-white p-6 shadow-md sm:p-8">
             <div className="mb-7 flex flex-wrap items-start justify-between gap-4">
@@ -1362,6 +1603,7 @@ export default function EducationDashboardPage() {
           </section>
         )}
 
+        {/* Programs manager */}
         {programInstitutionId && (
           <section className="mb-9 rounded-2xl border border-[#D6B45B]/50 bg-white p-6 shadow-md sm:p-8">
             <div className="mb-7 flex flex-wrap items-start justify-between gap-4">
@@ -1401,17 +1643,7 @@ export default function EducationDashboardPage() {
               <form onSubmit={handleProgramSubmit} className="grid gap-4 md:grid-cols-2">
                 <div>
                   <label className={labelClass}>Program Type *</label>
-                  <select
-                    required
-                    value={programForm.program_type}
-                    onChange={(e) =>
-                      updateProgramField(
-                        "program_type",
-                        e.target.value as ProgramForm["program_type"]
-                      )
-                    }
-                    className={inputClass}
-                  >
+                  <select required value={programForm.program_type} onChange={(e) => updateProgramField("program_type", e.target.value as ProgramForm["program_type"])} className={inputClass}>
                     <option value="school_class">School Class</option>
                     <option value="course">Professional Course</option>
                     <option value="degree">Degree Program</option>
@@ -1420,36 +1652,16 @@ export default function EducationDashboardPage() {
 
                 <div>
                   <label className={labelClass}>Program Name *</label>
-                  <input
-                    required
-                    maxLength={200}
-                    value={programForm.program_name}
-                    onChange={(e) =>
-                      updateProgramField("program_name", e.target.value)
-                    }
-                    className={inputClass}
-                    placeholder="e.g. Class 9, Web Development, BS Computer Science"
-                  />
+                  <input required maxLength={200} value={programForm.program_name} onChange={(e) => updateProgramField("program_name", e.target.value)} className={inputClass} placeholder="e.g. Class 9, Web Development, BS Computer Science" />
                 </div>
 
                 <div>
                   <label className={labelClass}>Campus</label>
-                  <select
-                    value={programForm.campus_id}
-                    onChange={(e) =>
-                      updateProgramField("campus_id", e.target.value)
-                    }
-                    className={inputClass}
-                  >
+                  <select value={programForm.campus_id} onChange={(e) => updateProgramField("campus_id", e.target.value)} className={inputClass}>
                     <option value="">All Campuses / Not Specified</option>
                     {programCampuses.map((campus) => (
-                      <option
-                        key={campus.id}
-                        value={campus.id}
-                        disabled={!campus.is_active}
-                      >
-                        {campus.campus_name}
-                        {!campus.is_active ? " (Inactive)" : ""}
+                      <option key={campus.id} value={campus.id} disabled={!campus.is_active}>
+                        {campus.campus_name}{!campus.is_active ? " (Inactive)" : ""}
                       </option>
                     ))}
                   </select>
@@ -1457,113 +1669,42 @@ export default function EducationDashboardPage() {
 
                 <div>
                   <label className={labelClass}>Duration</label>
-                  <input
-                    maxLength={100}
-                    value={programForm.duration}
-                    onChange={(e) =>
-                      updateProgramField("duration", e.target.value)
-                    }
-                    className={inputClass}
-                    placeholder="e.g. 2 Years, 6 Months"
-                  />
+                  <input maxLength={100} value={programForm.duration} onChange={(e) => updateProgramField("duration", e.target.value)} className={inputClass} placeholder="e.g. 2 Years, 6 Months" />
                 </div>
 
                 <div className="md:col-span-2">
                   <label className={labelClass}>Description</label>
-                  <textarea
-                    rows={3}
-                    maxLength={5000}
-                    value={programForm.description}
-                    onChange={(e) =>
-                      updateProgramField("description", e.target.value)
-                    }
-                    className={inputClass}
-                    placeholder="Describe this class, course or degree..."
-                  />
+                  <textarea rows={3} maxLength={5000} value={programForm.description} onChange={(e) => updateProgramField("description", e.target.value)} className={inputClass} placeholder="Describe this class, course or degree..." />
                 </div>
 
                 <div className="md:col-span-2">
                   <label className={labelClass}>Eligibility Criteria</label>
-                  <textarea
-                    rows={2}
-                    maxLength={2000}
-                    value={programForm.eligibility}
-                    onChange={(e) =>
-                      updateProgramField("eligibility", e.target.value)
-                    }
-                    className={inputClass}
-                    placeholder="Required qualification or admission criteria..."
-                  />
+                  <textarea rows={2} maxLength={2000} value={programForm.eligibility} onChange={(e) => updateProgramField("eligibility", e.target.value)} className={inputClass} placeholder="Required qualification or admission criteria..." />
                 </div>
 
                 <div>
                   <label className={labelClass}>Minimum Fee</label>
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={programForm.fee_min}
-                    onChange={(e) =>
-                      updateProgramField("fee_min", e.target.value)
-                    }
-                    className={inputClass}
-                    placeholder="Minimum fee"
-                  />
+                  <input type="number" min="0" step="0.01" value={programForm.fee_min} onChange={(e) => updateProgramField("fee_min", e.target.value)} className={inputClass} placeholder="Minimum fee" />
                 </div>
 
                 <div>
                   <label className={labelClass}>Maximum Fee</label>
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={programForm.fee_max}
-                    onChange={(e) =>
-                      updateProgramField("fee_max", e.target.value)
-                    }
-                    className={inputClass}
-                    placeholder="Maximum fee"
-                  />
+                  <input type="number" min="0" step="0.01" value={programForm.fee_max} onChange={(e) => updateProgramField("fee_max", e.target.value)} className={inputClass} placeholder="Maximum fee" />
                 </div>
 
                 <div className="flex items-center gap-3 md:col-span-2">
-                  <input
-                    id="program-admission-open"
-                    type="checkbox"
-                    checked={programForm.admission_open}
-                    onChange={(e) =>
-                      updateProgramField("admission_open", e.target.checked)
-                    }
-                    className="h-5 w-5 accent-[#064B38]"
-                  />
-                  <label
-                    htmlFor="program-admission-open"
-                    className="font-semibold text-[#064B38]"
-                  >
+                  <input id="program-admission-open" type="checkbox" checked={programForm.admission_open} onChange={(e) => updateProgramField("admission_open", e.target.checked)} className="h-5 w-5 accent-[#064B38]" />
+                  <label htmlFor="program-admission-open" className="font-semibold text-[#064B38]">
                     Admissions currently open
                   </label>
                 </div>
 
                 <div className="flex flex-wrap gap-3 md:col-span-2">
-                  <button
-                    type="submit"
-                    disabled={programSaving}
-                    className="rounded-xl bg-[#064B38] px-6 py-3 font-bold text-white hover:bg-[#086148] disabled:opacity-60"
-                  >
-                    {programSaving
-                      ? "Saving..."
-                      : editingProgramId
-                        ? "Update Program"
-                        : "Add Program"}
+                  <button type="submit" disabled={programSaving} className="rounded-xl bg-[#064B38] px-6 py-3 font-bold text-white hover:bg-[#086148] disabled:opacity-60">
+                    {programSaving ? "Saving..." : editingProgramId ? "Update Program" : "Add Program"}
                   </button>
-
                   {editingProgramId && (
-                    <button
-                      type="button"
-                      onClick={resetProgramForm}
-                      disabled={programSaving}
-                      className="rounded-xl border border-gray-300 px-6 py-3 font-bold text-gray-600"
-                    >
+                    <button type="button" onClick={resetProgramForm} disabled={programSaving} className="rounded-xl border border-gray-300 px-6 py-3 font-bold text-gray-600">
                       Cancel Edit
                     </button>
                   )}
@@ -1573,120 +1714,49 @@ export default function EducationDashboardPage() {
 
             <div>
               <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-                <h3 className="text-xl font-extrabold text-[#064B38]">
-                  Your Programs & Courses
-                </h3>
-
-                <button
-                  type="button"
-                  onClick={() => loadPrograms(programInstitutionId, token)}
-                  disabled={programLoading}
-                  className="rounded-lg bg-[#D6B45B] px-4 py-2 font-bold text-[#173C2E]"
-                >
+                <h3 className="text-xl font-extrabold text-[#064B38]">Your Programs & Courses</h3>
+                <button type="button" onClick={() => loadPrograms(programInstitutionId, token)} disabled={programLoading} className="rounded-lg bg-[#D6B45B] px-4 py-2 font-bold text-[#173C2E]">
                   {programLoading ? "Loading..." : "Refresh Programs"}
                 </button>
               </div>
 
               {programLoading ? (
-                <p className="py-8 text-center text-gray-500">
-                  Loading programs...
-                </p>
+                <p className="py-8 text-center text-gray-500">Loading programs...</p>
               ) : programs.length === 0 ? (
                 <div className="rounded-xl border border-dashed border-[#D6B45B] p-8 text-center">
                   <p className="text-3xl">📚</p>
-                  <p className="mt-3 font-bold text-[#064B38]">
-                    No programs added yet
-                  </p>
-                  <p className="mt-1 text-sm text-gray-500">
-                    Use the form above to add your first program or course.
-                  </p>
+                  <p className="mt-3 font-bold text-[#064B38]">No programs added yet</p>
+                  <p className="mt-1 text-sm text-gray-500">Use the form above to add your first program or course.</p>
                 </div>
               ) : (
                 <div className="grid gap-4 md:grid-cols-2">
                   {programs.map((program) => (
-                    <article
-                      key={program.id}
-                      className="rounded-xl border border-[#e8e1cf] bg-[#F7F3E8]/50 p-5"
-                    >
+                    <article key={program.id} className="rounded-xl border border-[#e8e1cf] bg-[#F7F3E8]/50 p-5">
                       <div className="flex flex-wrap items-start justify-between gap-3">
                         <div>
-                          <h4 className="text-lg font-extrabold text-[#064B38]">
-                            {program.program_name}
-                          </h4>
-                          <p className="mt-1 text-sm font-semibold capitalize text-[#9b792e]">
-                            {program.program_type.replace("_", " ")}
-                          </p>
+                          <h4 className="text-lg font-extrabold text-[#064B38]">{program.program_name}</h4>
+                          <p className="mt-1 text-sm font-semibold capitalize text-[#9b792e]">{program.program_type.replace("_", " ")}</p>
                         </div>
-
-                        <span
-                          className={`rounded-full px-3 py-1 text-xs font-bold ${
-                            program.is_active
-                              ? "bg-green-100 text-green-800"
-                              : "bg-gray-200 text-gray-700"
-                          }`}
-                        >
+                        <span className={`rounded-full px-3 py-1 text-xs font-bold ${program.is_active ? "bg-green-100 text-green-800" : "bg-gray-200 text-gray-700"}`}>
                           {program.is_active ? "Active" : "Inactive"}
                         </span>
                       </div>
 
                       <div className="mt-3 space-y-2 text-sm text-gray-600">
-                        {program.campus_id && (
-                          <p>
-                            🏫{" "}
-                            {programCampuses.find(
-                              (campus) => campus.id === program.campus_id
-                            )?.campus_name || "Assigned Campus"}
-                          </p>
-                        )}
+                        {program.campus_id && <p>🏫 {programCampuses.find((campus) => campus.id === program.campus_id)?.campus_name || "Assigned Campus"}</p>}
                         {program.duration && <p>⏳ {program.duration}</p>}
                         {program.description && <p>{program.description}</p>}
-                        {program.eligibility && (
-                          <p>📋 Eligibility: {program.eligibility}</p>
+                        {program.eligibility && <p>📋 Eligibility: {program.eligibility}</p>}
+                        {(program.fee_min != null || program.fee_max != null) && (
+                          <p>💰 Fee: {program.fee_min != null ? program.fee_min : "Not specified"} - {program.fee_max != null ? program.fee_max : "Not specified"}</p>
                         )}
-                        {(program.fee_min != null ||
-                          program.fee_max != null) && (
-                          <p>
-                            💰 Fee:{" "}
-                            {program.fee_min != null
-                              ? program.fee_min
-                              : "Not specified"}
-                            {" - "}
-                            {program.fee_max != null
-                              ? program.fee_max
-                              : "Not specified"}
-                          </p>
-                        )}
-                        <p>
-                          {program.admission_open
-                            ? "🟢 Admissions Open"
-                            : "Admissions Closed"}
-                        </p>
+                        <p>{program.admission_open ? "🟢 Admissions Open" : "Admissions Closed"}</p>
                       </div>
 
                       <div className="mt-4 flex flex-wrap gap-2 border-t border-[#e8e1cf] pt-4">
-                        <button
-                          type="button"
-                          onClick={() => startProgramEdit(program)}
-                          className="rounded-lg border border-[#D6B45B] bg-white px-3 py-2 text-sm font-bold text-[#064B38]"
-                        >
-                          Edit
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => toggleProgramStatus(program)}
-                          className="rounded-lg bg-[#D6B45B] px-3 py-2 text-sm font-bold text-[#173C2E]"
-                        >
-                          {program.is_active ? "Deactivate" : "Activate"}
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => deleteProgram(program)}
-                          className="rounded-lg border border-red-200 bg-white px-3 py-2 text-sm font-bold text-red-700"
-                        >
-                          Delete
-                        </button>
+                        <button type="button" onClick={() => startProgramEdit(program)} className="rounded-lg border border-[#D6B45B] bg-white px-3 py-2 text-sm font-bold text-[#064B38]">Edit</button>
+                        <button type="button" onClick={() => toggleProgramStatus(program)} className="rounded-lg bg-[#D6B45B] px-3 py-2 text-sm font-bold text-[#173C2E]">{program.is_active ? "Deactivate" : "Activate"}</button>
+                        <button type="button" onClick={() => deleteProgram(program)} className="rounded-lg border border-red-200 bg-white px-3 py-2 text-sm font-bold text-red-700">Delete</button>
                       </div>
                     </article>
                   ))}
@@ -1696,6 +1766,220 @@ export default function EducationDashboardPage() {
           </section>
         )}
 
+        {/* Admission inquiries manager */}
+        {inquiryInstitutionId && (
+          <section className="mb-9 rounded-2xl border border-[#D6B45B]/50 bg-white p-6 shadow-md sm:p-8">
+            <div className="mb-7 flex flex-wrap items-start justify-between gap-4">
+              <div>
+                <p className="text-sm font-bold tracking-widest text-[#9b792e]">
+                  STUDENT ADMISSIONS
+                </p>
+                <h2 className="mt-1 text-2xl font-extrabold text-[#064B38]">
+                  Admission Inquiries
+                </h2>
+                <p className="mt-2 text-sm text-gray-500">
+                  {inquiryInstitutionName} · Review and manage student inquiries.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={closeInquiryManager}
+                className="rounded-xl border border-gray-300 px-4 py-2 font-semibold text-gray-600 hover:bg-gray-50"
+              >
+                Close Inquiries
+              </button>
+            </div>
+
+            <div className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {[
+                ["Total", inquiries.length],
+                ["New", inquiries.filter((i) => i.status === "new").length],
+                ["Contacted", inquiries.filter((i) => i.status === "contacted").length],
+                ["In Review", inquiries.filter((i) => i.status === "in_review").length],
+                ["Accepted", inquiries.filter((i) => i.status === "accepted").length],
+                ["Rejected", inquiries.filter((i) => i.status === "rejected").length],
+              ].map(([label, count]) => (
+                <div key={label} className="rounded-xl border border-[#D6B45B]/40 bg-[#F7F3E8] p-4">
+                  <p className="text-sm font-semibold text-gray-500">{label}</p>
+                  <p className="mt-1 text-2xl font-extrabold text-[#064B38]">{count}</p>
+                </div>
+              ))}
+            </div>
+
+            <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+              <h3 className="text-xl font-extrabold text-[#064B38]">
+                Student Applications
+              </h3>
+
+              <div className="flex flex-wrap gap-2">
+                <select
+                  value={inquiryFilter}
+                  onChange={(e) => setInquiryFilter(e.target.value)}
+                  className={`${inputClass} min-w-[170px]`}
+                >
+                  <option value="all">All Inquiries</option>
+                  {INQUIRY_STATUSES.map((status) => (
+                    <option key={status} value={status}>{statusLabel(status)}</option>
+                  ))}
+                </select>
+
+                <button
+                  type="button"
+                  onClick={() => loadInquiries(inquiryInstitutionId, token)}
+                  disabled={inquiryLoading}
+                  className="rounded-xl bg-[#D6B45B] px-4 py-2 font-bold text-[#173C2E] disabled:opacity-60"
+                >
+                  {inquiryLoading ? "Loading..." : "Refresh"}
+                </button>
+              </div>
+            </div>
+
+            {inquiryLoading ? (
+              <p className="py-10 text-center text-gray-500">Loading admission inquiries...</p>
+            ) : filteredInquiries.length === 0 ? (
+              <div className="rounded-xl border border-dashed border-[#D6B45B] p-10 text-center">
+                <p className="text-4xl">📩</p>
+                <p className="mt-3 font-bold text-[#064B38]">No inquiries found</p>
+                <p className="mt-1 text-sm text-gray-500">
+                  Student admission inquiries will appear here.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-5">
+                {filteredInquiries.map((inquiry) => {
+                  const draft = inquiryDrafts[inquiry.id] || {
+                    status: inquiry.status,
+                    admin_notes: inquiry.admin_notes || "",
+                  };
+
+                  const campus = inquiryCampuses.find(
+                    (item) => item.id === inquiry.campus_id
+                  );
+
+                  const program = inquiryPrograms.find(
+                    (item) => item.id === inquiry.program_id
+                  );
+
+                  return (
+                    <article key={inquiry.id} className="rounded-2xl border border-[#e8e1cf] bg-[#F7F3E8]/50 p-5">
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div>
+                          <h4 className="text-lg font-extrabold text-[#064B38]">
+                            {inquiry.student_name}
+                          </h4>
+                          <p className="mt-1 text-xs text-gray-500">
+                            Received:{" "}
+                            {inquiry.created_at
+                              ? new Date(inquiry.created_at).toLocaleString()
+                              : "Date unavailable"}
+                          </p>
+                        </div>
+                        <span className={`rounded-full px-3 py-1 text-xs font-bold ${getStatusStyle(inquiry.status)}`}>
+                          {statusLabel(inquiry.status)}
+                        </span>
+                      </div>
+
+                      <div className="mt-4 grid gap-3 text-sm text-gray-700 sm:grid-cols-2">
+                        <p>
+                          <strong>Phone:</strong>{" "}
+                          <a href={`tel:${inquiry.student_phone}`} className="text-[#064B38] underline">
+                            {inquiry.student_phone}
+                          </a>
+                        </p>
+                        <p>
+                          <strong>Email:</strong>{" "}
+                          {inquiry.student_email ? (
+                            <a href={`mailto:${inquiry.student_email}`} className="break-all text-[#064B38] underline">
+                              {inquiry.student_email}
+                            </a>
+                          ) : "Not provided"}
+                        </p>
+                        <p>
+                          <strong>Campus:</strong>{" "}
+                          {campus?.campus_name || "Not specified"}
+                        </p>
+                        <p>
+                          <strong>Program:</strong>{" "}
+                          {program?.program_name || "Not specified"}
+                        </p>
+                      </div>
+
+                      <div className="mt-4 rounded-xl border border-[#e8e1cf] bg-white p-4">
+                        <p className="mb-2 text-sm font-bold text-[#064B38]">
+                          Student Message
+                        </p>
+                        <p className="whitespace-pre-wrap break-words text-sm leading-6 text-gray-700">
+                          {inquiry.message}
+                        </p>
+                      </div>
+
+                      <div className="mt-5 grid gap-4 md:grid-cols-2">
+                        <div>
+                          <label className={labelClass}>Inquiry Status</label>
+                          <select
+                            value={draft.status}
+                            onChange={(e) =>
+                              updateInquiryDraft(
+                                inquiry.id,
+                                "status",
+                                e.target.value
+                              )
+                            }
+                            className={inputClass}
+                          >
+                            {INQUIRY_STATUSES.map((status) => (
+                              <option key={status} value={status}>
+                                {statusLabel(status)}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className={labelClass}>Internal Admin Notes</label>
+                          <textarea
+                            rows={3}
+                            maxLength={2000}
+                            value={draft.admin_notes}
+                            onChange={(e) =>
+                              updateInquiryDraft(
+                                inquiry.id,
+                                "admin_notes",
+                                e.target.value
+                              )
+                            }
+                            className={inputClass}
+                            placeholder="Add internal notes..."
+                          />
+                          <p className="mt-1 text-right text-xs text-gray-400">
+                            {draft.admin_notes.length}/2000
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-[#e8e1cf] pt-4">
+                        <p className="text-xs text-gray-500">
+                          Student information and message are read-only.
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => updateInquiry(inquiry)}
+                          disabled={savingInquiryId === inquiry.id}
+                          className="rounded-xl bg-[#064B38] px-5 py-2.5 font-bold text-white hover:bg-[#086148] disabled:opacity-60"
+                        >
+                          {savingInquiryId === inquiry.id ? "Saving..." : "Save Inquiry"}
+                        </button>
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+            )}
+          </section>
+        )}
+
+        {/* Dashboard statistics */}
         <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
           <div className="rounded-2xl border border-[#D6B45B]/40 bg-white p-6 shadow-sm">
             <p className="text-sm font-semibold text-gray-500">Total Institutions</p>
@@ -1711,6 +1995,7 @@ export default function EducationDashboardPage() {
           </div>
         </div>
 
+        {/* Institution cards */}
         <section className="mt-9 rounded-2xl border border-[#D6B45B]/40 bg-white p-6 shadow-sm sm:p-8">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
@@ -1766,6 +2051,13 @@ export default function EducationDashboardPage() {
                     </button>
                     <button type="button" onClick={() => openProgramManager(institution)} className="rounded-lg border border-[#D6B45B] bg-white px-4 py-2.5 text-sm font-bold text-[#064B38] hover:bg-[#D6B45B]/20">
                       Manage Programs
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => openInquiryManager(institution)}
+                      className="rounded-lg border border-[#064B38] bg-white px-4 py-2.5 text-sm font-bold text-[#064B38] hover:bg-[#064B38]/10"
+                    >
+                      Manage Inquiries
                     </button>
                     {institution.verification_status === "approved" && institution.is_active && (
                       <a href={`/education/${encodeURIComponent(institution.id)}`} className="inline-flex rounded-lg bg-[#064B38] px-4 py-2.5 text-sm font-bold text-white hover:bg-[#086148]">
