@@ -1,8 +1,8 @@
 
 import { NextRequest, NextResponse } from "next/server";
 
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
 const UUID_REGEX =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -18,8 +18,20 @@ const ALLOWED_STATUSES = [
 
 type InquiryStatus = (typeof ALLOWED_STATUSES)[number];
 
+const INQUIRY_FIELDS =
+  "id,institution_id,campus_id,program_id,student_user_id,student_name,student_email,student_phone,message,status,admin_notes,created_at,updated_at";
+
 function response(data: unknown, status = 200) {
-  return NextResponse.json(data, { status });
+  return NextResponse.json(data, {
+    status,
+    headers: {
+      "Cache-Control": "no-store",
+    },
+  });
+}
+
+function isConfigured(): boolean {
+  return Boolean(SUPABASE_URL && SUPABASE_ANON_KEY);
 }
 
 function clean(value: unknown, max = 1000): string {
@@ -41,7 +53,7 @@ function isObject(value: unknown): value is Record<string, unknown> {
 async function verifyUser(token: string) {
   const result = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
     headers: {
-      apikey: SUPABASE_ANON_KEY,
+      apikey: SUPABASE_ANON_KEY!,
       Authorization: `Bearer ${token}`,
     },
     cache: "no-store",
@@ -61,7 +73,7 @@ async function dbRequest(
   return fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
     ...options,
     headers: {
-      apikey: SUPABASE_ANON_KEY,
+      apikey: SUPABASE_ANON_KEY!,
       Authorization: `Bearer ${token}`,
       "Content-Type": "application/json",
       ...options.headers,
@@ -80,9 +92,13 @@ function getBearerToken(request: NextRequest): string | null {
   return match?.[1]?.trim() || null;
 }
 
-// GET: Institution owner can view their own inquiries.
+// GET: Institution owners can view only their own inquiries.
 export async function GET(request: NextRequest) {
   try {
+    if (!isConfigured()) {
+      return response({ error: "Server configuration error." }, 500);
+    }
+
     const token = getBearerToken(request);
 
     if (!token) {
@@ -101,7 +117,10 @@ export async function GET(request: NextRequest) {
     );
 
     if (!UUID_REGEX.test(institutionId)) {
-      return response({ error: "Valid institution_id is required." }, 400);
+      return response(
+        { error: "Valid institution_id is required." },
+        400
+      );
     }
 
     const institutionResult = await dbRequest(
@@ -112,7 +131,7 @@ export async function GET(request: NextRequest) {
     if (!institutionResult.ok) {
       return response(
         { error: "Unable to verify institution ownership." },
-        400
+        502
       );
     }
 
@@ -126,15 +145,22 @@ export async function GET(request: NextRequest) {
     }
 
     const inquiriesResult = await dbRequest(
-      `institution_inquiries?institution_id=eq.${institutionId}&select=*&order=created_at.desc`,
+      `institution_inquiries?institution_id=eq.${institutionId}&select=${INQUIRY_FIELDS}&order=created_at.desc`,
       token
     );
 
     if (!inquiriesResult.ok) {
-      return response({ error: "Unable to load inquiries." }, 400);
+      console.error(
+        "Education inquiry GET failed:",
+        await inquiriesResult.text()
+      );
+
+      return response({ error: "Unable to load inquiries." }, 502);
     }
 
-    return response({ inquiries: await inquiriesResult.json() });
+    return response({
+      inquiries: await inquiriesResult.json(),
+    });
   } catch (error) {
     console.error("Education inquiry GET error:", error);
     return response({ error: "Something went wrong." }, 500);
@@ -144,6 +170,10 @@ export async function GET(request: NextRequest) {
 // POST: Students can submit admission inquiries.
 export async function POST(request: NextRequest) {
   try {
+    if (!isConfigured()) {
+      return response({ error: "Server configuration error." }, 500);
+    }
+
     let body: Record<string, unknown>;
 
     try {
@@ -168,7 +198,10 @@ export async function POST(request: NextRequest) {
     const message = clean(body.message, 2000);
 
     if (!UUID_REGEX.test(institutionId)) {
-      return response({ error: "Valid institution_id is required." }, 400);
+      return response(
+        { error: "Valid institution_id is required." },
+        400
+      );
     }
 
     if (
@@ -200,11 +233,12 @@ export async function POST(request: NextRequest) {
       return response({ error: "Invalid program_id." }, 400);
     }
 
-    // Optional authentication. Never trust a user ID supplied in the body.
+    // Optional student authentication.
+    // Never trust a student_user_id supplied in the request body.
     const authToken = getBearerToken(request);
 
     let studentUserId: string | null = null;
-    let insertToken = SUPABASE_ANON_KEY;
+    let insertToken = SUPABASE_ANON_KEY!;
 
     if (authToken) {
       const user = await verifyUser(authToken);
@@ -217,14 +251,14 @@ export async function POST(request: NextRequest) {
       insertToken = authToken;
     }
 
-    // Confirm the institution is publicly approved and active.
+    // Verify approved and active institution.
     const institutionResult = await dbRequest(
       `institutions?id=eq.${institutionId}&verification_status=eq.approved&is_active=eq.true&select=id`,
-      SUPABASE_ANON_KEY
+      SUPABASE_ANON_KEY!
     );
 
     if (!institutionResult.ok) {
-      return response({ error: "Unable to verify institution." }, 400);
+      return response({ error: "Unable to verify institution." }, 502);
     }
 
     const institutions = await institutionResult.json();
@@ -239,39 +273,45 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // If a campus is selected, it must belong to this institution.
+    // Verify selected campus belongs to the institution.
     if (campusId) {
       const campusResult = await dbRequest(
         `institution_campuses?id=eq.${campusId}&institution_id=eq.${institutionId}&is_active=eq.true&select=id`,
-        SUPABASE_ANON_KEY
+        SUPABASE_ANON_KEY!
       );
 
       if (!campusResult.ok) {
-        return response({ error: "Unable to verify campus." }, 400);
+        return response({ error: "Unable to verify campus." }, 502);
       }
 
       const campuses = await campusResult.json();
 
       if (!campuses.length) {
-        return response({ error: "Invalid or inactive campus." }, 400);
+        return response(
+          { error: "Invalid or inactive campus." },
+          400
+        );
       }
     }
 
-    // If a program is selected, verify its institution and campus.
+    // Verify selected program and its campus association.
     if (programId) {
       const programResult = await dbRequest(
         `institution_programs?id=eq.${programId}&institution_id=eq.${institutionId}&is_active=eq.true&select=id,campus_id`,
-        SUPABASE_ANON_KEY
+        SUPABASE_ANON_KEY!
       );
 
       if (!programResult.ok) {
-        return response({ error: "Unable to verify program." }, 400);
+        return response({ error: "Unable to verify program." }, 502);
       }
 
       const programs = await programResult.json();
 
       if (!programs.length) {
-        return response({ error: "Invalid or inactive program." }, 400);
+        return response(
+          { error: "Invalid or inactive program." },
+          400
+        );
       }
 
       const program = programs[0];
@@ -306,15 +346,18 @@ export async function POST(request: NextRequest) {
       {
         method: "POST",
         headers: {
-          Prefer: "return=representation",
+          // Do not request returned student data from the public endpoint.
+          Prefer: "return=minimal",
         },
         body: JSON.stringify(inquiry),
       }
     );
 
     if (!insertResult.ok) {
-      const error = await insertResult.json().catch(() => null);
-      console.error("Education inquiry insert failed:", error);
+      console.error(
+        "Education inquiry insert failed:",
+        await insertResult.text()
+      );
 
       return response(
         {
@@ -324,24 +367,25 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const inserted = await insertResult.json();
-
     return response(
       {
         message: "Admission inquiry submitted successfully.",
-        inquiry: inserted?.[0] ?? null,
       },
       201
     );
   } catch (error) {
-    console.error("Education inquiry API error:", error);
+    console.error("Education inquiry POST error:", error);
     return response({ error: "Something went wrong." }, 500);
   }
 }
 
-// PATCH: Institution owner can update inquiry status and admin notes.
+// PATCH: Institution owners can update inquiry status and admin notes.
 export async function PATCH(request: NextRequest) {
   try {
+    if (!isConfigured()) {
+      return response({ error: "Server configuration error." }, 500);
+    }
+
     const token = getBearerToken(request);
 
     if (!token) {
@@ -368,7 +412,6 @@ export async function PATCH(request: NextRequest) {
       return response({ error: "Invalid JSON request." }, 400);
     }
 
-    // Only these request fields are accepted.
     const allowedKeys = [
       "inquiry_id",
       "institution_id",
@@ -456,7 +499,7 @@ export async function PATCH(request: NextRequest) {
       }
     }
 
-    // Verify that the authenticated user owns this institution.
+    // Verify institution ownership.
     const institutionResult = await dbRequest(
       `institutions?id=eq.${institutionId}&owner_user_id=eq.${user.id}&select=id`,
       token
@@ -465,7 +508,7 @@ export async function PATCH(request: NextRequest) {
     if (!institutionResult.ok) {
       return response(
         { error: "Unable to verify institution ownership." },
-        400
+        502
       );
     }
 
@@ -478,11 +521,10 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
-    // RLS also checks ownership when the database update is executed.
     updates.updated_at = new Date().toISOString();
 
     const updateResult = await dbRequest(
-      `institution_inquiries?id=eq.${inquiryId}&institution_id=eq.${institutionId}&select=*`,
+      `institution_inquiries?id=eq.${inquiryId}&institution_id=eq.${institutionId}&select=${INQUIRY_FIELDS}`,
       token,
       {
         method: "PATCH",
@@ -494,8 +536,10 @@ export async function PATCH(request: NextRequest) {
     );
 
     if (!updateResult.ok) {
-      const error = await updateResult.json().catch(() => null);
-      console.error("Education inquiry update failed:", error);
+      console.error(
+        "Education inquiry update failed:",
+        await updateResult.text()
+      );
 
       return response(
         { error: "Unable to update inquiry. Please try again." },
