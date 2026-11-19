@@ -4,51 +4,57 @@
 import { Suspense, useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 
-type Institution = {
+interface Institution {
   id: string;
   institution_name: string;
-  institution_type: string;
+  institution_type?: string | null;
   description?: string | null;
-  phone?: string | null;
   email?: string | null;
+  phone?: string | null;
   whatsapp_number?: string | null;
   website_url?: string | null;
   province?: string | null;
   city?: string | null;
+  country?: string | null;
   address?: string | null;
   logo_url?: string | null;
   cover_image_url?: string | null;
-};
+}
 
-type Campus = {
-  id: string;
+interface Campus {
+  id?: string;
   campus_name?: string | null;
   name?: string | null;
-  city?: string | null;
   address?: string | null;
+  city?: string | null;
+  province?: string | null;
   phone?: string | null;
-};
+  email?: string | null;
+}
 
-type Program = {
-  id: string;
+interface Program {
+  id?: string;
   program_name?: string | null;
   name?: string | null;
-  description?: string | null;
+  program_type?: string | null;
   degree_level?: string | null;
-  duration?: string | null;
-  fee?: number | string | null;
+  description?: string | null;
   eligibility?: string | null;
+  fee?: string | number | null;
+  fee_min?: string | number | null;
+  fee_max?: string | number | null;
+  duration?: string | null;
   admission_open?: boolean | null;
-};
+}
 
-type ApiResponse = {
+interface ApiResponse {
   institution?: Institution;
   campuses?: Campus[];
   programs?: Program[];
   error?: string;
-};
+}
 
-function getWhatsAppLink(number: string) {
+function getWhatsAppLink(number: string): string {
   let digits = number.replace(/\D/g, "");
 
   if (digits.startsWith("00")) {
@@ -59,12 +65,33 @@ function getWhatsAppLink(number: string) {
     digits = "92" + digits.slice(1);
   }
 
-  return digits ? `https://wa.me/${digits}` : "";
+  return `https://wa.me/${digits}`;
+}
+
+function formatFee(program: Program): string | null {
+  if (program.fee) {
+    return String(program.fee);
+  }
+
+  if (program.fee_min != null && program.fee_max != null) {
+    return `${program.fee_min} - ${program.fee_max}`;
+  }
+
+  if (program.fee_min != null) {
+    return `Starting from ${program.fee_min}`;
+  }
+
+  if (program.fee_max != null) {
+    return `Up to ${program.fee_max}`;
+  }
+
+  return null;
 }
 
 function InstitutionDetailsContent() {
-  const params = useParams<{ id: string }>();
-  const id = typeof params.id === "string" ? params.id : "";
+  const params = useParams();
+  const rawId = params?.id;
+  const institutionId = Array.isArray(rawId) ? rawId[0] : rawId;
 
   const [institution, setInstitution] = useState<Institution | null>(null);
   const [campuses, setCampuses] = useState<Campus[]>([]);
@@ -72,72 +99,77 @@ function InstitutionDetailsContent() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  const fetchDetails = useCallback(async (signal?: AbortSignal) => {
-    try {
+  const fetchInstitution = useCallback(
+    async (signal?: AbortSignal) => {
+      if (!institutionId) {
+        setError("Institution ID is missing.");
+        setLoading(false);
+        return;
+      }
+
       setLoading(true);
       setError("");
 
-      const response = await fetch(
-        `/api/education/directory?id=${encodeURIComponent(id)}`,
-        {
-          method: "GET",
-          cache: "no-store",
-          signal,
-        }
-      );
-
-      const data: ApiResponse = await response.json();
-
-      if (!response.ok) {
-        throw new Error(
-          data.error || "Unable to load institution details."
+      try {
+        const response = await fetch(
+          `/api/education/directory?id=${encodeURIComponent(institutionId)}`,
+          {
+            method: "GET",
+            cache: "no-store",
+            signal,
+          }
         );
-      }
 
-      if (!data.institution) {
-        throw new Error("Institution details were not found.");
-      }
+        const data: ApiResponse = await response.json();
 
-      setInstitution(data.institution);
-      setCampuses(Array.isArray(data.campuses) ? data.campuses : []);
-      setPrograms(Array.isArray(data.programs) ? data.programs : []);
-    } catch (err) {
-      if (signal?.aborted) return;
+        if (!response.ok) {
+          throw new Error(
+            data.error || "Unable to load institution details."
+          );
+        }
 
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Something went wrong. Please try again."
-      );
-    } finally {
-      if (!signal?.aborted) {
-        setLoading(false);
+        if (!data.institution) {
+          throw new Error("Institution details are not available.");
+        }
+
+        setInstitution(data.institution);
+        setCampuses(Array.isArray(data.campuses) ? data.campuses : []);
+        setPrograms(Array.isArray(data.programs) ? data.programs : []);
+      } catch (err) {
+        if (err instanceof Error && err.name === "AbortError") {
+          return;
+        }
+
+        setError(
+          err instanceof Error
+            ? err.message
+            : "Something went wrong. Please try again."
+        );
+      } finally {
+        if (!signal?.aborted) {
+          setLoading(false);
+        }
       }
-    }
-  }, [id]);
+    },
+    [institutionId]
+  );
 
   useEffect(() => {
-    if (!id) {
-      setError("Institution ID is missing.");
-      setLoading(false);
-      return;
-    }
-
     const controller = new AbortController();
 
-    fetchDetails(controller.signal);
+    fetchInstitution(controller.signal);
 
     return () => controller.abort();
-  }, [id, fetchDetails]);
+  }, [fetchInstitution]);
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-[#F7F3E8] px-4 py-16">
-        <div className="mx-auto max-w-5xl animate-pulse space-y-5">
-          <div className="h-64 rounded-3xl bg-gray-200" />
-          <div className="h-8 w-1/2 rounded bg-gray-200" />
-          <div className="h-4 w-full rounded bg-gray-200" />
-          <div className="h-4 w-3/4 rounded bg-gray-200" />
+      <main className="flex min-h-screen items-center justify-center bg-[#F7F3E8] px-5">
+        <div className="text-center">
+          <div className="mx-auto h-12 w-12 animate-spin rounded-full border-4 border-[#D6B45B] border-t-[#064B38]" />
+          <p className="mt-5 font-semibold text-[#064B38]">
+            Loading institution details...
+          </p>
         </div>
       </main>
     );
@@ -145,28 +177,31 @@ function InstitutionDetailsContent() {
 
   if (error || !institution) {
     return (
-      <main className="min-h-screen bg-[#F7F3E8] px-4 py-20">
-        <div className="mx-auto max-w-xl rounded-3xl border border-[#e8e1cf] bg-white p-8 text-center shadow-lg">
-          <h1 className="text-2xl font-bold text-[#064B38]">
+      <main className="flex min-h-screen items-center justify-center bg-[#F7F3E8] px-5 py-12">
+        <div className="w-full max-w-lg rounded-3xl bg-white p-8 text-center shadow-lg">
+          <div className="text-5xl">!</div>
+
+          <h1 className="mt-4 text-2xl font-extrabold text-[#064B38]">
             Institution Not Available
           </h1>
 
-          <p className="mt-3 text-gray-600">
-            {error || "The requested institution could not be found."}
+          <p className="mt-3 leading-7 text-gray-600">
+            {error || "Unable to load institution details."}
           </p>
 
           <button
-            onClick={() => fetchDetails()}
-            className="mt-6 rounded-xl bg-[#064B38] px-6 py-3 font-semibold text-white transition-colors hover:bg-[#043b2c]"
+            type="button"
+            onClick={() => fetchInstitution()}
+            className="mt-7 rounded-xl bg-[#064B38] px-7 py-3 font-bold text-white transition-colors hover:bg-[#043729]"
           >
             Try Again
           </button>
 
           <a
             href="/education"
-            className="mt-5 block font-semibold text-[#064B38] hover:underline"
+            className="ml-3 inline-block rounded-xl border-2 border-[#D6B45B] px-7 py-3 font-bold text-[#064B38]"
           >
-            Back to Education Directory
+            Back to Directory
           </a>
         </div>
       </main>
@@ -176,104 +211,274 @@ function InstitutionDetailsContent() {
   const institutionName =
     institution.institution_name?.trim() || "Institution";
 
-  const location = [institution.city, institution.province]
+  const location = [
+    institution.city,
+    institution.province,
+    institution.country,
+  ]
     .filter(Boolean)
     .join(", ");
 
   const whatsappLink = institution.whatsapp_number
     ? getWhatsAppLink(institution.whatsapp_number)
-    : "";
+    : institution.phone
+      ? getWhatsAppLink(institution.phone)
+      : null;
 
   return (
     <main className="min-h-screen bg-[#F7F3E8] text-gray-800">
-      {/* Hero Section */}
-      <section className="relative isolate overflow-hidden bg-[#064B38]">
-        {institution.cover_image_url && (
-          <div
-            className="absolute inset-0 bg-cover bg-center"
-            style={{
-              backgroundImage: `url("${institution.cover_image_url}")`,
-              opacity: 0.18,
-            }}
-          />
-        )}
+      {/* Back Navigation */}
+      <div className="mx-auto max-w-7xl px-5 pt-6 sm:px-8">
+        <a
+          href="/education"
+          className="inline-flex items-center gap-2 font-bold text-[#064B38] transition-colors hover:text-[#D6B45B]"
+        >
+          <span aria-hidden="true">←</span>
+          Back to Education Directory
+        </a>
+      </div>
 
-        <div className="relative z-10 mx-auto max-w-6xl px-4 py-16 sm:py-20">
-          <a
-            href="/education"
-            className="mb-8 inline-block font-semibold text-[#D6B45B] transition-colors hover:text-white"
-          >
-            ← Back to Education Directory
-          </a>
+      {/* Institution Hero */}
+      <section className="mx-auto max-w-7xl px-5 pb-10 pt-6 sm:px-8">
+        <div className="relative overflow-hidden rounded-[2rem] bg-[#064B38] shadow-xl">
+          {institution.cover_image_url ? (
+            <div className="absolute inset-0">
+              <img
+                src={institution.cover_image_url}
+                alt={`${institutionName} cover`}
+                className="h-full w-full object-cover opacity-25"
+              />
+              <div className="absolute inset-0 bg-[#064B38]/80" />
+            </div>
+          ) : (
+            <div className="absolute inset-0 bg-gradient-to-br from-[#064B38] via-[#07583F] to-[#032F24]" />
+          )}
 
-          <div className="flex flex-col gap-6 sm:flex-row sm:items-center">
-            {institution.logo_url && (
+          <div className="relative z-10 px-6 py-14 text-center sm:px-12 sm:py-20">
+            {institution.logo_url ? (
               <img
                 src={institution.logo_url}
                 alt={`${institutionName} logo`}
-                className="h-24 w-24 rounded-2xl border-2 border-[#D6B45B] bg-white object-contain p-2"
+                className="mx-auto mb-6 h-28 w-28 rounded-2xl border-4 border-[#D6B45B] bg-white object-contain p-2 shadow-lg sm:h-32 sm:w-32"
               />
+            ) : (
+              <div className="mx-auto mb-6 flex h-28 w-28 items-center justify-center rounded-2xl border-4 border-[#D6B45B] bg-[#F7F3E8] text-4xl font-extrabold text-[#064B38] shadow-lg sm:h-32 sm:w-32">
+                {institutionName.charAt(0).toUpperCase()}
+              </div>
             )}
 
-            <div className="min-w-0">
-              <span className="inline-block rounded-full bg-[#D6B45B] px-4 py-2 text-xs font-extrabold uppercase tracking-wider text-[#064B38]">
-                {institution.institution_type || "Institution"}
-              </span>
+            <span className="inline-block rounded-full border border-[#D6B45B] bg-[#D6B45B] px-5 py-2 text-sm font-extrabold uppercase tracking-wider text-[#064B38]">
+              {institution.institution_type || "Educational Institution"}
+            </span>
 
-              <h1
-                className="mt-4 block text-3xl font-extrabold leading-tight text-white sm:text-5xl"
-                style={{
-                  color: "#FFFFFF",
-                  opacity: 1,
-                  visibility: "visible",
-                  display: "block",
-                }}
-              >
-                {institutionName}
-              </h1>
+            <h1 className="mx-auto mt-6 max-w-4xl text-3xl font-extrabold leading-tight text-white sm:text-5xl">
+              {institutionName}
+            </h1>
 
-              {location && (
-                <p className="mt-3 text-lg text-[#F7F3E8]">
-                  {location}
-                </p>
-              )}
-            </div>
+            {location && (
+              <p className="mt-4 text-base font-medium text-[#F7F3E8] sm:text-lg">
+                <span className="mr-2">📍</span>
+                {location}
+              </p>
+            )}
+
+            <div className="mx-auto mt-7 h-1.5 w-24 rounded-full bg-[#D6B45B]" />
           </div>
         </div>
       </section>
 
-      <div className="mx-auto max-w-6xl space-y-8 px-4 py-12">
-        {/* About Institution */}
-        <section className="rounded-3xl border border-[#e8e1cf] bg-white p-6 shadow-sm sm:p-8">
-          <h2 className="text-2xl font-bold text-[#064B38]">
-            About Institution
-          </h2>
+      {/* Main Content */}
+      <div className="mx-auto grid max-w-7xl grid-cols-1 gap-8 px-5 pb-14 sm:px-8 lg:grid-cols-3">
+        {/* Left Content */}
+        <div className="space-y-8 lg:col-span-2">
+          {/* About Institution */}
+          <section className="rounded-3xl border border-[#D6B45B]/40 bg-white p-7 shadow-sm sm:p-9">
+            <div className="mb-5 flex items-center gap-3">
+              <div className="h-9 w-1.5 rounded-full bg-[#D6B45B]" />
+              <h2 className="text-2xl font-extrabold text-[#064B38]">
+                About Institution
+              </h2>
+            </div>
 
-          <div className="mt-3 h-1 w-16 rounded-full bg-[#D6B45B]" />
+            <p className="whitespace-pre-line text-base leading-8 text-gray-600">
+              {institution.description ||
+                `${institutionName} welcomes students and families to learn more about its educational services and programs. Contact the institution for further information.`}
+            </p>
+          </section>
 
-          <p className="mt-5 whitespace-pre-line leading-8 text-gray-600">
-            {institution.description || "No description available yet."}
-          </p>
-        </section>
+          {/* Campuses */}
+          <section className="rounded-3xl border border-[#D6B45B]/40 bg-white p-7 shadow-sm sm:p-9">
+            <div className="mb-6 flex items-center gap-3">
+              <div className="h-9 w-1.5 rounded-full bg-[#D6B45B]" />
+              <h2 className="text-2xl font-extrabold text-[#064B38]">
+                Campuses
+              </h2>
+            </div>
+
+            {campuses.length > 0 ? (
+              <div className="grid gap-5 sm:grid-cols-2">
+                {campuses.map((campus, index) => (
+                  <article
+                    key={campus.id || `${campus.campus_name || campus.name}-${index}`}
+                    className="rounded-2xl border border-[#D6B45B]/40 bg-[#F7F3E8] p-6"
+                  >
+                    <h3 className="text-lg font-extrabold text-[#064B38]">
+                      {campus.campus_name || campus.name || `Campus ${index + 1}`}
+                    </h3>
+
+                    {(campus.address || campus.city || campus.province) && (
+                      <p className="mt-3 text-sm leading-6 text-gray-600">
+                        <span className="mr-2">📍</span>
+                        {[
+                          campus.address,
+                          campus.city,
+                          campus.province,
+                        ]
+                          .filter(Boolean)
+                          .join(", ")}
+                      </p>
+                    )}
+
+                    {campus.phone && (
+                      <a
+                        href={`tel:${campus.phone}`}
+                        className="mt-3 inline-block text-sm font-bold text-[#064B38] hover:text-[#B18D36]"
+                      >
+                        📞 {campus.phone}
+                      </a>
+                    )}
+
+                    {campus.email && (
+                      <a
+                        href={`mailto:${campus.email}`}
+                        className="mt-2 block break-all text-sm font-semibold text-[#064B38] hover:text-[#B18D36]"
+                      >
+                        ✉️ {campus.email}
+                      </a>
+                    )}
+                  </article>
+                ))}
+              </div>
+            ) : (
+              <p className="rounded-2xl bg-[#F7F3E8] p-6 text-center text-gray-500">
+                Campus information will be available soon.
+              </p>
+            )}
+          </section>
+
+          {/* Programs */}
+          <section className="rounded-3xl border border-[#D6B45B]/40 bg-white p-7 shadow-sm sm:p-9">
+            <div className="mb-6 flex items-center gap-3">
+              <div className="h-9 w-1.5 rounded-full bg-[#D6B45B]" />
+              <h2 className="text-2xl font-extrabold text-[#064B38]">
+                Programs & Courses
+              </h2>
+            </div>
+
+            {programs.length > 0 ? (
+              <div className="space-y-5">
+                {programs.map((program, index) => {
+                  const fee = formatFee(program);
+
+                  return (
+                    <article
+                      key={program.id || `${program.program_name || program.name}-${index}`}
+                      className="rounded-2xl border border-[#D6B45B]/40 bg-[#F7F3E8] p-6"
+                    >
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <h3 className="text-lg font-extrabold text-[#064B38]">
+                          {program.program_name ||
+                            program.name ||
+                            `Program ${index + 1}`}
+                        </h3>
+
+                        {program.admission_open != null && (
+                          <span
+                            className={`rounded-full px-3 py-1 text-xs font-bold ${
+                              program.admission_open
+                                ? "bg-[#064B38] text-white"
+                                : "bg-gray-200 text-gray-700"
+                            }`}
+                          >
+                            {program.admission_open
+                              ? "Admissions Open"
+                              : "Admissions Closed"}
+                          </span>
+                        )}
+                      </div>
+
+                      {(program.program_type || program.degree_level) && (
+                        <p className="mt-2 text-sm font-semibold text-[#8B702F]">
+                          {[program.program_type, program.degree_level]
+                            .filter(Boolean)
+                            .join(" • ")}
+                        </p>
+                      )}
+
+                      {program.description && (
+                        <p className="mt-3 leading-7 text-gray-600">
+                          {program.description}
+                        </p>
+                      )}
+
+                      <div className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
+                        {program.duration && (
+                          <p className="text-gray-600">
+                            <strong className="text-[#064B38]">
+                              Duration:
+                            </strong>{" "}
+                            {program.duration}
+                          </p>
+                        )}
+
+                        {fee && (
+                          <p className="text-gray-600">
+                            <strong className="text-[#064B38]">
+                              Fee:
+                            </strong>{" "}
+                            {fee}
+                          </p>
+                        )}
+
+                        {program.eligibility && (
+                          <p className="text-gray-600 sm:col-span-2">
+                            <strong className="text-[#064B38]">
+                              Eligibility:
+                            </strong>{" "}
+                            {program.eligibility}
+                          </p>
+                        )}
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="rounded-2xl bg-[#F7F3E8] p-6 text-center text-gray-500">
+                Programs and courses will be available soon.
+              </p>
+            )}
+          </section>
+        </div>
 
         {/* Contact Information */}
-        <section className="rounded-3xl border border-[#e8e1cf] bg-white p-6 shadow-sm sm:p-8">
-          <h2 className="text-2xl font-bold text-[#064B38]">
-            Contact Information
-          </h2>
+        <aside className="h-fit rounded-3xl border border-[#D6B45B]/40 bg-white p-7 shadow-sm lg:sticky lg:top-6">
+          <div className="mb-6 flex items-center gap-3">
+            <div className="h-9 w-1.5 rounded-full bg-[#D6B45B]" />
+            <h2 className="text-xl font-extrabold text-[#064B38]">
+              Contact Information
+            </h2>
+          </div>
 
-          <div className="mt-3 h-1 w-16 rounded-full bg-[#D6B45B]" />
-
-          <div className="mt-7 grid gap-6 sm:grid-cols-2">
+          <div className="space-y-5">
             {institution.phone && (
               <div>
-                <p className="text-sm font-semibold text-gray-500">
+                <p className="text-xs font-bold uppercase tracking-wider text-gray-400">
                   Phone
                 </p>
-
                 <a
                   href={`tel:${institution.phone}`}
-                  className="mt-2 inline-block font-semibold text-[#064B38] hover:underline"
+                  className="mt-1 block break-all font-semibold text-[#064B38] hover:text-[#B18D36]"
                 >
                   {institution.phone}
                 </a>
@@ -282,13 +487,12 @@ function InstitutionDetailsContent() {
 
             {institution.email && (
               <div>
-                <p className="text-sm font-semibold text-gray-500">
+                <p className="text-xs font-bold uppercase tracking-wider text-gray-400">
                   Email
                 </p>
-
                 <a
                   href={`mailto:${institution.email}`}
-                  className="mt-2 inline-block break-all font-semibold text-[#064B38] hover:underline"
+                  className="mt-1 block break-all font-semibold text-[#064B38] hover:text-[#B18D36]"
                 >
                   {institution.email}
                 </a>
@@ -297,176 +501,83 @@ function InstitutionDetailsContent() {
 
             {institution.whatsapp_number && (
               <div>
-                <p className="text-sm font-semibold text-gray-500">
+                <p className="text-xs font-bold uppercase tracking-wider text-gray-400">
                   WhatsApp
                 </p>
-
                 <a
-                  href={whatsappLink || undefined}
+                  href={whatsappLink || "#"}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="mt-2 inline-block font-semibold text-[#064B38] hover:underline"
+                  className="mt-1 block font-semibold text-[#064B38] hover:text-[#B18D36]"
                 >
-                  Contact on WhatsApp
+                  {institution.whatsapp_number}
                 </a>
               </div>
             )}
 
             {institution.website_url && (
               <div>
-                <p className="text-sm font-semibold text-gray-500">
+                <p className="text-xs font-bold uppercase tracking-wider text-gray-400">
                   Website
                 </p>
-
                 <a
                   href={institution.website_url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="mt-2 inline-block break-all font-semibold text-[#064B38] hover:underline"
+                  className="mt-1 block break-all font-semibold text-[#064B38] hover:text-[#B18D36]"
                 >
-                  Visit Website
+                  Visit Website ↗
                 </a>
               </div>
             )}
 
             {institution.address && (
-              <div className="sm:col-span-2">
-                <p className="text-sm font-semibold text-gray-500">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-wider text-gray-400">
                   Address
                 </p>
-
-                <p className="mt-2 whitespace-pre-line leading-7 text-gray-700">
+                <p className="mt-1 whitespace-pre-line leading-7 text-gray-600">
                   {institution.address}
                 </p>
               </div>
             )}
+
+            {!institution.phone &&
+              !institution.email &&
+              !institution.whatsapp_number &&
+              !institution.website_url &&
+              !institution.address && (
+                <p className="text-sm leading-6 text-gray-500">
+                  Contact information will be available soon.
+                </p>
+              )}
           </div>
-        </section>
 
-        {/* Campuses */}
-        <section className="rounded-3xl border border-[#e8e1cf] bg-white p-6 shadow-sm sm:p-8">
-          <h2 className="text-2xl font-bold text-[#064B38]">
-            Our Campuses
-          </h2>
-
-          <div className="mt-3 h-1 w-16 rounded-full bg-[#D6B45B]" />
-
-          {campuses.length === 0 ? (
-            <p className="mt-5 text-gray-500">
-              No campus information available.
-            </p>
-          ) : (
-            <div className="mt-6 grid gap-5 md:grid-cols-2">
-              {campuses.map((campus) => (
-                <article
-                  key={campus.id}
-                  className="rounded-2xl border border-[#e8e1cf] bg-[#F7F3E8] p-5"
-                >
-                  <h3 className="text-lg font-bold text-[#064B38]">
-                    {campus.campus_name || campus.name || "Campus"}
-                  </h3>
-
-                  {campus.city && (
-                    <p className="mt-2 text-gray-600">
-                      {campus.city}
-                    </p>
-                  )}
-
-                  {campus.address && (
-                    <p className="mt-2 whitespace-pre-line text-sm text-gray-500">
-                      {campus.address}
-                    </p>
-                  )}
-
-                  {campus.phone && (
-                    <a
-                      href={`tel:${campus.phone}`}
-                      className="mt-3 inline-block text-sm font-semibold text-[#064B38] hover:underline"
-                    >
-                      {campus.phone}
-                    </a>
-                  )}
-                </article>
-              ))}
-            </div>
+          {institution.phone && (
+            <a
+              href={`tel:${institution.phone}`}
+              className="mt-7 block rounded-xl bg-[#064B38] px-5 py-3 text-center font-extrabold text-white transition-colors hover:bg-[#043729]"
+            >
+              Contact Institution
+            </a>
           )}
-        </section>
 
-        {/* Programs and Courses */}
-        <section className="rounded-3xl border border-[#e8e1cf] bg-white p-6 shadow-sm sm:p-8">
-          <h2 className="text-2xl font-bold text-[#064B38]">
-            Programs & Courses
-          </h2>
-
-          <div className="mt-3 h-1 w-16 rounded-full bg-[#D6B45B]" />
-
-          {programs.length === 0 ? (
-            <p className="mt-5 text-gray-500">
-              No programs or courses available.
-            </p>
-          ) : (
-            <div className="mt-6 grid gap-5 md:grid-cols-2">
-              {programs.map((program) => (
-                <article
-                  key={program.id}
-                  className="rounded-2xl border border-[#e8e1cf] bg-[#F7F3E8] p-5"
-                >
-                  <h3 className="text-lg font-bold text-[#064B38]">
-                    {program.program_name || program.name || "Program"}
-                  </h3>
-
-                  {program.degree_level && (
-                    <p className="mt-2 text-sm text-gray-600">
-                      Level: {program.degree_level}
-                    </p>
-                  )}
-
-                  {program.duration && (
-                    <p className="mt-1 text-sm text-gray-600">
-                      Duration: {program.duration}
-                    </p>
-                  )}
-
-                  {program.fee !== null && program.fee !== undefined && (
-                    <p className="mt-1 text-sm text-gray-600">
-                      Fee: {program.fee}
-                    </p>
-                  )}
-
-                  {program.eligibility && (
-                    <p className="mt-3 text-sm text-gray-600">
-                      Eligibility: {program.eligibility}
-                    </p>
-                  )}
-
-                  {program.description && (
-                    <p className="mt-3 leading-6 text-gray-600">
-                      {program.description}
-                    </p>
-                  )}
-
-                  {program.admission_open !== null &&
-                    program.admission_open !== undefined && (
-                      <span
-                        className={`mt-4 inline-block rounded-full px-3 py-1 text-xs font-bold ${
-                          program.admission_open
-                            ? "bg-green-100 text-green-800"
-                            : "bg-gray-100 text-gray-600"
-                        }`}
-                      >
-                        {program.admission_open
-                          ? "Admissions Open"
-                          : "Admissions Closed"}
-                      </span>
-                    )}
-                </article>
-              ))}
-            </div>
+          {whatsappLink && (
+            <a
+              href={whatsappLink}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-3 block rounded-xl border-2 border-[#D6B45B] px-5 py-3 text-center font-extrabold text-[#064B38] transition-colors hover:bg-[#F7F3E8]"
+            >
+              WhatsApp Us
+            </a>
           )}
-        </section>
+        </aside>
+      </div>
 
-        {/* Contact CTA - Always Visible */}
-        <section
+      {/* Contact CTA - Always Visible */}
+      <section className="mx-auto max-w-7xl px-5 pb-14 sm:px-8">
+        <div
           className="relative isolate overflow-hidden rounded-3xl p-8 text-center shadow-lg sm:p-12"
           style={{
             backgroundColor: "#064B38",
@@ -513,7 +624,7 @@ function InstitutionDetailsContent() {
             {institution.phone && (
               <a
                 href={`tel:${institution.phone}`}
-                className="rounded-xl px-7 py-3 font-extrabold transition-colors hover:brightness-110"
+                className="rounded-xl px-7 py-3 font-extrabold transition-colors"
                 style={{
                   backgroundColor: "#D6B45B",
                   color: "#064B38",
@@ -542,18 +653,13 @@ function InstitutionDetailsContent() {
               </a>
             )}
           </div>
-        </section>
-
-        {/* Back to Directory */}
-        <div className="pb-4 text-center">
-          <a
-            href="/education"
-            className="inline-block font-bold text-[#064B38] hover:underline"
-          >
-            ← Back to Education Directory
-          </a>
         </div>
-      </div>
+      </section>
+
+      {/* Footer */}
+      <footer className="border-t border-[#D6B45B]/40 bg-[#064B38] px-5 py-7 text-center text-sm text-[#F7F3E8]">
+        © {new Date().getFullYear()} ALIQO. All rights reserved.
+      </footer>
     </main>
   );
 }
@@ -562,13 +668,10 @@ export default function InstitutionDetailsPage() {
   return (
     <Suspense
       fallback={
-        <main className="min-h-screen bg-[#F7F3E8] px-4 py-16">
-          <div className="mx-auto max-w-5xl animate-pulse space-y-5">
-            <div className="h-64 rounded-3xl bg-gray-200" />
-            <div className="h-8 w-1/2 rounded bg-gray-200" />
-            <div className="h-4 w-full rounded bg-gray-200" />
-            <div className="h-4 w-3/4 rounded bg-gray-200" />
-          </div>
+        <main className="flex min-h-screen items-center justify-center bg-[#F7F3E8]">
+          <p className="font-semibold text-[#064B38]">
+            Loading institution...
+          </p>
         </main>
       }
     >
