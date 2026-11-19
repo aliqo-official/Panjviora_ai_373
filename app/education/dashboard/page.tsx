@@ -10,16 +10,52 @@ type Institution = {
   description?: string | null;
   email?: string | null;
   phone?: string | null;
-  city?: string | null;
+  whatsapp_number?: string | null;
+  website_url?: string | null;
+  country?: string | null;
   province?: string | null;
+  city?: string | null;
+  address?: string | null;
+  logo_url?: string | null;
+  cover_image_url?: string | null;
   verification_status: "pending" | "approved" | "rejected";
   is_active: boolean;
   created_at?: string;
 };
 
+type ProfileForm = {
+  institution_name: string;
+  institution_type: string;
+  description: string;
+  phone: string;
+  whatsapp_number: string;
+  website_url: string;
+  country: string;
+  province: string;
+  city: string;
+  address: string;
+  logo_url: string;
+  cover_image_url: string;
+};
+
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SUPABASE_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 const TOKEN_KEY = "aliqo_education_token";
+
+const EMPTY_PROFILE: ProfileForm = {
+  institution_name: "",
+  institution_type: "",
+  description: "",
+  phone: "",
+  whatsapp_number: "",
+  website_url: "",
+  country: "",
+  province: "",
+  city: "",
+  address: "",
+  logo_url: "",
+  cover_image_url: "",
+};
 
 export default function EducationDashboardPage() {
   const [token, setToken] = useState("");
@@ -30,6 +66,11 @@ export default function EducationDashboardPage() {
   const [initializing, setInitializing] = useState(true);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+
+  const [editingId, setEditingId] = useState("");
+  const [profileForm, setProfileForm] =
+    useState<ProfileForm>(EMPTY_PROFILE);
+  const [savingProfile, setSavingProfile] = useState(false);
 
   const loadInstitutions = useCallback(async (accessToken: string) => {
     setLoading(true);
@@ -145,6 +186,111 @@ export default function EducationDashboardPage() {
     setPassword("");
     setError("");
     setSuccess("");
+    setEditingId("");
+    setProfileForm(EMPTY_PROFILE);
+  };
+
+  const openProfileEditor = (institution: Institution) => {
+    setError("");
+    setSuccess("");
+    setEditingId(institution.id);
+
+    setProfileForm({
+      institution_name: institution.institution_name || "",
+      institution_type: institution.institution_type || "",
+      description: institution.description || "",
+      phone: institution.phone || "",
+      whatsapp_number: institution.whatsapp_number || "",
+      website_url: institution.website_url || "",
+      country: institution.country || "",
+      province: institution.province || "",
+      city: institution.city || "",
+      address: institution.address || "",
+      logo_url: institution.logo_url || "",
+      cover_image_url: institution.cover_image_url || "",
+    });
+
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const updateProfileField = (
+    field: keyof ProfileForm,
+    value: string
+  ) => {
+    setProfileForm((previous) => ({
+      ...previous,
+      [field]: value,
+    }));
+  };
+
+  const handleSaveProfile = async (
+    event: React.FormEvent<HTMLFormElement>
+  ) => {
+    event.preventDefault();
+
+    if (!editingId || !token) {
+      setError("Please select an institution first.");
+      return;
+    }
+
+    setSavingProfile(true);
+    setError("");
+    setSuccess("");
+
+    try {
+      const response = await fetch(
+        `/api/education/institutions/${encodeURIComponent(editingId)}`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify(profileForm),
+          cache: "no-store",
+        }
+      );
+
+      const data = await response.json();
+
+      if (response.status === 401) {
+        localStorage.removeItem(TOKEN_KEY);
+        setToken("");
+        setInstitutions([]);
+        setEditingId("");
+        throw new Error("Your session has expired. Please login again.");
+      }
+
+      if (!response.ok || !data?.success) {
+        throw new Error(
+          data?.message || "Unable to update institution profile."
+        );
+      }
+
+      setEditingId("");
+      setProfileForm(EMPTY_PROFILE);
+
+      await loadInstitutions(token);
+
+      setSuccess(
+        "Institution profile updated successfully."
+      );
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Profile update failed. Please try again."
+      );
+    } finally {
+      setSavingProfile(false);
+    }
+  };
+
+  const cancelProfileEdit = () => {
+    setEditingId("");
+    setProfileForm(EMPTY_PROFILE);
+    setError("");
+    setSuccess("");
   };
 
   const getStatusStyle = (status: string) => {
@@ -158,6 +304,12 @@ export default function EducationDashboardPage() {
 
     return "bg-amber-100 text-amber-800";
   };
+
+  const inputClass =
+    "w-full rounded-xl border border-[#e5dfcf] bg-white px-4 py-3 text-gray-800 outline-none transition focus:border-[#D6B45B] focus:ring-2 focus:ring-[#D6B45B]/20";
+
+  const labelClass =
+    "mb-2 block text-sm font-bold text-[#064B38]";
 
   if (initializing) {
     return (
@@ -189,31 +341,27 @@ export default function EducationDashboardPage() {
 
           <form onSubmit={handleLogin} className="mt-8 space-y-5">
             <div>
-              <label className="mb-2 block text-sm font-bold text-[#064B38]">
-                Email Address
-              </label>
+              <label className={labelClass}>Email Address</label>
               <input
                 type="email"
                 required
                 autoComplete="email"
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
-                className="w-full rounded-xl border border-gray-200 bg-[#F7F3E8]/60 px-4 py-3 outline-none focus:border-[#D6B45B] focus:ring-2 focus:ring-[#D6B45B]/20"
+                className={inputClass}
                 placeholder="Enter your email"
               />
             </div>
 
             <div>
-              <label className="mb-2 block text-sm font-bold text-[#064B38]">
-                Password
-              </label>
+              <label className={labelClass}>Password</label>
               <input
                 type="password"
                 required
                 autoComplete="current-password"
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
-                className="w-full rounded-xl border border-gray-200 bg-[#F7F3E8]/60 px-4 py-3 outline-none focus:border-[#D6B45B] focus:ring-2 focus:ring-[#D6B45B]/20"
+                className={inputClass}
                 placeholder="Enter your password"
               />
             </div>
@@ -306,6 +454,297 @@ export default function EducationDashboardPage() {
           <div className="mb-6 rounded-xl border border-green-200 bg-green-50 p-4 text-green-800">
             {success}
           </div>
+        )}
+
+        {editingId && (
+          <section className="mb-9 rounded-2xl border border-[#D6B45B]/50 bg-white p-6 shadow-md sm:p-8">
+            <div className="mb-7 flex flex-wrap items-start justify-between gap-4">
+              <div>
+                <p className="text-sm font-bold tracking-widest text-[#9b792e]">
+                  INSTITUTION MANAGEMENT
+                </p>
+                <h2 className="mt-1 text-2xl font-extrabold text-[#064B38]">
+                  Edit Institution Profile
+                </h2>
+                <p className="mt-2 text-sm text-gray-500">
+                  Update your institution information and public profile details.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={cancelProfileEdit}
+                disabled={savingProfile}
+                className="rounded-xl border border-gray-300 px-4 py-2 font-semibold text-gray-600 hover:bg-gray-50 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveProfile} className="space-y-7">
+              <div>
+                <h3 className="mb-4 border-b border-[#e8e1cf] pb-2 text-lg font-extrabold text-[#064B38]">
+                  Basic Information
+                </h3>
+
+                <div className="grid gap-5 md:grid-cols-2">
+                  <div>
+                    <label className={labelClass}>
+                      Institution Name *
+                    </label>
+                    <input
+                      required
+                      maxLength={200}
+                      value={profileForm.institution_name}
+                      onChange={(event) =>
+                        updateProfileField("institution_name", event.target.value)
+                      }
+                      className={inputClass}
+                    />
+                  </div>
+
+                  <div>
+                    <label className={labelClass}>
+                      Institution Type *
+                    </label>
+                    <input
+                      required
+                      maxLength={60}
+                      value={profileForm.institution_type}
+                      onChange={(event) =>
+                        updateProfileField("institution_type", event.target.value)
+                      }
+                      className={inputClass}
+                      placeholder="School, College, University, Academy..."
+                    />
+                  </div>
+
+                  <div className="md:col-span-2">
+                    <label className={labelClass}>
+                      Description
+                    </label>
+                    <textarea
+                      rows={5}
+                      maxLength={3000}
+                      value={profileForm.description}
+                      onChange={(event) =>
+                        updateProfileField("description", event.target.value)
+                      }
+                      className={inputClass}
+                      placeholder="Tell students about your institution..."
+                    />
+                    <p className="mt-1 text-right text-xs text-gray-400">
+                      {profileForm.description.length}/3000
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className={labelClass}>
+                      Registered Email (Read Only)
+                    </label>
+                    <input
+                      value={
+                        institutions.find((item) => item.id === editingId)?.email || ""
+                      }
+                      readOnly
+                      className={`${inputClass} cursor-not-allowed bg-gray-100 text-gray-500`}
+                    />
+                    <p className="mt-1 text-xs text-gray-400">
+                      Contact ALIQO support if this email needs correction.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <h3 className="mb-4 border-b border-[#e8e1cf] pb-2 text-lg font-extrabold text-[#064B38]">
+                  Contact Information
+                </h3>
+
+                <div className="grid gap-5 md:grid-cols-2">
+                  <div>
+                    <label className={labelClass}>Phone Number *</label>
+                    <input
+                      required
+                      maxLength={30}
+                      value={profileForm.phone}
+                      onChange={(event) =>
+                        updateProfileField("phone", event.target.value)
+                      }
+                      className={inputClass}
+                      placeholder="+92..."
+                    />
+                  </div>
+
+                  <div>
+                    <label className={labelClass}>WhatsApp Number</label>
+                    <input
+                      maxLength={30}
+                      value={profileForm.whatsapp_number}
+                      onChange={(event) =>
+                        updateProfileField("whatsapp_number", event.target.value)
+                      }
+                      className={inputClass}
+                      placeholder="+92..."
+                    />
+                  </div>
+
+                  <div className="md:col-span-2">
+                    <label className={labelClass}>Website URL</label>
+                    <input
+                      type="url"
+                      maxLength={2048}
+                      value={profileForm.website_url}
+                      onChange={(event) =>
+                        updateProfileField("website_url", event.target.value)
+                      }
+                      className={inputClass}
+                      placeholder="https://example.com"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <h3 className="mb-4 border-b border-[#e8e1cf] pb-2 text-lg font-extrabold text-[#064B38]">
+                  Institution Location
+                </h3>
+
+                <div className="grid gap-5 md:grid-cols-2">
+                  <div>
+                    <label className={labelClass}>Country *</label>
+                    <input
+                      required
+                      maxLength={100}
+                      value={profileForm.country}
+                      onChange={(event) =>
+                        updateProfileField("country", event.target.value)
+                      }
+                      className={inputClass}
+                      placeholder="Pakistan"
+                    />
+                  </div>
+
+                  <div>
+                    <label className={labelClass}>Province / State</label>
+                    <input
+                      maxLength={100}
+                      value={profileForm.province}
+                      onChange={(event) =>
+                        updateProfileField("province", event.target.value)
+                      }
+                      className={inputClass}
+                    />
+                  </div>
+
+                  <div>
+                    <label className={labelClass}>City *</label>
+                    <input
+                      required
+                      maxLength={100}
+                      value={profileForm.city}
+                      onChange={(event) =>
+                        updateProfileField("city", event.target.value)
+                      }
+                      className={inputClass}
+                    />
+                  </div>
+
+                  <div>
+                    <label className={labelClass}>Full Address</label>
+                    <textarea
+                      rows={2}
+                      maxLength={500}
+                      value={profileForm.address}
+                      onChange={(event) =>
+                        updateProfileField("address", event.target.value)
+                      }
+                      className={inputClass}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <h3 className="mb-4 border-b border-[#e8e1cf] pb-2 text-lg font-extrabold text-[#064B38]">
+                  Branding & Images
+                </h3>
+
+                <div className="grid gap-5 md:grid-cols-2">
+                  <div>
+                    <label className={labelClass}>Logo Image URL</label>
+                    <input
+                      type="url"
+                      maxLength={2048}
+                      value={profileForm.logo_url}
+                      onChange={(event) =>
+                        updateProfileField("logo_url", event.target.value)
+                      }
+                      className={inputClass}
+                      placeholder="https://example.com/logo.png"
+                    />
+                    {profileForm.logo_url && (
+                      <img
+                        src={profileForm.logo_url}
+                        alt="Institution logo preview"
+                        className="mt-3 h-20 w-20 rounded-xl border border-[#e8e1cf] object-contain"
+                      />
+                    )}
+                  </div>
+
+                  <div>
+                    <label className={labelClass}>Cover Image URL</label>
+                    <input
+                      type="url"
+                      maxLength={2048}
+                      value={profileForm.cover_image_url}
+                      onChange={(event) =>
+                        updateProfileField("cover_image_url", event.target.value)
+                      }
+                      className={inputClass}
+                      placeholder="https://example.com/cover.jpg"
+                    />
+                    {profileForm.cover_image_url && (
+                      <img
+                        src={profileForm.cover_image_url}
+                        alt="Institution cover preview"
+                        className="mt-3 h-24 w-full rounded-xl border border-[#e8e1cf] object-cover"
+                      />
+                    )}
+                  </div>
+                </div>
+
+                <p className="mt-3 text-xs text-gray-500">
+                  Enter publicly accessible HTTP or HTTPS image URLs. Image upload and storage management can be added separately.
+                </p>
+              </div>
+
+              <div className="rounded-xl border border-[#D6B45B]/40 bg-[#F7F3E8] p-4 text-sm text-[#064B38]">
+                <strong>Important:</strong> Your registered email, owner account,
+                approval status and admin controls are protected and cannot be
+                changed through this form.
+              </div>
+
+              <div className="flex flex-wrap gap-3 border-t border-[#e8e1cf] pt-5">
+                <button
+                  type="submit"
+                  disabled={savingProfile}
+                  className="rounded-xl bg-[#064B38] px-7 py-3 font-bold text-white transition hover:bg-[#086148] disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {savingProfile ? "Saving Profile..." : "Save Changes"}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={cancelProfileEdit}
+                  disabled={savingProfile}
+                  className="rounded-xl border border-gray-300 px-6 py-3 font-bold text-gray-600 hover:bg-gray-50 disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </section>
         )}
 
         <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
@@ -426,14 +865,24 @@ export default function EducationDashboardPage() {
                     )}
                   </div>
 
-                  {institution.verification_status === "approved" && institution.is_active && (
-                    <a
-                      href={`/education/${encodeURIComponent(institution.id)}`}
-                      className="mt-4 inline-flex rounded-lg bg-[#064B38] px-4 py-2.5 text-sm font-bold text-white hover:bg-[#086148]"
+                  <div className="mt-5 flex flex-wrap gap-3">
+                    <button
+                      type="button"
+                      onClick={() => openProfileEditor(institution)}
+                      className="rounded-lg border border-[#D6B45B] bg-white px-4 py-2.5 text-sm font-bold text-[#064B38] transition hover:bg-[#D6B45B]/20"
                     >
-                      View Public Profile →
-                    </a>
-                  )}
+                      Edit Profile
+                    </button>
+
+                    {institution.verification_status === "approved" && institution.is_active && (
+                      <a
+                        href={`/education/${encodeURIComponent(institution.id)}`}
+                        className="inline-flex rounded-lg bg-[#064B38] px-4 py-2.5 text-sm font-bold text-white hover:bg-[#086148]"
+                      >
+                        View Public Profile →
+                      </a>
+                    )}
+                  </div>
                 </article>
               ))}
             </div>
