@@ -37,6 +37,22 @@ type Campus = {
   updated_at?: string;
 };
 
+type Program = {
+  id: string;
+  institution_id: string;
+  campus_id?: string | null;
+  program_type: "school_class" | "course" | "degree";
+  program_name: string;
+  description?: string | null;
+  eligibility?: string | null;
+  fee_min?: number | null;
+  fee_max?: number | null;
+  duration?: string | null;
+  admission_open: boolean;
+  is_active: boolean;
+  created_at?: string;
+};
+
 type ProfileForm = {
   institution_name: string;
   institution_type: string;
@@ -59,6 +75,18 @@ type CampusForm = {
   address: string;
   phone: string;
   email: string;
+};
+
+type ProgramForm = {
+  campus_id: string;
+  program_type: "school_class" | "course" | "degree";
+  program_name: string;
+  description: string;
+  eligibility: string;
+  fee_min: string;
+  fee_max: string;
+  duration: string;
+  admission_open: boolean;
 };
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -89,10 +117,23 @@ const EMPTY_CAMPUS: CampusForm = {
   email: "",
 };
 
+const EMPTY_PROGRAM: ProgramForm = {
+  campus_id: "",
+  program_type: "school_class",
+  program_name: "",
+  description: "",
+  eligibility: "",
+  fee_min: "",
+  fee_max: "",
+  duration: "",
+  admission_open: false,
+};
+
 export default function EducationDashboardPage() {
   const [token, setToken] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+
   const [institutions, setInstitutions] = useState<Institution[]>([]);
   const [loading, setLoading] = useState(false);
   const [initializing, setInitializing] = useState(true);
@@ -111,6 +152,15 @@ export default function EducationDashboardPage() {
   const [campusForm, setCampusForm] =
     useState<CampusForm>(EMPTY_CAMPUS);
   const [editingCampusId, setEditingCampusId] = useState("");
+
+  const [programInstitutionId, setProgramInstitutionId] = useState("");
+  const [programs, setPrograms] = useState<Program[]>([]);
+  const [programCampuses, setProgramCampuses] = useState<Campus[]>([]);
+  const [programLoading, setProgramLoading] = useState(false);
+  const [programSaving, setProgramSaving] = useState(false);
+  const [programForm, setProgramForm] =
+    useState<ProgramForm>(EMPTY_PROGRAM);
+  const [editingProgramId, setEditingProgramId] = useState("");
 
   const loadInstitutions = useCallback(async (accessToken: string) => {
     setLoading(true);
@@ -187,6 +237,69 @@ export default function EducationDashboardPage() {
     []
   );
 
+  const loadPrograms = useCallback(
+    async (institutionId: string, accessToken: string) => {
+      if (!institutionId || !accessToken) return;
+
+      setProgramLoading(true);
+      setError("");
+
+      try {
+        const [programResponse, campusResponse] = await Promise.all([
+          fetch(
+            `/api/education/programs?institution_id=${encodeURIComponent(institutionId)}`,
+            {
+              headers: { Authorization: `Bearer ${accessToken}` },
+              cache: "no-store",
+            }
+          ),
+          fetch(
+            `/api/education/campuses?institution_id=${encodeURIComponent(institutionId)}`,
+            {
+              headers: { Authorization: `Bearer ${accessToken}` },
+              cache: "no-store",
+            }
+          ),
+        ]);
+
+        const programData = await programResponse.json();
+        const campusData = await campusResponse.json();
+
+        if (
+          programResponse.status === 401 ||
+          campusResponse.status === 401
+        ) {
+          localStorage.removeItem(TOKEN_KEY);
+          setToken("");
+          setInstitutions([]);
+          throw new Error("Your session has expired. Please login again.");
+        }
+
+        if (!programResponse.ok || !Array.isArray(programData?.programs)) {
+          throw new Error(
+            programData?.error || "Unable to load programs."
+          );
+        }
+
+        if (!campusResponse.ok || !Array.isArray(campusData?.campuses)) {
+          throw new Error(
+            campusData?.error || "Unable to load campuses."
+          );
+        }
+
+        setPrograms(programData.programs);
+        setProgramCampuses(campusData.campuses);
+      } catch (err) {
+        setError(
+          err instanceof Error ? err.message : "Unable to load programs."
+        );
+      } finally {
+        setProgramLoading(false);
+      }
+    },
+    []
+  );
+
   useEffect(() => {
     const savedToken = localStorage.getItem(TOKEN_KEY);
 
@@ -225,7 +338,9 @@ export default function EducationDashboardPage() {
       const data = await response.json();
 
       if (!response.ok || !data?.access_token) {
-        throw new Error(data?.msg || data?.message || "Invalid login details.");
+        throw new Error(
+          data?.msg || data?.message || "Invalid login details."
+        );
       }
 
       localStorage.setItem(TOKEN_KEY, data.access_token);
@@ -251,12 +366,20 @@ export default function EducationDashboardPage() {
     setPassword("");
     setError("");
     setSuccess("");
+
     setEditingId("");
     setProfileForm(EMPTY_PROFILE);
+
     setCampusInstitutionId("");
     setCampuses([]);
     setEditingCampusId("");
     setCampusForm(EMPTY_CAMPUS);
+
+    setProgramInstitutionId("");
+    setPrograms([]);
+    setProgramCampuses([]);
+    setEditingProgramId("");
+    setProgramForm(EMPTY_PROGRAM);
   };
 
   const openProfileEditor = (institution: Institution) => {
@@ -328,7 +451,9 @@ export default function EducationDashboardPage() {
       }
 
       if (!response.ok || !data?.success) {
-        throw new Error(data?.message || "Unable to update institution profile.");
+        throw new Error(
+          data?.message || "Unable to update institution profile."
+        );
       }
 
       setEditingId("");
@@ -386,7 +511,6 @@ export default function EducationDashboardPage() {
     setSuccess("");
   };
 
-  // Save or update campus and verify the returned database record.
   const handleCampusSubmit = async (
     event: React.FormEvent<HTMLFormElement>
   ) => {
@@ -452,9 +576,7 @@ export default function EducationDashboardPage() {
         savedCampus.institution_id !== campusInstitutionId ||
         savedCampus.campus_name !== expectedCampusName
       ) {
-        throw new Error(
-          `Campus update could not be verified. Expected "${expectedCampusName}", but the database returned "${savedCampus.campus_name || "unknown"}".`
-        );
+        throw new Error("Campus update could not be verified.");
       }
 
       setCampuses((previous) => {
@@ -587,6 +709,276 @@ export default function EducationDashboardPage() {
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "Unable to delete campus."
+      );
+    }
+  };
+
+  const openProgramManager = async (institution: Institution) => {
+    setProgramInstitutionId(institution.id);
+    setPrograms([]);
+    setProgramCampuses([]);
+    setProgramForm(EMPTY_PROGRAM);
+    setEditingProgramId("");
+    setError("");
+    setSuccess("");
+
+    window.scrollTo({ top: 0, behavior: "smooth" });
+    await loadPrograms(institution.id, token);
+  };
+
+  const updateProgramField = <K extends keyof ProgramForm,>(
+    field: K,
+    value: ProgramForm[K]
+  ) => {
+    setProgramForm((previous) => ({ ...previous, [field]: value }));
+  };
+
+  const resetProgramForm = () => {
+    setProgramForm(EMPTY_PROGRAM);
+    setEditingProgramId("");
+  };
+
+  const startProgramEdit = (program: Program) => {
+    setEditingProgramId(program.id);
+
+    setProgramForm({
+      campus_id: program.campus_id || "",
+      program_type: program.program_type,
+      program_name: program.program_name || "",
+      description: program.description || "",
+      eligibility: program.eligibility || "",
+      fee_min: program.fee_min != null ? String(program.fee_min) : "",
+      fee_max: program.fee_max != null ? String(program.fee_max) : "",
+      duration: program.duration || "",
+      admission_open: program.admission_open === true,
+    });
+
+    setError("");
+    setSuccess("");
+  };
+
+  const handleProgramSubmit = async (
+    event: React.FormEvent<HTMLFormElement>
+  ) => {
+    event.preventDefault();
+
+    if (!programInstitutionId || !token) {
+      setError("Please select an institution first.");
+      return;
+    }
+
+    const programName = programForm.program_name.trim();
+
+    if (!programName) {
+      setError("Program name is required.");
+      return;
+    }
+
+    if (
+      programForm.fee_min !== "" &&
+      (!Number.isFinite(Number(programForm.fee_min)) ||
+        Number(programForm.fee_min) < 0)
+    ) {
+      setError("Please enter a valid minimum fee.");
+      return;
+    }
+
+    if (
+      programForm.fee_max !== "" &&
+      (!Number.isFinite(Number(programForm.fee_max)) ||
+        Number(programForm.fee_max) < 0)
+    ) {
+      setError("Please enter a valid maximum fee.");
+      return;
+    }
+
+    if (
+      programForm.fee_min !== "" &&
+      programForm.fee_max !== "" &&
+      Number(programForm.fee_max) < Number(programForm.fee_min)
+    ) {
+      setError("Maximum fee cannot be less than minimum fee.");
+      return;
+    }
+
+    setProgramSaving(true);
+    setError("");
+    setSuccess("");
+
+    try {
+      const isEditing = Boolean(editingProgramId);
+
+      const payload = {
+        institution_id: programInstitutionId,
+        ...(isEditing ? { program_id: editingProgramId } : {}),
+        campus_id: programForm.campus_id || null,
+        program_type: programForm.program_type,
+        program_name: programName,
+        description: programForm.description,
+        eligibility: programForm.eligibility,
+        fee_min:
+          programForm.fee_min === "" ? null : Number(programForm.fee_min),
+        fee_max:
+          programForm.fee_max === "" ? null : Number(programForm.fee_max),
+        duration: programForm.duration,
+        admission_open: programForm.admission_open,
+      };
+
+      const response = await fetch("/api/education/programs", {
+        method: isEditing ? "PATCH" : "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(payload),
+        cache: "no-store",
+      });
+
+      const data = await response.json();
+
+      if (response.status === 401) {
+        localStorage.removeItem(TOKEN_KEY);
+        setToken("");
+        setInstitutions([]);
+        throw new Error("Your session has expired. Please login again.");
+      }
+
+      if (!response.ok || !data?.program?.id) {
+        throw new Error(data?.error || "Unable to save program.");
+      }
+
+      if (
+        data.program.institution_id !== programInstitutionId ||
+        data.program.program_name !== programName
+      ) {
+        throw new Error("Program save could not be verified.");
+      }
+
+      await loadPrograms(programInstitutionId, token);
+      resetProgramForm();
+
+      setSuccess(
+        isEditing
+          ? "Program updated and database record verified successfully."
+          : "Program added and database record verified successfully."
+      );
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Unable to save program."
+      );
+    } finally {
+      setProgramSaving(false);
+    }
+  };
+
+  const toggleProgramStatus = async (program: Program) => {
+    if (!programInstitutionId || !token) return;
+
+    const nextStatus = !program.is_active;
+
+    const confirmed = window.confirm(
+      nextStatus
+        ? `Activate "${program.program_name}"?`
+        : `Deactivate "${program.program_name}"?`
+    );
+
+    if (!confirmed) return;
+
+    setError("");
+    setSuccess("");
+
+    try {
+      const response = await fetch("/api/education/programs", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          program_id: program.id,
+          institution_id: programInstitutionId,
+          is_active: nextStatus,
+        }),
+        cache: "no-store",
+      });
+
+      const data = await response.json();
+
+      if (response.status === 401) {
+        localStorage.removeItem(TOKEN_KEY);
+        setToken("");
+        setInstitutions([]);
+        throw new Error("Your session has expired. Please login again.");
+      }
+
+      if (!response.ok || data?.program?.is_active !== nextStatus) {
+        throw new Error(
+          data?.error || "Program status update could not be verified."
+        );
+      }
+
+      await loadPrograms(programInstitutionId, token);
+
+      setSuccess(
+        nextStatus
+          ? "Program activated successfully."
+          : "Program deactivated successfully."
+      );
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Unable to update program status."
+      );
+    }
+  };
+
+  const deleteProgram = async (program: Program) => {
+    if (!programInstitutionId || !token) return;
+
+    const confirmed = window.confirm(
+      `Permanently delete "${program.program_name}"? This action cannot be undone.`
+    );
+
+    if (!confirmed) return;
+
+    setError("");
+    setSuccess("");
+
+    try {
+      const response = await fetch("/api/education/programs", {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          program_id: program.id,
+          institution_id: programInstitutionId,
+        }),
+        cache: "no-store",
+      });
+
+      const data = await response.json();
+
+      if (response.status === 401) {
+        localStorage.removeItem(TOKEN_KEY);
+        setToken("");
+        setInstitutions([]);
+        throw new Error("Your session has expired. Please login again.");
+      }
+
+      if (!response.ok || !data?.success) {
+        throw new Error(data?.error || "Unable to delete program.");
+      }
+
+      if (editingProgramId === program.id) {
+        resetProgramForm();
+      }
+
+      await loadPrograms(programInstitutionId, token);
+      setSuccess("Program deleted successfully.");
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Unable to delete program."
       );
     }
   };
@@ -958,13 +1350,341 @@ export default function EducationDashboardPage() {
                         {campus.email && <p>✉️ {campus.email}</p>}
                       </div>
                       <div className="mt-4 flex flex-wrap gap-2 border-t border-[#e8e1cf] pt-4">
-                        <button type="button" onClick={() => startCampusEdit(campus)} className="rounded-lg border border-[#D6B45B] bg-white px-3 py-2 text-sm font-bold text-[#064B38]">
+                        <button type="button" onClick={() => startCampusEdit(campus)} className="rounded-lg border border-[#D6B45B] bg-white px-3 py-2 text-sm font-bold text-[#064B38]">Edit</button>
+                        <button type="button" onClick={() => toggleCampusStatus(campus)} className="rounded-lg bg-[#D6B45B] px-3 py-2 text-sm font-bold text-[#173C2E]">{campus.is_active ? "Deactivate" : "Activate"}</button>
+                        <button type="button" onClick={() => deleteCampus(campus)} className="rounded-lg border border-red-200 bg-white px-3 py-2 text-sm font-bold text-red-700">Delete</button>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              )}
+            </div>
+          </section>
+        )}
+
+        {programInstitutionId && (
+          <section className="mb-9 rounded-2xl border border-[#D6B45B]/50 bg-white p-6 shadow-md sm:p-8">
+            <div className="mb-7 flex flex-wrap items-start justify-between gap-4">
+              <div>
+                <p className="text-sm font-bold tracking-widest text-[#9b792e]">
+                  INSTITUTION MANAGEMENT
+                </p>
+                <h2 className="mt-1 text-2xl font-extrabold text-[#064B38]">
+                  Programs & Courses Management
+                </h2>
+                <p className="mt-2 text-sm text-gray-500">
+                  Manage school classes, professional courses and degree programs.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setProgramInstitutionId("");
+                  setPrograms([]);
+                  setProgramCampuses([]);
+                  resetProgramForm();
+                  setError("");
+                  setSuccess("");
+                }}
+                className="rounded-xl border border-gray-300 px-4 py-2 font-semibold text-gray-600 hover:bg-gray-50"
+              >
+                Close Programs Manager
+              </button>
+            </div>
+
+            <div className="mb-8 rounded-xl border border-[#D6B45B]/40 bg-[#F7F3E8] p-5">
+              <h3 className="mb-4 text-lg font-extrabold text-[#064B38]">
+                {editingProgramId ? "Edit Program" : "Add New Program"}
+              </h3>
+
+              <form onSubmit={handleProgramSubmit} className="grid gap-4 md:grid-cols-2">
+                <div>
+                  <label className={labelClass}>Program Type *</label>
+                  <select
+                    required
+                    value={programForm.program_type}
+                    onChange={(e) =>
+                      updateProgramField(
+                        "program_type",
+                        e.target.value as ProgramForm["program_type"]
+                      )
+                    }
+                    className={inputClass}
+                  >
+                    <option value="school_class">School Class</option>
+                    <option value="course">Professional Course</option>
+                    <option value="degree">Degree Program</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className={labelClass}>Program Name *</label>
+                  <input
+                    required
+                    maxLength={200}
+                    value={programForm.program_name}
+                    onChange={(e) =>
+                      updateProgramField("program_name", e.target.value)
+                    }
+                    className={inputClass}
+                    placeholder="e.g. Class 9, Web Development, BS Computer Science"
+                  />
+                </div>
+
+                <div>
+                  <label className={labelClass}>Campus</label>
+                  <select
+                    value={programForm.campus_id}
+                    onChange={(e) =>
+                      updateProgramField("campus_id", e.target.value)
+                    }
+                    className={inputClass}
+                  >
+                    <option value="">All Campuses / Not Specified</option>
+                    {programCampuses.map((campus) => (
+                      <option
+                        key={campus.id}
+                        value={campus.id}
+                        disabled={!campus.is_active}
+                      >
+                        {campus.campus_name}
+                        {!campus.is_active ? " (Inactive)" : ""}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className={labelClass}>Duration</label>
+                  <input
+                    maxLength={100}
+                    value={programForm.duration}
+                    onChange={(e) =>
+                      updateProgramField("duration", e.target.value)
+                    }
+                    className={inputClass}
+                    placeholder="e.g. 2 Years, 6 Months"
+                  />
+                </div>
+
+                <div className="md:col-span-2">
+                  <label className={labelClass}>Description</label>
+                  <textarea
+                    rows={3}
+                    maxLength={5000}
+                    value={programForm.description}
+                    onChange={(e) =>
+                      updateProgramField("description", e.target.value)
+                    }
+                    className={inputClass}
+                    placeholder="Describe this class, course or degree..."
+                  />
+                </div>
+
+                <div className="md:col-span-2">
+                  <label className={labelClass}>Eligibility Criteria</label>
+                  <textarea
+                    rows={2}
+                    maxLength={2000}
+                    value={programForm.eligibility}
+                    onChange={(e) =>
+                      updateProgramField("eligibility", e.target.value)
+                    }
+                    className={inputClass}
+                    placeholder="Required qualification or admission criteria..."
+                  />
+                </div>
+
+                <div>
+                  <label className={labelClass}>Minimum Fee</label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={programForm.fee_min}
+                    onChange={(e) =>
+                      updateProgramField("fee_min", e.target.value)
+                    }
+                    className={inputClass}
+                    placeholder="Minimum fee"
+                  />
+                </div>
+
+                <div>
+                  <label className={labelClass}>Maximum Fee</label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={programForm.fee_max}
+                    onChange={(e) =>
+                      updateProgramField("fee_max", e.target.value)
+                    }
+                    className={inputClass}
+                    placeholder="Maximum fee"
+                  />
+                </div>
+
+                <div className="flex items-center gap-3 md:col-span-2">
+                  <input
+                    id="program-admission-open"
+                    type="checkbox"
+                    checked={programForm.admission_open}
+                    onChange={(e) =>
+                      updateProgramField("admission_open", e.target.checked)
+                    }
+                    className="h-5 w-5 accent-[#064B38]"
+                  />
+                  <label
+                    htmlFor="program-admission-open"
+                    className="font-semibold text-[#064B38]"
+                  >
+                    Admissions currently open
+                  </label>
+                </div>
+
+                <div className="flex flex-wrap gap-3 md:col-span-2">
+                  <button
+                    type="submit"
+                    disabled={programSaving}
+                    className="rounded-xl bg-[#064B38] px-6 py-3 font-bold text-white hover:bg-[#086148] disabled:opacity-60"
+                  >
+                    {programSaving
+                      ? "Saving..."
+                      : editingProgramId
+                        ? "Update Program"
+                        : "Add Program"}
+                  </button>
+
+                  {editingProgramId && (
+                    <button
+                      type="button"
+                      onClick={resetProgramForm}
+                      disabled={programSaving}
+                      className="rounded-xl border border-gray-300 px-6 py-3 font-bold text-gray-600"
+                    >
+                      Cancel Edit
+                    </button>
+                  )}
+                </div>
+              </form>
+            </div>
+
+            <div>
+              <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                <h3 className="text-xl font-extrabold text-[#064B38]">
+                  Your Programs & Courses
+                </h3>
+
+                <button
+                  type="button"
+                  onClick={() => loadPrograms(programInstitutionId, token)}
+                  disabled={programLoading}
+                  className="rounded-lg bg-[#D6B45B] px-4 py-2 font-bold text-[#173C2E]"
+                >
+                  {programLoading ? "Loading..." : "Refresh Programs"}
+                </button>
+              </div>
+
+              {programLoading ? (
+                <p className="py-8 text-center text-gray-500">
+                  Loading programs...
+                </p>
+              ) : programs.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-[#D6B45B] p-8 text-center">
+                  <p className="text-3xl">📚</p>
+                  <p className="mt-3 font-bold text-[#064B38]">
+                    No programs added yet
+                  </p>
+                  <p className="mt-1 text-sm text-gray-500">
+                    Use the form above to add your first program or course.
+                  </p>
+                </div>
+              ) : (
+                <div className="grid gap-4 md:grid-cols-2">
+                  {programs.map((program) => (
+                    <article
+                      key={program.id}
+                      className="rounded-xl border border-[#e8e1cf] bg-[#F7F3E8]/50 p-5"
+                    >
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div>
+                          <h4 className="text-lg font-extrabold text-[#064B38]">
+                            {program.program_name}
+                          </h4>
+                          <p className="mt-1 text-sm font-semibold capitalize text-[#9b792e]">
+                            {program.program_type.replace("_", " ")}
+                          </p>
+                        </div>
+
+                        <span
+                          className={`rounded-full px-3 py-1 text-xs font-bold ${
+                            program.is_active
+                              ? "bg-green-100 text-green-800"
+                              : "bg-gray-200 text-gray-700"
+                          }`}
+                        >
+                          {program.is_active ? "Active" : "Inactive"}
+                        </span>
+                      </div>
+
+                      <div className="mt-3 space-y-2 text-sm text-gray-600">
+                        {program.campus_id && (
+                          <p>
+                            🏫{" "}
+                            {programCampuses.find(
+                              (campus) => campus.id === program.campus_id
+                            )?.campus_name || "Assigned Campus"}
+                          </p>
+                        )}
+                        {program.duration && <p>⏳ {program.duration}</p>}
+                        {program.description && <p>{program.description}</p>}
+                        {program.eligibility && (
+                          <p>📋 Eligibility: {program.eligibility}</p>
+                        )}
+                        {(program.fee_min != null ||
+                          program.fee_max != null) && (
+                          <p>
+                            💰 Fee:{" "}
+                            {program.fee_min != null
+                              ? program.fee_min
+                              : "Not specified"}
+                            {" - "}
+                            {program.fee_max != null
+                              ? program.fee_max
+                              : "Not specified"}
+                          </p>
+                        )}
+                        <p>
+                          {program.admission_open
+                            ? "🟢 Admissions Open"
+                            : "Admissions Closed"}
+                        </p>
+                      </div>
+
+                      <div className="mt-4 flex flex-wrap gap-2 border-t border-[#e8e1cf] pt-4">
+                        <button
+                          type="button"
+                          onClick={() => startProgramEdit(program)}
+                          className="rounded-lg border border-[#D6B45B] bg-white px-3 py-2 text-sm font-bold text-[#064B38]"
+                        >
                           Edit
                         </button>
-                        <button type="button" onClick={() => toggleCampusStatus(campus)} className="rounded-lg bg-[#D6B45B] px-3 py-2 text-sm font-bold text-[#173C2E]">
-                          {campus.is_active ? "Deactivate" : "Activate"}
+
+                        <button
+                          type="button"
+                          onClick={() => toggleProgramStatus(program)}
+                          className="rounded-lg bg-[#D6B45B] px-3 py-2 text-sm font-bold text-[#173C2E]"
+                        >
+                          {program.is_active ? "Deactivate" : "Activate"}
                         </button>
-                        <button type="button" onClick={() => deleteCampus(campus)} className="rounded-lg border border-red-200 bg-white px-3 py-2 text-sm font-bold text-red-700">
+
+                        <button
+                          type="button"
+                          onClick={() => deleteProgram(program)}
+                          className="rounded-lg border border-red-200 bg-white px-3 py-2 text-sm font-bold text-red-700"
+                        >
                           Delete
                         </button>
                       </div>
@@ -1043,6 +1763,9 @@ export default function EducationDashboardPage() {
                     </button>
                     <button type="button" onClick={() => openCampusManager(institution)} className="rounded-lg border border-[#064B38] bg-white px-4 py-2.5 text-sm font-bold text-[#064B38] hover:bg-[#064B38]/10">
                       Manage Campuses
+                    </button>
+                    <button type="button" onClick={() => openProgramManager(institution)} className="rounded-lg border border-[#D6B45B] bg-white px-4 py-2.5 text-sm font-bold text-[#064B38] hover:bg-[#D6B45B]/20">
+                      Manage Programs
                     </button>
                     {institution.verification_status === "approved" && institution.is_active && (
                       <a href={`/education/${encodeURIComponent(institution.id)}`} className="inline-flex rounded-lg bg-[#064B38] px-4 py-2.5 text-sm font-bold text-white hover:bg-[#086148]">
