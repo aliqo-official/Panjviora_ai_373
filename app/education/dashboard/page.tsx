@@ -609,9 +609,9 @@ export default function EducationOwnerDashboard() {
                     INSTITUTION OWNER PORTAL
                   </span>
 
-                  <h1 className="mt-5 text-3xl font-black md:text-4xl">
-                    Welcome to Your Dashboard
-                  </h1>
+                  <h1 className="mt-5 text-3xl font-black text-white md:text-4xl">
+  Welcome to Your Dashboard
+</h1>
 
                   <p className="mt-3 text-white/75">
                     Manage your institution and student admission inquiries.
