@@ -4,6 +4,10 @@ import { NextRequest, NextResponse } from "next/server";
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
+const REQUEST_TIMEOUT_MS = 15000;
+const MAX_BODY_BYTES = 16 * 1024;
+const MAX_TOKEN_LENGTH = 8192;
+
 const UUID_REGEX =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -50,6 +54,93 @@ function isObject(value: unknown): value is Record<string, unknown> {
   );
 }
 
+function getBearerToken(request: NextRequest): string | null {
+  const authorization = request.headers.get("authorization");
+
+  if (!authorization) return null;
+
+  const match = authorization.match(/^Bearer\s+(.+)$/i);
+  const token = match?.[1]?.trim();
+
+  if (
+    !token ||
+    token.length > MAX_TOKEN_LENGTH ||
+    /\s/.test(token)
+  ) {
+    return null;
+  }
+
+  return token;
+}
+
+function hasJsonContentType(request: NextRequest): boolean {
+  const contentType = request.headers.get("content-type") || "";
+
+  return /^application\/json(?:\s*;|$)/i.test(contentType.trim());
+}
+
+async function readRequestBody(
+  request: NextRequest
+): Promise<
+  | { ok: true; body: Record<string, unknown> }
+  | { ok: false; error: string; status: number }
+> {
+  const contentLength = request.headers.get("content-length");
+
+  if (contentLength !== null) {
+    if (!/^\d+$/.test(contentLength)) {
+      return {
+        ok: false,
+        error: "Invalid Content-Length header.",
+        status: 400,
+      };
+    }
+
+    if (Number(contentLength) > MAX_BODY_BYTES) {
+      return {
+        ok: false,
+        error: "Request body is too large.",
+        status: 413,
+      };
+    }
+  }
+
+  try {
+    const rawBody = await request.text();
+
+    const bodySize = new TextEncoder().encode(rawBody).byteLength;
+
+    if (bodySize > MAX_BODY_BYTES) {
+      return {
+        ok: false,
+        error: "Request body is too large.",
+        status: 413,
+      };
+    }
+
+    const parsed: unknown = JSON.parse(rawBody);
+
+    if (!isObject(parsed)) {
+      return {
+        ok: false,
+        error: "Invalid JSON request.",
+        status: 400,
+      };
+    }
+
+    return {
+      ok: true,
+      body: parsed,
+    };
+  } catch {
+    return {
+      ok: false,
+      error: "Invalid JSON request.",
+      status: 400,
+    };
+  }
+}
+
 async function verifyUser(token: string) {
   const result = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
     headers: {
@@ -57,12 +148,14 @@ async function verifyUser(token: string) {
       Authorization: `Bearer ${token}`,
     },
     cache: "no-store",
+    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
   });
 
   if (!result.ok) return null;
 
   const user = await result.json();
-  return user?.id ? user : null;
+
+  return user?.id && UUID_REGEX.test(user.id) ? user : null;
 }
 
 async function dbRequest(
@@ -70,26 +163,20 @@ async function dbRequest(
   token: string,
   options: RequestInit = {}
 ) {
-  return fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
-    ...options,
-    headers: {
-      apikey: SUPABASE_ANON_KEY!,
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-      ...options.headers,
-    },
-    cache: "no-store",
-  });
-}
-
-function getBearerToken(request: NextRequest): string | null {
-  const authorization = request.headers.get("authorization");
-
-  if (!authorization) return null;
-
-  const match = authorization.match(/^Bearer\s+(.+)$/i);
-
-  return match?.[1]?.trim() || null;
+  return fetch(
+    `${SUPABASE_URL}/rest/v1/${path}`,
+    {
+      ...options,
+      headers: {
+        apikey: SUPABASE_ANON_KEY!,
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+        ...options.headers,
+      },
+      cache: "no-store",
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+    }
+  );
 }
 
 // GET: Institution owners can view only their own inquiries.
@@ -137,7 +224,7 @@ export async function GET(request: NextRequest) {
 
     const institutions = await institutionResult.json();
 
-    if (!institutions.length) {
+    if (!Array.isArray(institutions) || !institutions.length) {
       return response(
         { error: "Institution not found or access denied." },
         403
@@ -160,7 +247,10 @@ export async function GET(request: NextRequest) {
 
     const inquiries = await inquiriesResult.json();
 
-    // Collect unique campus and program IDs.
+    if (!Array.isArray(inquiries)) {
+      return response({ error: "Invalid inquiries response." }, 502);
+    }
+
     const campusIds = [
       ...new Set(
         inquiries
@@ -180,7 +270,6 @@ export async function GET(request: NextRequest) {
     const campusNames = new Map<string, string>();
     const programNames = new Map<string, string>();
 
-    // Fetch campus names belonging to this institution.
     if (campusIds.length > 0) {
       const campusResult = await dbRequest(
         `institution_campuses?id=in.(${campusIds.join(",")})&institution_id=eq.${institutionId}&select=id,campus_name`,
@@ -198,12 +287,15 @@ export async function GET(request: NextRequest) {
 
       const campuses = await campusResult.json();
 
+      if (!Array.isArray(campuses)) {
+        return response({ error: "Invalid campus response." }, 502);
+      }
+
       for (const campus of campuses) {
         campusNames.set(campus.id, campus.campus_name);
       }
     }
 
-    // Fetch program names belonging to this institution.
     if (programIds.length > 0) {
       const programResult = await dbRequest(
         `institution_programs?id=in.(${programIds.join(",")})&institution_id=eq.${institutionId}&select=id,program_name`,
@@ -221,12 +313,15 @@ export async function GET(request: NextRequest) {
 
       const programs = await programResult.json();
 
+      if (!Array.isArray(programs)) {
+        return response({ error: "Invalid program response." }, 502);
+      }
+
       for (const program of programs) {
         programNames.set(program.id, program.program_name);
       }
     }
 
-    // Return inquiries with readable campus and program names.
     const inquiriesWithNames = inquiries.map(
       (item: {
         campus_id: string | null;
@@ -248,7 +343,11 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     console.error("Education inquiry GET error:", error);
-    return response({ error: "Something went wrong." }, 500);
+
+    return response(
+      { error: "Unable to load inquiries. Please try again." },
+      500
+    );
   }
 }
 
@@ -259,19 +358,23 @@ export async function POST(request: NextRequest) {
       return response({ error: "Server configuration error." }, 500);
     }
 
-    let body: Record<string, unknown>;
-
-    try {
-      const parsed = await request.json();
-
-      if (!isObject(parsed)) {
-        return response({ error: "Invalid JSON request." }, 400);
-      }
-
-      body = parsed;
-    } catch {
-      return response({ error: "Invalid JSON request." }, 400);
+    if (!hasJsonContentType(request)) {
+      return response(
+        { error: "Content-Type must be application/json." },
+        415
+      );
     }
+
+    const bodyResult = await readRequestBody(request);
+
+    if (!bodyResult.ok) {
+      return response(
+        { error: bodyResult.error },
+        bodyResult.status
+      );
+    }
+
+    const body = bodyResult.body;
 
     const institutionId = clean(body.institution_id, 36);
     const campusId = clean(body.campus_id, 36);
@@ -318,8 +421,6 @@ export async function POST(request: NextRequest) {
       return response({ error: "Invalid program_id." }, 400);
     }
 
-    // Optional student authentication.
-    // Never trust a student_user_id supplied in the request body.
     const authToken = getBearerToken(request);
 
     let studentUserId: string | null = null;
@@ -336,7 +437,6 @@ export async function POST(request: NextRequest) {
       insertToken = authToken;
     }
 
-    // Verify approved and active institution.
     const institutionResult = await dbRequest(
       `institutions?id=eq.${institutionId}&verification_status=eq.approved&is_active=eq.true&select=id`,
       SUPABASE_ANON_KEY!
@@ -348,7 +448,7 @@ export async function POST(request: NextRequest) {
 
     const institutions = await institutionResult.json();
 
-    if (!institutions.length) {
+    if (!Array.isArray(institutions) || !institutions.length) {
       return response(
         {
           error:
@@ -358,7 +458,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Verify selected campus belongs to the institution.
     if (campusId) {
       const campusResult = await dbRequest(
         `institution_campuses?id=eq.${campusId}&institution_id=eq.${institutionId}&is_active=eq.true&select=id`,
@@ -371,7 +470,7 @@ export async function POST(request: NextRequest) {
 
       const campuses = await campusResult.json();
 
-      if (!campuses.length) {
+      if (!Array.isArray(campuses) || !campuses.length) {
         return response(
           { error: "Invalid or inactive campus." },
           400
@@ -379,7 +478,6 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Verify selected program and its campus association.
     if (programId) {
       const programResult = await dbRequest(
         `institution_programs?id=eq.${programId}&institution_id=eq.${institutionId}&is_active=eq.true&select=id,campus_id`,
@@ -392,7 +490,7 @@ export async function POST(request: NextRequest) {
 
       const programs = await programResult.json();
 
-      if (!programs.length) {
+      if (!Array.isArray(programs) || !programs.length) {
         return response(
           { error: "Invalid or inactive program." },
           400
@@ -431,40 +529,37 @@ export async function POST(request: NextRequest) {
       {
         method: "POST",
         headers: {
-          // Do not request returned student data from the public endpoint.
           Prefer: "return=minimal",
         },
         body: JSON.stringify(inquiry),
       }
     );
 
-    
-if (!insertResult.ok) {
-  const insertErrorText = await insertResult.text();
+    if (!insertResult.ok) {
+      const insertErrorText = await insertResult.text();
 
-  if (insertErrorText.includes("DUPLICATE_INQUIRY")) {
-    return response(
-      {
-        error:
-          "You have already submitted an inquiry to this institution within the last 24 hours. Please wait for the institution to respond.",
-      },
-      409
-    );
-  }
+      if (insertErrorText.includes("DUPLICATE_INQUIRY")) {
+        return response(
+          {
+            error:
+              "You have already submitted an inquiry to this institution within the last 24 hours. Please wait for the institution to respond.",
+          },
+          409
+        );
+      }
 
-  console.error(
-    "Education inquiry insert failed:",
-    insertErrorText
-  );
+      console.error(
+        "Education inquiry insert failed:",
+        insertErrorText
+      );
 
-  return response(
-    {
-      error: "Unable to submit inquiry. Please try again.",
-    },
-    400
-  );
-}
-
+      return response(
+        {
+          error: "Unable to submit inquiry. Please try again.",
+        },
+        400
+      );
+    }
 
     return response(
       {
@@ -474,7 +569,11 @@ if (!insertResult.ok) {
     );
   } catch (error) {
     console.error("Education inquiry POST error:", error);
-    return response({ error: "Something went wrong." }, 500);
+
+    return response(
+      { error: "Unable to submit inquiry. Please try again." },
+      500
+    );
   }
 }
 
@@ -491,25 +590,29 @@ export async function PATCH(request: NextRequest) {
       return response({ error: "Authentication required." }, 401);
     }
 
+    if (!hasJsonContentType(request)) {
+      return response(
+        { error: "Content-Type must be application/json." },
+        415
+      );
+    }
+
     const user = await verifyUser(token);
 
     if (!user) {
       return response({ error: "Invalid authentication." }, 401);
     }
 
-    let body: Record<string, unknown>;
+    const bodyResult = await readRequestBody(request);
 
-    try {
-      const parsed = await request.json();
-
-      if (!isObject(parsed)) {
-        return response({ error: "Invalid JSON request." }, 400);
-      }
-
-      body = parsed;
-    } catch {
-      return response({ error: "Invalid JSON request." }, 400);
+    if (!bodyResult.ok) {
+      return response(
+        { error: bodyResult.error },
+        bodyResult.status
+      );
     }
+
+    const body = bodyResult.body;
 
     const allowedKeys = [
       "inquiry_id",
@@ -598,7 +701,6 @@ export async function PATCH(request: NextRequest) {
       }
     }
 
-    // Verify institution ownership.
     const institutionResult = await dbRequest(
       `institutions?id=eq.${institutionId}&owner_user_id=eq.${user.id}&select=id`,
       token
@@ -613,7 +715,7 @@ export async function PATCH(request: NextRequest) {
 
     const institutions = await institutionResult.json();
 
-    if (!institutions.length) {
+    if (!Array.isArray(institutions) || !institutions.length) {
       return response(
         { error: "Institution not found or access denied." },
         403
@@ -648,7 +750,7 @@ export async function PATCH(request: NextRequest) {
 
     const updatedInquiries = await updateResult.json();
 
-    if (!updatedInquiries.length) {
+    if (!Array.isArray(updatedInquiries) || !updatedInquiries.length) {
       return response(
         {
           error:
@@ -664,6 +766,10 @@ export async function PATCH(request: NextRequest) {
     });
   } catch (error) {
     console.error("Education inquiry PATCH error:", error);
-    return response({ error: "Something went wrong." }, 500);
+
+    return response(
+      { error: "Unable to update inquiry. Please try again." },
+      500
+    );
   }
 }
