@@ -22,17 +22,19 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const authorization = request.headers.get("authorization");
-    const token = authorization?.match(/^Bearer\s+(.+)$/i)?.[1];
+    const authorization = request.headers.get("authorization") || "";
+    const token = authorization.startsWith("Bearer ")
+      ? authorization.slice(7).trim()
+      : "";
 
-    if (!token) {
+    if (!token || token.length > 4096) {
       return response(
         { error: "Authentication required." },
         401
       );
     }
 
-    // Verify authenticated Supabase user.
+    // Verify the actual Supabase user before using server credentials.
     const userResponse = await fetch(
       `${SUPABASE_URL}/auth/v1/user`,
       {
@@ -60,8 +62,21 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Load only institutions belonging to the authenticated owner.
-    // RLS also applies because the user's JWT is forwarded.
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+    if (!serviceRoleKey) {
+      console.error(
+        "Education owner API: service role key is missing."
+      );
+
+      return response(
+        { error: "Database configuration is incomplete." },
+        500
+      );
+    }
+
+    // Service-role access is restricted to this server-side request.
+    // The authenticated user's ID is always used as the owner filter.
     const params = new URLSearchParams({
       owner_user_id: `eq.${user.id}`,
       select: [
@@ -91,17 +106,23 @@ export async function GET(request: NextRequest) {
       `${SUPABASE_URL}/rest/v1/institutions?${params.toString()}`,
       {
         headers: {
-          apikey: SUPABASE_ANON_KEY,
-          Authorization: `Bearer ${token}`,
+          apikey: serviceRoleKey,
+          Authorization: `Bearer ${serviceRoleKey}`,
         },
         cache: "no-store",
       }
     );
 
     if (!institutionResponse.ok) {
+      const error = await institutionResponse.json().catch(() => null);
+
       console.error(
         "Education institutions query failed:",
-        institutionResponse.status
+        {
+          status: institutionResponse.status,
+          code: error?.code,
+          message: error?.message,
+        }
       );
 
       return response(
