@@ -438,19 +438,33 @@ export async function POST(request: NextRequest) {
       }
     );
 
-    if (!insertResult.ok) {
-      console.error(
-        "Education inquiry insert failed:",
-        await insertResult.text()
-      );
+    
+if (!insertResult.ok) {
+  const insertErrorText = await insertResult.text();
 
-      return response(
-        {
-          error: "Unable to submit inquiry. Please try again.",
-        },
-        400
-      );
-    }
+  if (insertErrorText.includes("DUPLICATE_INQUIRY")) {
+    return response(
+      {
+        error:
+          "You have already submitted an inquiry to this institution within the last 24 hours. Please wait for the institution to respond.",
+      },
+      409
+    );
+  }
+
+  console.error(
+    "Education inquiry insert failed:",
+    insertErrorText
+  );
+
+  return response(
+    {
+      error: "Unable to submit inquiry. Please try again.",
+    },
+    400
+  );
+}
+
 
     return response(
       {
