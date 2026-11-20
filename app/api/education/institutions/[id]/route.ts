@@ -26,6 +26,15 @@ const REQUIRED_FIELDS = [
   "city",
 ] as const;
 
+const ALLOWED_INSTITUTION_TYPES = [
+  "school",
+  "college",
+  "university",
+  "academy",
+  "institute",
+  "other",
+] as const;
+
 const FIELD_LIMITS: Record<AllowedField, number> = {
   institution_name: 200,
   institution_type: 60,
@@ -41,11 +50,13 @@ const FIELD_LIMITS: Record<AllowedField, number> = {
   cover_image_url: 2048,
 };
 
+const MAX_BODY_BYTES = 20000;
+
 function json(data: unknown, status = 200) {
   return NextResponse.json(data, {
     status,
     headers: {
-      "Cache-Control": "no-store",
+      "Cache-Control": "no-store, max-age=0",
     },
   });
 }
@@ -59,20 +70,27 @@ function validUuid(value: string) {
 function validUrl(value: string) {
   try {
     const url = new URL(value);
-    return url.protocol === "http:" || url.protocol === "https:";
+
+    return (
+      (url.protocol === "http:" || url.protocol === "https:") &&
+      !url.username &&
+      !url.password
+    );
   } catch {
     return false;
   }
 }
 
 async function verifyUser(request: NextRequest) {
-  const authorization = request.headers.get("authorization");
-  const token = authorization?.match(/^Bearer\s+(.+)$/i)?.[1];
+  const authorization = request.headers.get("authorization") || "";
+  const token = authorization.startsWith("Bearer ")
+    ? authorization.slice(7).trim()
+    : "";
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-  if (!supabaseUrl || !anonKey || !token) {
+  if (!supabaseUrl || !anonKey || !token || token.length > 4096) {
     return {
       error: "Authentication required.",
       status: 401,
@@ -80,7 +98,7 @@ async function verifyUser(request: NextRequest) {
   }
 
   try {
-    const response = await fetch(
+    const userResponse = await fetch(
       `${supabaseUrl}/auth/v1/user`,
       {
         method: "GET",
@@ -92,16 +110,16 @@ async function verifyUser(request: NextRequest) {
       }
     );
 
-    if (!response.ok) {
+    if (!userResponse.ok) {
       return {
         error: "Invalid or expired session.",
         status: 401,
       };
     }
 
-    const user = await response.json();
+    const user = await userResponse.json();
 
-    if (!user?.id || !user?.email) {
+    if (!user?.id || !validUuid(user.id)) {
       return {
         error: "Unable to verify account.",
         status: 401,
@@ -110,9 +128,7 @@ async function verifyUser(request: NextRequest) {
 
     return {
       user,
-      token,
       supabaseUrl,
-      anonKey,
     };
   } catch {
     return {
@@ -136,6 +152,22 @@ export async function PATCH(
       );
     }
 
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+    if (!serviceRoleKey) {
+      console.error(
+        "Education institution update: service role key is missing."
+      );
+
+      return json(
+        {
+          success: false,
+          message: "Database configuration is incomplete.",
+        },
+        500
+      );
+    }
+
     const { id } = await context.params;
 
     if (!validUuid(id)) {
@@ -145,18 +177,52 @@ export async function PATCH(
       );
     }
 
+    const contentType = request.headers.get("content-type") || "";
+
+    if (!contentType.toLowerCase().includes("application/json")) {
+      return json(
+        { success: false, message: "Content-Type must be application/json." },
+        415
+      );
+    }
+
+    const contentLength = request.headers.get("content-length");
+
+    if (
+      contentLength &&
+      (!/^\d+$/.test(contentLength) ||
+        Number(contentLength) > MAX_BODY_BYTES)
+    ) {
+      return json(
+        { success: false, message: "Request body is too large." },
+        413
+      );
+    }
+
+    let rawBody: string;
+
+    try {
+      rawBody = await request.text();
+    } catch {
+      return json(
+        { success: false, message: "Unable to read request body." },
+        400
+      );
+    }
+
+    if (
+      !rawBody ||
+      new TextEncoder().encode(rawBody).byteLength > MAX_BODY_BYTES
+    ) {
+      return json(
+        { success: false, message: "Invalid or oversized request body." },
+        413
+      );
+    }
+
     let body: unknown;
 
     try {
-      const rawBody = await request.text();
-
-      if (!rawBody || rawBody.length > 20000) {
-        return json(
-          { success: false, message: "Invalid request body." },
-          400
-        );
-      }
-
       body = JSON.parse(rawBody);
     } catch {
       return json(
@@ -231,19 +297,32 @@ export async function PATCH(
         return json(
           {
             success: false,
-            message: `${field} is required.`,
+            message: `${field} cannot be empty.`,
+          },
+          400
+        );
+      }
+
+      if (normalized.length > FIELD_LIMITS[field]) {
+        return json(
+          {
+            success: false,
+            message: `${field} exceeds the allowed length.`,
           },
           400
         );
       }
 
       if (
-        normalized.length > FIELD_LIMITS[field]
+        field === "institution_type" &&
+        !ALLOWED_INSTITUTION_TYPES.includes(
+          normalized as (typeof ALLOWED_INSTITUTION_TYPES)[number]
+        )
       ) {
         return json(
           {
             success: false,
-            message: `${field} exceeds the allowed length.`,
+            message: "Invalid institution type.",
           },
           400
         );
@@ -257,42 +336,29 @@ export async function PATCH(
         return json(
           {
             success: false,
-            message: `${field} must be a valid HTTP or HTTPS URL.`,
+            message: `${field} must be a valid HTTP or HTTPS URL without credentials.`,
           },
           400
         );
       }
 
-      updateData[field] =
-        normalized || null;
-
-      if (
-        REQUIRED_FIELDS.includes(
-          field as (typeof REQUIRED_FIELDS)[number]
-        ) &&
-        !normalized
-      ) {
-        return json(
-          {
-            success: false,
-            message: `${field} cannot be empty.`,
-          },
-          400
-        );
-      }
+      updateData[field] = normalized || null;
     }
 
-    const endpoint =
-      `${auth.supabaseUrl}/rest/v1/institutions` +
-      `?id=eq.${encodeURIComponent(id)}` +
-      `&owner_user_id=eq.${encodeURIComponent(auth.user.id)}` +
-      `&select=id,institution_name,verification_status,is_active,updated_at`;
+    const params = new URLSearchParams({
+      id: `eq.${id}`,
+      owner_user_id: `eq.${auth.user.id}`,
+      select: "id,institution_name,verification_status,is_active,updated_at",
+    });
 
-    const response = await fetch(endpoint, {
+    const endpoint =
+      `${auth.supabaseUrl}/rest/v1/institutions?${params.toString()}`;
+
+    const updateResponse = await fetch(endpoint, {
       method: "PATCH",
       headers: {
-        apikey: auth.anonKey,
-        Authorization: `Bearer ${auth.token}`,
+        apikey: serviceRoleKey,
+        Authorization: `Bearer ${serviceRoleKey}`,
         "Content-Type": "application/json",
         Prefer: "return=representation",
       },
@@ -300,27 +366,14 @@ export async function PATCH(
       cache: "no-store",
     });
 
-    const result = await response.json().catch(() => null);
+    const result = await updateResponse.json().catch(() => null);
 
-    if (!response.ok) {
+    if (!updateResponse.ok) {
       console.error("Institution update failed:", {
-        status: response.status,
+        status: updateResponse.status,
         code: result?.code,
         message: result?.message,
       });
-
-      if (
-        response.status === 401 ||
-        response.status === 403
-      ) {
-        return json(
-          {
-            success: false,
-            message: "You are not authorized to update this institution.",
-          },
-          403
-        );
-      }
 
       return json(
         {
