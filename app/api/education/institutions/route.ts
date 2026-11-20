@@ -22,10 +22,20 @@ function jsonResponse(
 async function verifyAdmin(request: NextRequest) {
   try {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-    const token = request.cookies.get("aliqo_admin_session")?.value;
+    const supabaseAnonKey =
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    const serviceRoleKey =
+      process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-    if (!supabaseUrl || !supabaseKey || !token) {
+    const token =
+      request.cookies.get("aliqo_admin_session")?.value;
+
+    if (
+      !supabaseUrl ||
+      !supabaseAnonKey ||
+      !serviceRoleKey ||
+      !token
+    ) {
       return null;
     }
 
@@ -33,7 +43,7 @@ async function verifyAdmin(request: NextRequest) {
       `${supabaseUrl}/auth/v1/user`,
       {
         headers: {
-          apikey: supabaseKey,
+          apikey: supabaseAnonKey,
           Authorization: `Bearer ${token}`,
         },
         cache: "no-store",
@@ -45,16 +55,16 @@ async function verifyAdmin(request: NextRequest) {
     const user = await authResponse.json();
 
     if (
-      typeof user.email !== "string" ||
-      user.email.toLowerCase() !== ADMIN_EMAIL
+      typeof user?.email !== "string" ||
+      user.email.trim().toLowerCase() !==
+        ADMIN_EMAIL.toLowerCase()
     ) {
       return null;
     }
 
     return {
       supabaseUrl,
-      supabaseKey,
-      token,
+      serviceRoleKey,
     };
   } catch {
     return null;
@@ -74,8 +84,8 @@ export async function GET(request: NextRequest) {
       `${admin.supabaseUrl}/rest/v1/institutions?select=id,owner_user_id,institution_name,institution_type,email,phone,whatsapp_number,website_url,country,province,city,address,description,logo_url,cover_image_url,verification_status,is_active,admin_notes,created_at,updated_at&order=created_at.desc`,
       {
         headers: {
-          apikey: admin.supabaseKey,
-          Authorization: `Bearer ${admin.token}`,
+          apikey: admin.serviceRoleKey,
+          Authorization: `Bearer ${admin.serviceRoleKey}`,
         },
         cache: "no-store",
       }
@@ -117,13 +127,33 @@ export async function PATCH(request: NextRequest) {
   }
 
   try {
-    const contentType = request.headers.get("content-type") || "";
+    const contentType =
+      request.headers.get("content-type") || "";
 
-    if (!contentType.toLowerCase().includes("application/json")) {
+    if (
+      !contentType.toLowerCase().includes("application/json")
+    ) {
       return jsonResponse(
         { error: "Content-Type must be application/json" },
         415
       );
+    }
+
+    const contentLength = request.headers.get("content-length");
+
+    if (contentLength !== null) {
+      const parsedLength = Number(contentLength);
+
+      if (
+        !Number.isFinite(parsedLength) ||
+        parsedLength < 0 ||
+        parsedLength > MAX_BODY_BYTES
+      ) {
+        return jsonResponse(
+          { error: "Invalid or oversized request body" },
+          413
+        );
+      }
     }
 
     const rawBody = await request.text();
@@ -191,8 +221,6 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
-    // Approved institutions must be active to appear publicly.
-    // Rejected institutions must remain inactive.
     const isActive = status === "approved";
 
     const result = await fetch(
@@ -200,8 +228,8 @@ export async function PATCH(request: NextRequest) {
       {
         method: "PATCH",
         headers: {
-          apikey: admin.supabaseKey,
-          Authorization: `Bearer ${admin.token}`,
+          apikey: admin.serviceRoleKey,
+          Authorization: `Bearer ${admin.serviceRoleKey}`,
           "Content-Type": "application/json",
           Prefer: "return=representation",
         },
