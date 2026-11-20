@@ -29,6 +29,8 @@ type Inquiry = {
   institution_id: string;
   campus_id: string | null;
   program_id: string | null;
+  campus_name?: string | null;
+  program_name?: string | null;
   student_user_id: string | null;
   student_name: string;
   student_email: string | null;
@@ -375,10 +377,8 @@ export default function EducationOwnerDashboard() {
     setDrafts((previous) => ({
       ...previous,
       [inquiryId]: {
-        status:
-          previous[inquiryId]?.status || "new",
-        admin_notes:
-          previous[inquiryId]?.admin_notes || "",
+        status: previous[inquiryId]?.status || "new",
+        admin_notes: previous[inquiryId]?.admin_notes || "",
         [field]: value,
       },
     }));
@@ -430,7 +430,9 @@ export default function EducationOwnerDashboard() {
       if (data.inquiry) {
         setInquiries((previous) =>
           previous.map((item) =>
-            item.id === inquiryId ? data.inquiry : item
+            item.id === inquiryId
+              ? { ...item, ...data.inquiry }
+              : item
           )
         );
 
@@ -915,19 +917,25 @@ export default function EducationOwnerDashboard() {
 
                           <div className="rounded-xl bg-[#F7F3E8] p-4">
                             <p className="text-xs font-bold uppercase text-[#68766D]">
-                              Campus ID
+                              Campus Name
                             </p>
-                            <p className="mt-2 break-all text-sm font-semibold">
-                              {item.campus_id || "General Inquiry"}
+                            <p className="mt-2 break-words text-sm font-semibold text-[#064B38]">
+                              {item.campus_name ||
+                                (item.campus_id
+                                  ? "Campus name unavailable"
+                                  : "General Inquiry")}
                             </p>
                           </div>
 
                           <div className="rounded-xl bg-[#F7F3E8] p-4">
                             <p className="text-xs font-bold uppercase text-[#68766D]">
-                              Program ID
+                              Program Name
                             </p>
-                            <p className="mt-2 break-all text-sm font-semibold">
-                              {item.program_id || "General Inquiry"}
+                            <p className="mt-2 break-words text-sm font-semibold text-[#064B38]">
+                              {item.program_name ||
+                                (item.program_id
+                                  ? "Program name unavailable"
+                                  : "General Inquiry")}
                             </p>
                           </div>
                         </div>
