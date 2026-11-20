@@ -158,8 +158,93 @@ export async function GET(request: NextRequest) {
       return response({ error: "Unable to load inquiries." }, 502);
     }
 
+    const inquiries = await inquiriesResult.json();
+
+    // Collect unique campus and program IDs.
+    const campusIds = [
+      ...new Set(
+        inquiries
+          .map((item: { campus_id: string | null }) => item.campus_id)
+          .filter((id: string | null): id is string => Boolean(id))
+      ),
+    ];
+
+    const programIds = [
+      ...new Set(
+        inquiries
+          .map((item: { program_id: string | null }) => item.program_id)
+          .filter((id: string | null): id is string => Boolean(id))
+      ),
+    ];
+
+    const campusNames = new Map<string, string>();
+    const programNames = new Map<string, string>();
+
+    // Fetch campus names belonging to this institution.
+    if (campusIds.length > 0) {
+      const campusResult = await dbRequest(
+        `institution_campuses?id=in.(${campusIds.join(",")})&institution_id=eq.${institutionId}&select=id,campus_name`,
+        token
+      );
+
+      if (!campusResult.ok) {
+        console.error(
+          "Education campus lookup failed:",
+          await campusResult.text()
+        );
+
+        return response({ error: "Unable to load campus names." }, 502);
+      }
+
+      const campuses = await campusResult.json();
+
+      for (const campus of campuses) {
+        campusNames.set(campus.id, campus.campus_name);
+      }
+    }
+
+    // Fetch program names belonging to this institution.
+    if (programIds.length > 0) {
+      const programResult = await dbRequest(
+        `institution_programs?id=in.(${programIds.join(",")})&institution_id=eq.${institutionId}&select=id,program_name`,
+        token
+      );
+
+      if (!programResult.ok) {
+        console.error(
+          "Education program lookup failed:",
+          await programResult.text()
+        );
+
+        return response({ error: "Unable to load program names." }, 502);
+      }
+
+      const programs = await programResult.json();
+
+      for (const program of programs) {
+        programNames.set(program.id, program.program_name);
+      }
+    }
+
+    // Return inquiries with readable campus and program names.
+    const inquiriesWithNames = inquiries.map(
+      (item: {
+        campus_id: string | null;
+        program_id: string | null;
+        [key: string]: unknown;
+      }) => ({
+        ...item,
+        campus_name: item.campus_id
+          ? campusNames.get(item.campus_id) || null
+          : null,
+        program_name: item.program_id
+          ? programNames.get(item.program_id) || null
+          : null,
+      })
+    );
+
     return response({
-      inquiries: await inquiriesResult.json(),
+      inquiries: inquiriesWithNames,
     });
   } catch (error) {
     console.error("Education inquiry GET error:", error);
