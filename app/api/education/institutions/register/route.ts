@@ -44,9 +44,9 @@ function validUrl(value: string): boolean {
 
 async function verifyUser(request: NextRequest) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-  if (!supabaseUrl || !supabaseKey) return null;
+  if (!supabaseUrl || !anonKey) return null;
 
   const authorization = request.headers.get("authorization") || "";
   const token = authorization.startsWith("Bearer ")
@@ -60,7 +60,7 @@ async function verifyUser(request: NextRequest) {
       `${supabaseUrl}/auth/v1/user`,
       {
         headers: {
-          apikey: supabaseKey,
+          apikey: anonKey,
           Authorization: `Bearer ${token}`,
         },
         cache: "no-store",
@@ -75,8 +75,7 @@ async function verifyUser(request: NextRequest) {
 
     return {
       supabaseUrl,
-      supabaseKey,
-      token,
+      anonKey,
       user,
     };
   } catch {
@@ -94,18 +93,35 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!serviceRoleKey) {
+    console.error("Education registration: service role key is missing.");
+
+    return json(
+      { error: "Database configuration is incomplete." },
+      500
+    );
+  }
+
   try {
     const contentType = request.headers.get("content-type") || "";
 
     if (!contentType.toLowerCase().includes("application/json")) {
-      return json({ error: "Content-Type must be application/json." }, 415);
+      return json(
+        { error: "Content-Type must be application/json." },
+        415
+      );
     }
 
     const contentLength = Number(
       request.headers.get("content-length") || 0
     );
 
-    if (contentLength > MAX_BODY_BYTES) {
+    if (
+      Number.isFinite(contentLength) &&
+      contentLength > MAX_BODY_BYTES
+    ) {
       return json({ error: "Request body is too large." }, 413);
     }
 
@@ -165,9 +181,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (
-      !ALLOWED_INSTITUTION_TYPES.includes(institutionType)
-    ) {
+    if (!ALLOWED_INSTITUTION_TYPES.includes(institutionType)) {
       return json(
         { error: "Invalid institution type." },
         400
@@ -207,6 +221,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // All ownership and approval fields are controlled by the server.
     const institutionData = {
       owner_user_id: auth.user.id,
       institution_name: institutionName,
@@ -224,7 +239,6 @@ export async function POST(request: NextRequest) {
       cover_image_url: coverImageUrl || null,
       verification_status: "pending",
       is_active: false,
-      admin_notes: null,
     };
 
     const response = await fetch(
@@ -232,8 +246,8 @@ export async function POST(request: NextRequest) {
       {
         method: "POST",
         headers: {
-          apikey: auth.supabaseKey,
-          Authorization: `Bearer ${auth.token}`,
+          apikey: serviceRoleKey,
+          Authorization: `Bearer ${serviceRoleKey}`,
           "Content-Type": "application/json",
           Prefer: "return=representation",
         },
