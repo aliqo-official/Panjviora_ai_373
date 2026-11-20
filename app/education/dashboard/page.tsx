@@ -525,16 +525,16 @@ export default function EducationOwnerDashboard() {
 
         {!institution ? (
           <div className="mx-auto mt-12 max-w-md overflow-hidden rounded-3xl border border-[#DED5C2] bg-white shadow-xl shadow-[#064B38]/10">
-            <div className="bg-[#064B38] px-8 py-10 text-white">
+            <div className="bg-[#064B38] px-8 py-10 text-[#F7F3E8]">
               <span className="inline-block rounded-full border border-[#D6B45B]/50 bg-[#D6B45B]/10 px-4 py-2 text-xs font-bold tracking-widest text-[#E8C95B]">
                 ALIQO EDUCATION PORTAL
               </span>
 
-              <h1 className="mt-6 text-3xl font-black">
+              <h1 className="mt-6 text-3xl font-black text-[#F7F3E8]">
                 Institution Owner Login
               </h1>
 
-              <p className="mt-3 text-sm leading-7 text-white/75">
+              <p className="mt-3 text-sm leading-7 text-[#F7F3E8]/80">
                 Login to manage your institution and student admission
                 inquiries.
               </p>
@@ -549,7 +549,7 @@ export default function EducationOwnerDashboard() {
 
               <form onSubmit={handleLogin} className="space-y-5">
                 <div>
-                  <label className="mb-2 block text-sm font-bold">
+                  <label className="mb-2 block text-sm font-bold text-[#064B38]">
                     Email Address
                   </label>
                   <input
@@ -564,7 +564,7 @@ export default function EducationOwnerDashboard() {
                 </div>
 
                 <div>
-                  <label className="mb-2 block text-sm font-bold">
+                  <label className="mb-2 block text-sm font-bold text-[#064B38]">
                     Password
                   </label>
                   <input
@@ -602,18 +602,18 @@ export default function EducationOwnerDashboard() {
           </div>
         ) : (
           <>
-            <section className="mt-10 overflow-hidden rounded-3xl bg-[#064B38] p-7 text-white shadow-xl md:p-10">
+            <section className="mt-10 overflow-hidden rounded-3xl bg-[#064B38] p-7 text-[#F7F3E8] shadow-xl md:p-10">
               <div className="flex flex-wrap items-center justify-between gap-5">
                 <div>
                   <span className="inline-block rounded-full border border-[#D6B45B]/50 bg-[#D6B45B]/10 px-4 py-2 text-xs font-bold tracking-widest text-[#E8C95B]">
                     INSTITUTION OWNER PORTAL
                   </span>
 
-                  <h1 className="mt-5 text-3xl font-black text-white md:text-4xl">
-  Welcome to Your Dashboard
-</h1>
+                  <h1 className="mt-5 text-3xl font-black text-[#F7F3E8] md:text-4xl">
+                    Welcome to Your Dashboard
+                  </h1>
 
-                  <p className="mt-3 text-white/75">
+                  <p className="mt-3 text-[#F7F3E8]/80">
                     Manage your institution and student admission inquiries.
                   </p>
                 </div>
@@ -622,10 +622,10 @@ export default function EducationOwnerDashboard() {
                   <p className="text-xs font-bold uppercase tracking-widest text-[#E8C95B]">
                     Institution
                   </p>
-                  <p className="mt-2 text-lg font-bold">
+                  <p className="mt-2 text-lg font-bold text-[#F7F3E8]">
                     {institution.institution_name}
                   </p>
-                  <p className="mt-1 text-sm text-white/70">
+                  <p className="mt-1 text-sm text-[#F7F3E8]/80">
                     {institution.city || "Location not specified"}
                   </p>
                 </div>
@@ -634,7 +634,7 @@ export default function EducationOwnerDashboard() {
 
             {institutions.length > 1 && (
               <section className="mt-6 rounded-2xl border border-[#DED5C2] bg-white p-5">
-                <label className="mb-2 block text-sm font-bold">
+                <label className="mb-2 block text-sm font-bold text-[#064B38]">
                   Select Institution
                 </label>
 
@@ -698,7 +698,7 @@ export default function EducationOwnerDashboard() {
                   <p className="text-xs font-bold uppercase tracking-widest text-[#B18B20]">
                     Institution Profile
                   </p>
-                  <h2 className="mt-2 text-2xl font-black">
+                  <h2 className="mt-2 text-2xl font-black text-[#064B38]">
                     Account Information
                   </h2>
                 </div>
@@ -749,7 +749,7 @@ export default function EducationOwnerDashboard() {
                   <p className="text-xs font-bold uppercase tracking-widest text-[#B18B20]">
                     Student Communication
                   </p>
-                  <h2 className="mt-2 text-2xl font-black">
+                  <h2 className="mt-2 text-2xl font-black text-[#064B38]">
                     Admission Inquiries
                   </h2>
                   <p className="mt-2 text-sm text-[#68766D]">
@@ -781,7 +781,7 @@ export default function EducationOwnerDashboard() {
                   <p className="text-xs font-bold uppercase tracking-wider text-[#68766D]">
                     Completed / Closed
                   </p>
-                  <p className="mt-2 text-2xl font-black">
+                  <p className="mt-2 text-2xl font-black text-[#064B38]">
                     {completedCount}
                   </p>
                 </div>
@@ -790,14 +790,14 @@ export default function EducationOwnerDashboard() {
                   <p className="text-xs font-bold uppercase tracking-wider text-[#68766D]">
                     Total Students
                   </p>
-                  <p className="mt-2 text-2xl font-black">
+                  <p className="mt-2 text-2xl font-black text-[#064B38]">
                     {inquiries.length}
                   </p>
                 </div>
               </div>
 
               <div className="mt-7">
-                <label className="mb-2 block text-sm font-bold">
+                <label className="mb-2 block text-sm font-bold text-[#064B38]">
                   Filter Inquiries
                 </label>
 
@@ -854,7 +854,7 @@ export default function EducationOwnerDashboard() {
                             <p className="text-xs font-bold uppercase tracking-wider text-[#B18B20]">
                               Admission Inquiry
                             </p>
-                            <h3 className="mt-2 text-xl font-black">
+                            <h3 className="mt-2 text-xl font-black text-[#064B38]">
                               {item.student_name}
                             </h3>
                             <p className="mt-1 text-xs text-[#68766D]">
@@ -951,7 +951,7 @@ export default function EducationOwnerDashboard() {
 
                         <div className="mt-5 grid gap-5 sm:grid-cols-2">
                           <div>
-                            <label className="mb-2 block text-sm font-bold">
+                            <label className="mb-2 block text-sm font-bold text-[#064B38]">
                               Update Inquiry Status
                             </label>
 
@@ -975,7 +975,7 @@ export default function EducationOwnerDashboard() {
                           </div>
 
                           <div>
-                            <label className="mb-2 block text-sm font-bold">
+                            <label className="mb-2 block text-sm font-bold text-[#064B38]">
                               Internal Admin Notes
                             </label>
 
