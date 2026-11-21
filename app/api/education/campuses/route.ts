@@ -4,9 +4,10 @@ import { NextRequest, NextResponse } from "next/server";
 async function verifyUser(request: NextRequest) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   const authorization = request.headers.get("authorization");
 
-  if (!supabaseUrl || !supabaseKey) return null;
+  if (!supabaseUrl || !supabaseKey || !serviceRoleKey) return null;
   if (!authorization?.startsWith("Bearer ")) return null;
 
   const token = authorization.slice(7).trim();
@@ -25,7 +26,7 @@ async function verifyUser(request: NextRequest) {
   const user = await response.json();
   if (!user?.id) return null;
 
-  return { supabaseUrl, supabaseKey, token, user };
+  return { supabaseUrl, supabaseKey, serviceRoleKey, token, user };
 }
 
 const uuidPattern =
@@ -59,6 +60,8 @@ async function readBody(request: NextRequest) {
   }
 }
 
+// Verify institution ownership using server-side service role.
+// User identity is still verified independently through Supabase Auth.
 async function verifyInstitutionOwnership(
   auth: NonNullable<Awaited<ReturnType<typeof verifyUser>>>,
   institutionId: string
@@ -67,8 +70,8 @@ async function verifyInstitutionOwnership(
     `${auth.supabaseUrl}/rest/v1/institutions?select=id&id=eq.${encodeURIComponent(institutionId)}&owner_user_id=eq.${encodeURIComponent(auth.user.id)}&limit=1`,
     {
       headers: {
-        apikey: auth.supabaseKey,
-        Authorization: `Bearer ${auth.token}`,
+        apikey: auth.serviceRoleKey,
+        Authorization: `Bearer ${auth.serviceRoleKey}`,
       },
       cache: "no-store",
     }
