@@ -5,15 +5,38 @@ import { useEffect, useState, type FormEvent } from "react";
 
 type Institution = {
   id: string;
-  owner_user_id: string;
   institution_name: string;
   institution_type: string;
+  description: string | null;
   email: string | null;
   phone: string | null;
-  city: string | null;
+  whatsapp_number: string | null;
+  website_url: string | null;
+  country: string;
+  province: string | null;
+  city: string;
+  address: string | null;
+  logo_url: string | null;
+  cover_image_url: string | null;
   verification_status: string;
   is_active: boolean;
   created_at: string;
+  updated_at?: string;
+};
+
+type ProfileDraft = {
+  institution_name: string;
+  institution_type: string;
+  description: string;
+  phone: string;
+  whatsapp_number: string;
+  website_url: string;
+  country: string;
+  province: string;
+  city: string;
+  address: string;
+  logo_url: string;
+  cover_image_url: string;
 };
 
 type InquiryStatus =
@@ -86,6 +109,42 @@ const STATUS_CONFIG: Record<
   },
 };
 
+const EMPTY_PROFILE: ProfileDraft = {
+  institution_name: "",
+  institution_type: "academy",
+  description: "",
+  phone: "",
+  whatsapp_number: "",
+  website_url: "",
+  country: "Pakistan",
+  province: "",
+  city: "",
+  address: "",
+  logo_url: "",
+  cover_image_url: "",
+};
+
+const PROFILE_FIELDS: {
+  key: keyof ProfileDraft;
+  label: string;
+  required?: boolean;
+  multiline?: boolean;
+  type?: string;
+}[] = [
+  { key: "institution_name", label: "Institution Name", required: true },
+  { key: "institution_type", label: "Institution Type", required: true },
+  { key: "phone", label: "Phone Number", required: true },
+  { key: "whatsapp_number", label: "WhatsApp Number" },
+  { key: "website_url", label: "Website URL", type: "url" },
+  { key: "country", label: "Country", required: true },
+  { key: "province", label: "Province / State" },
+  { key: "city", label: "City", required: true },
+  { key: "address", label: "Address" },
+  { key: "logo_url", label: "Logo Image URL", type: "url" },
+  { key: "cover_image_url", label: "Cover Image URL", type: "url" },
+  { key: "description", label: "Institution Description", multiline: true },
+];
+
 function formatDate(value: string) {
   const date = new Date(value);
 
@@ -107,6 +166,23 @@ function getErrorMessage(data: any, fallback: string) {
   );
 }
 
+function createProfileDraft(institution: Institution): ProfileDraft {
+  return {
+    institution_name: institution.institution_name || "",
+    institution_type: institution.institution_type || "academy",
+    description: institution.description || "",
+    phone: institution.phone || "",
+    whatsapp_number: institution.whatsapp_number || "",
+    website_url: institution.website_url || "",
+    country: institution.country || "Pakistan",
+    province: institution.province || "",
+    city: institution.city || "",
+    address: institution.address || "",
+    logo_url: institution.logo_url || "",
+    cover_image_url: institution.cover_image_url || "",
+  };
+}
+
 export default function EducationOwnerDashboard() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -125,9 +201,15 @@ export default function EducationOwnerDashboard() {
   const [loadingInquiries, setLoadingInquiries] = useState(false);
 
   const [savingInquiry, setSavingInquiry] = useState<string | null>(null);
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [editingProfile, setEditingProfile] = useState(false);
+
+  const [profileDraft, setProfileDraft] =
+    useState<ProfileDraft>(EMPTY_PROFILE);
 
   const [message, setMessage] = useState("");
   const [inquiryMessage, setInquiryMessage] = useState("");
+  const [profileMessage, setProfileMessage] = useState("");
 
   const [filterStatus, setFilterStatus] = useState("all");
 
@@ -188,11 +270,40 @@ export default function EducationOwnerDashboard() {
     }
   }
 
+  // Owner institutions are loaded through the protected server API.
+  async function fetchOwnerInstitutions(token: string) {
+    const response = await fetch("/api/education/institutions/my", {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      cache: "no-store",
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(
+        getErrorMessage(
+          data,
+          "Unable to load your institution information."
+        )
+      );
+    }
+
+    if (!Array.isArray(data.institutions)) {
+      throw new Error("Invalid institution information received.");
+    }
+
+    return data.institutions as Institution[];
+  }
+
   async function loadOwner(token: string) {
     if (!supabaseUrl || !supabaseKey) {
       throw new Error("Database configuration is missing.");
     }
 
+    // Verify session before requesting the protected owner API.
     const userResponse = await fetch(`${supabaseUrl}/auth/v1/user`, {
       headers: {
         apikey: supabaseKey,
@@ -211,31 +322,9 @@ export default function EducationOwnerDashboard() {
       throw new Error("Unable to verify your account.");
     }
 
-    const institutionResponse = await fetch(
-      `${supabaseUrl}/rest/v1/institutions?owner_user_id=eq.${encodeURIComponent(
-        user.id
-      )}&select=id,owner_user_id,institution_name,institution_type,email,phone,city,verification_status,is_active,created_at&order=created_at.desc`,
-      {
-        headers: {
-          apikey: supabaseKey,
-          Authorization: `Bearer ${token}`,
-        },
-        cache: "no-store",
-      }
-    );
+    const institutionData = await fetchOwnerInstitutions(token);
 
-    const institutionData = await institutionResponse.json();
-
-    if (!institutionResponse.ok) {
-      throw new Error(
-        getErrorMessage(
-          institutionData,
-          "Unable to load your institution information."
-        )
-      );
-    }
-
-    if (!Array.isArray(institutionData) || !institutionData.length) {
+    if (!institutionData.length) {
       throw new Error(
         "No institution is linked to this account. Please register your institution first."
       );
@@ -243,6 +332,8 @@ export default function EducationOwnerDashboard() {
 
     setInstitutions(institutionData);
     setInstitution(institutionData[0]);
+    setProfileDraft(createProfileDraft(institutionData[0]));
+    setEditingProfile(false);
 
     localStorage.setItem("aliqo_education_token", token);
 
@@ -351,6 +442,9 @@ export default function EducationOwnerDashboard() {
     }
 
     setInstitution(selected);
+    setProfileDraft(createProfileDraft(selected));
+    setEditingProfile(false);
+    setProfileMessage("");
     setFilterStatus("all");
 
     await loadInquiries(token, selected.id);
@@ -364,9 +458,96 @@ export default function EducationOwnerDashboard() {
     setInquiries([]);
     setDrafts({});
     setPassword("");
+    setEditingProfile(false);
+    setProfileMessage("");
 
     setMessage("You have been logged out.");
     setInquiryMessage("");
+  }
+
+  function updateProfileDraft(
+    field: keyof ProfileDraft,
+    value: string
+  ) {
+    setProfileDraft((previous) => ({
+      ...previous,
+      [field]: value,
+    }));
+  }
+
+  function handleCancelProfileEdit() {
+    if (institution) {
+      setProfileDraft(createProfileDraft(institution));
+    }
+
+    setEditingProfile(false);
+    setProfileMessage("");
+  }
+
+  async function handleSaveProfile(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+
+    if (!institution) return;
+
+    const token = localStorage.getItem("aliqo_education_token");
+
+    if (!token) {
+      handleLogout();
+      return;
+    }
+
+    setSavingProfile(true);
+    setProfileMessage("");
+
+    try {
+      const response = await fetch(
+        `/api/education/institutions/${encodeURIComponent(institution.id)}`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify(profileDraft),
+          cache: "no-store",
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        throw new Error(
+          getErrorMessage(data, "Unable to update institution profile.")
+        );
+      }
+
+      // Reload through Owner GET API to obtain the complete saved profile.
+      const refreshedInstitutions = await fetchOwnerInstitutions(token);
+
+      const refreshedInstitution = refreshedInstitutions.find(
+        (item) => item.id === institution.id
+      );
+
+      if (!refreshedInstitution) {
+        throw new Error(
+          "Profile was updated, but the refreshed institution could not be loaded."
+        );
+      }
+
+      setInstitutions(refreshedInstitutions);
+      setInstitution(refreshedInstitution);
+      setProfileDraft(createProfileDraft(refreshedInstitution));
+      setEditingProfile(false);
+      setProfileMessage("Institution profile updated successfully.");
+    } catch (error) {
+      setProfileMessage(
+        error instanceof Error
+          ? error.message
+          : "Unable to update institution profile."
+      );
+    } finally {
+      setSavingProfile(false);
+    }
   }
 
   function updateDraft(
@@ -703,44 +884,165 @@ export default function EducationOwnerDashboard() {
                   </h2>
                 </div>
 
-                <span
-                  className={`rounded-full border px-4 py-2 text-xs font-bold ${
-                    institution.verification_status === "approved" &&
-                    institution.is_active
-                      ? "border-[#9CC6A8] bg-[#E4F1E8] text-[#123D2B]"
-                      : institution.verification_status === "rejected"
-                        ? "border-red-200 bg-red-50 text-red-800"
-                        : "border-[#E8C95B] bg-[#FFF4D6] text-[#946B08]"
-                  }`}
-                >
-                  {institution.is_active
-                    ? institution.verification_status.toUpperCase()
-                    : "INACTIVE"}
-                </span>
+                <div className="flex flex-wrap items-center gap-3">
+                  <span
+                    className={`rounded-full border px-4 py-2 text-xs font-bold ${
+                      institution.verification_status === "approved" &&
+                      institution.is_active
+                        ? "border-[#9CC6A8] bg-[#E4F1E8] text-[#123D2B]"
+                        : institution.verification_status === "rejected"
+                          ? "border-red-200 bg-red-50 text-red-800"
+                          : "border-[#E8C95B] bg-[#FFF4D6] text-[#946B08]"
+                    }`}
+                  >
+                    {institution.is_active
+                      ? institution.verification_status.toUpperCase()
+                      : "INACTIVE"}
+                  </span>
+
+                  {!editingProfile && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setProfileDraft(createProfileDraft(institution));
+                        setProfileMessage("");
+                        setEditingProfile(true);
+                      }}
+                      className="rounded-xl bg-[#064B38] px-5 py-3 text-sm font-bold text-white transition hover:bg-[#0B6048] hover:text-[#E8C95B]"
+                    >
+                      Edit Profile
+                    </button>
+                  )}
+                </div>
               </div>
 
-              <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {[
-                  ["Institution Name", institution.institution_name],
-                  ["Institution Type", institution.institution_type],
-                  ["Email Address", institution.email || "Not provided"],
-                  ["Phone Number", institution.phone || "Not provided"],
-                  ["City", institution.city || "Not provided"],
-                  ["Account Created", formatDate(institution.created_at)],
-                ].map(([label, value]) => (
-                  <div
-                    key={label}
-                    className="rounded-xl border border-[#DED5C2] bg-[#F7F3E8] p-4"
-                  >
-                    <p className="text-xs font-bold uppercase tracking-wider text-[#68766D]">
-                      {label}
-                    </p>
-                    <p className="mt-2 break-words text-sm font-semibold text-[#064B38]">
-                      {value}
-                    </p>
+              {profileMessage && (
+                <div className="mt-5 rounded-xl border border-[#E8C95B] bg-[#FFF4D6] p-4 text-sm leading-6 text-[#765707]">
+                  {profileMessage}
+                </div>
+              )}
+
+              {editingProfile ? (
+                <form onSubmit={handleSaveProfile} className="mt-6">
+                  <div className="mb-5 rounded-xl border border-[#E8C95B] bg-[#FFF4D6] p-4 text-sm leading-6 text-[#765707]">
+                    Update your institution profile information below.
+                    Your registered email and account approval status cannot
+                    be changed here.
                   </div>
-                ))}
-              </div>
+
+                  <div className="grid gap-5 sm:grid-cols-2">
+                    {PROFILE_FIELDS.map((field) => (
+                      <div
+                        key={field.key}
+                        className={
+                          field.multiline ? "sm:col-span-2" : ""
+                        }
+                      >
+                        <label className="mb-2 block text-sm font-bold text-[#064B38]">
+                          {field.label}
+                          {field.required && (
+                            <span className="ml-1 text-red-600">*</span>
+                          )}
+                        </label>
+
+                        {field.key === "institution_type" ? (
+                          <select
+                            required
+                            value={profileDraft.institution_type}
+                            onChange={(e) =>
+                              updateProfileDraft(
+                                "institution_type",
+                                e.target.value
+                              )
+                            }
+                            className={inputClass}
+                          >
+                            <option value="school">School</option>
+                            <option value="college">College</option>
+                            <option value="university">University</option>
+                            <option value="academy">Academy</option>
+                            <option value="institute">Institute</option>
+                            <option value="other">Other</option>
+                          </select>
+                        ) : field.multiline ? (
+                          <textarea
+                            rows={5}
+                            maxLength={3000}
+                            value={profileDraft[field.key]}
+                            onChange={(e) =>
+                              updateProfileDraft(field.key, e.target.value)
+                            }
+                            placeholder="Describe your institution..."
+                            className={inputClass}
+                          />
+                        ) : (
+                          <input
+                            type={field.type || "text"}
+                            required={field.required}
+                            maxLength={
+                              field.key === "institution_name"
+                                ? 200
+                                : field.key === "phone" ||
+                                    field.key === "whatsapp_number"
+                                  ? 30
+                                  : field.type === "url"
+                                    ? 2048
+                                    : 500
+                            }
+                            value={profileDraft[field.key]}
+                            onChange={(e) =>
+                              updateProfileDraft(field.key, e.target.value)
+                            }
+                            className={inputClass}
+                          />
+                        )}
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="mt-7 flex flex-wrap justify-end gap-3">
+                    <button
+                      type="button"
+                      onClick={handleCancelProfileEdit}
+                      disabled={savingProfile}
+                      className="rounded-xl border border-[#DED5C2] px-6 py-3 text-sm font-bold text-[#064B38] transition hover:bg-[#F7F3E8] disabled:opacity-50"
+                    >
+                      Cancel
+                    </button>
+
+                    <button
+                      type="submit"
+                      disabled={savingProfile}
+                      className="rounded-xl bg-[#064B38] px-7 py-3 text-sm font-bold text-white transition hover:bg-[#0B6048] hover:text-[#E8C95B] disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {savingProfile ? "Saving..." : "Save Profile Changes →"}
+                    </button>
+                  </div>
+                </form>
+              ) : (
+                <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  {[
+                    ["Institution Name", institution.institution_name],
+                    ["Institution Type", institution.institution_type],
+                    ["Email Address", institution.email || "Not provided"],
+                    ["Phone Number", institution.phone || "Not provided"],
+                    ["City", institution.city || "Not provided"],
+                    ["Account Created", formatDate(institution.created_at)],
+                  ].map(([label, value]) => (
+                    <div
+                      key={label}
+                      className="rounded-xl border border-[#DED5C2] bg-[#F7F3E8] p-4"
+                    >
+                      <p className="text-xs font-bold uppercase tracking-wider text-[#68766D]">
+                        {label}
+                      </p>
+                      <p className="mt-2 break-words text-sm font-semibold text-[#064B38]">
+                        {value}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
             </section>
 
             <section className="mt-7 rounded-3xl border border-[#DED5C2] bg-white p-6 shadow-sm md:p-8">
