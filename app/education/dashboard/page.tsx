@@ -1,7 +1,12 @@
 
 "use client";
 
-import { useEffect, useState, type FormEvent } from "react";
+import {
+  useEffect,
+  useState,
+  type FormEvent,
+  type ReactElement,
+} from "react";
 
 type Institution = {
   id: string;
@@ -89,8 +94,3 @@ type ProfileDraft = {
   address: string;
   logo_url: string;
   cover_image_url: string;
-};
-
-type InquiryStatus =
-  | "new"
-  | "contacted"
