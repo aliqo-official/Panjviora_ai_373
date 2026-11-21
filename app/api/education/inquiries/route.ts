@@ -25,7 +25,7 @@ const ALLOWED_STATUSES = [
 type InquiryStatus = (typeof ALLOWED_STATUSES)[number];
 
 const INQUIRY_FIELDS =
-  "id,institution_id,campus_id,program_id,student_user_id,student_name,student_email,student_phone,message,status,admin_notes,created_at,updated_at";
+  "id,institution_id,campus_id,program_id,campus_name,program_name,student_user_id,student_name,student_email,student_phone,message,status,admin_notes,created_at,updated_at";
 
 function response(data: unknown, status = 200) {
   return NextResponse.json(data, {
@@ -165,24 +165,20 @@ async function dbRequest(
   token: string,
   options: RequestInit = {}
 ) {
-  return fetch(
-    `${SUPABASE_URL}/rest/v1/${path}`,
-    {
-      ...options,
-      headers: {
-        apikey: SUPABASE_ANON_KEY!,
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-        ...options.headers,
-      },
-      cache: "no-store",
-      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-    }
-  );
+  return fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
+    ...options,
+    headers: {
+      apikey: SUPABASE_ANON_KEY!,
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+    cache: "no-store",
+    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+  });
 }
 
 // Verify institution ownership using the server-only service role key.
-// The service role key must never be exposed to the browser.
 async function verifyInstitutionOwnership(
   institutionId: string,
   userId: string
@@ -373,15 +369,21 @@ export async function GET(request: NextRequest) {
       (item: {
         campus_id: string | null;
         program_id: string | null;
+        campus_name: string | null;
+        program_name: string | null;
         [key: string]: unknown;
       }) => ({
         ...item,
-        campus_name: item.campus_id
-          ? campusNames.get(item.campus_id) || null
-          : null,
-        program_name: item.program_id
-          ? programNames.get(item.program_id) || null
-          : null,
+        campus_name:
+          item.campus_name ||
+          (item.campus_id
+            ? campusNames.get(item.campus_id) || null
+            : null),
+        program_name:
+          item.program_name ||
+          (item.program_id
+            ? programNames.get(item.program_id) || null
+            : null),
       })
     );
 
@@ -505,9 +507,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    let campusName: string | null = null;
+    let programName: string | null = null;
+
     if (campusId) {
       const campusResult = await dbRequest(
-        `institution_campuses?id=eq.${campusId}&institution_id=eq.${institutionId}&is_active=eq.true&select=id`,
+        `institution_campuses?id=eq.${campusId}&institution_id=eq.${institutionId}&is_active=eq.true&select=id,campus_name`,
         SUPABASE_ANON_KEY!
       );
 
@@ -523,11 +528,13 @@ export async function POST(request: NextRequest) {
           400
         );
       }
+
+      campusName = campuses[0].campus_name;
     }
 
     if (programId) {
       const programResult = await dbRequest(
-        `institution_programs?id=eq.${programId}&institution_id=eq.${institutionId}&is_active=eq.true&select=id,campus_id`,
+        `institution_programs?id=eq.${programId}&institution_id=eq.${institutionId}&is_active=eq.true&select=id,campus_id,program_name`,
         SUPABASE_ANON_KEY!
       );
 
@@ -555,12 +562,16 @@ export async function POST(request: NextRequest) {
           400
         );
       }
+
+      programName = program.program_name;
     }
 
     const inquiry = {
       institution_id: institutionId,
       campus_id: campusId || null,
       program_id: programId || null,
+      campus_name: campusName,
+      program_name: programName,
       student_user_id: studentUserId,
       student_name: studentName,
       student_email: studentEmail || null,
@@ -582,68 +593,67 @@ export async function POST(request: NextRequest) {
       }
     );
 
-    
-if (!insertResult.ok) {
-  const insertErrorText = await insertResult.text();
+    if (!insertResult.ok) {
+      const insertErrorText = await insertResult.text();
 
-  let postgresErrorCode = "";
-  let structuredErrorText = "";
+      let postgresErrorCode = "";
+      let structuredErrorText = "";
 
-  try {
-    const parsedError: unknown = JSON.parse(insertErrorText);
+      try {
+        const parsedError: unknown = JSON.parse(insertErrorText);
 
-    if (isObject(parsedError)) {
-      postgresErrorCode =
-        typeof parsedError.code === "string"
-          ? parsedError.code
-          : "";
+        if (isObject(parsedError)) {
+          postgresErrorCode =
+            typeof parsedError.code === "string"
+              ? parsedError.code
+              : "";
 
-      structuredErrorText = [
-        parsedError.message,
-        parsedError.details,
-        parsedError.hint,
-      ]
-        .filter((value): value is string => typeof value === "string")
-        .join(" ");
+          structuredErrorText = [
+            parsedError.message,
+            parsedError.details,
+            parsedError.hint,
+          ]
+            .filter(
+              (value): value is string => typeof value === "string"
+            )
+            .join(" ");
+        }
+      } catch {
+        // Keep original error text as fallback.
+      }
+
+      const hasDuplicateMarker =
+        /DUPLICATE_INQUIRY/i.test(insertErrorText) ||
+        /DUPLICATE_INQUIRY/i.test(structuredErrorText);
+
+      const isDuplicateInquiry =
+        hasDuplicateMarker && postgresErrorCode === "23505";
+
+      const isDuplicateFallback =
+        hasDuplicateMarker && !postgresErrorCode;
+
+      if (isDuplicateInquiry || isDuplicateFallback) {
+        return response(
+          {
+            error:
+              "You have already submitted an inquiry to this institution within the last 24 hours. Please wait for the institution to respond.",
+          },
+          409
+        );
+      }
+
+      console.error(
+        "Education inquiry insert failed:",
+        insertErrorText
+      );
+
+      return response(
+        {
+          error: "Unable to submit inquiry. Please try again.",
+        },
+        400
+      );
     }
-  } catch {
-    // Keep the original error text as fallback.
-  }
-
-  const hasDuplicateMarker =
-    /DUPLICATE_INQUIRY/i.test(insertErrorText) ||
-    /DUPLICATE_INQUIRY/i.test(structuredErrorText);
-
-  const isDuplicateInquiry =
-    hasDuplicateMarker && postgresErrorCode === "23505";
-
-  // Fallback if the database response contains the trigger marker
-  // but does not provide a structured PostgreSQL error code.
-  const isDuplicateFallback =
-    hasDuplicateMarker && !postgresErrorCode;
-
-  if (isDuplicateInquiry || isDuplicateFallback) {
-    return response(
-      {
-        error:
-          "You have already submitted an inquiry to this institution within the last 24 hours. Please wait for the institution to respond.",
-      },
-      409
-    );
-  }
-
-  console.error(
-    "Education inquiry insert failed:",
-    insertErrorText
-  );
-
-  return response(
-    {
-      error: "Unable to submit inquiry. Please try again.",
-    },
-    400
-  );
-}
 
     return response(
       {
