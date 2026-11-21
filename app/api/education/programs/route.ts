@@ -3,8 +3,12 @@ import { NextRequest, NextResponse } from "next/server";
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SUPABASE_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+const SUPABASE_SERVICE_ROLE_KEY =
+  process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 const PROGRAM_TYPES = ["school_class", "course", "degree"];
+
+const REQUEST_TIMEOUT_MS = 15000;
 
 type AuthUser = {
   id: string;
@@ -65,7 +69,8 @@ async function verifyUser(
   if (!authorization?.startsWith("Bearer ")) return null;
 
   const accessToken = authorization.slice(7).trim();
-  if (!accessToken) return null;
+
+  if (!accessToken || accessToken.length > 8192) return null;
 
   try {
     const response = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
@@ -74,13 +79,14 @@ async function verifyUser(
         Authorization: `Bearer ${accessToken}`,
       },
       cache: "no-store",
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     });
 
     if (!response.ok) return null;
 
     const user = await response.json();
 
-    if (!user?.id) return null;
+    if (!user?.id || !isUuid(user.id)) return null;
 
     return {
       accessToken,
@@ -103,23 +109,38 @@ function supabaseHeaders(auth: AuthContext, extra?: Record<string, string>) {
   };
 }
 
+// Server-side ownership verification using service_role.
 async function verifyInstitutionOwnership(
   auth: AuthContext,
   institutionId: string
-) {
+): Promise<boolean> {
+  if (
+    !SUPABASE_URL ||
+    !SUPABASE_SERVICE_ROLE_KEY
+  ) {
+    throw new Error("Institution ownership verification is not configured.");
+  }
+
   const response = await fetch(
     `${SUPABASE_URL}/rest/v1/institutions?select=id&owner_user_id=eq.${encodeURIComponent(
       auth.user.id
     )}&id=eq.${encodeURIComponent(institutionId)}&limit=1`,
     {
-      headers: supabaseHeaders(auth),
+      headers: {
+        apikey: SUPABASE_SERVICE_ROLE_KEY,
+        Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+      },
       cache: "no-store",
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     }
   );
 
-  if (!response.ok) return false;
+  if (!response.ok) {
+    throw new Error("Institution ownership verification failed.");
+  }
 
   const data = await response.json();
+
   return Array.isArray(data) && data.length > 0;
 }
 
@@ -135,6 +156,7 @@ async function verifyCampusBelongsToInstitution(
     {
       headers: supabaseHeaders(auth),
       cache: "no-store",
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     }
   );
 
@@ -156,6 +178,7 @@ async function getExistingProgram(
     {
       headers: supabaseHeaders(auth),
       cache: "no-store",
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     }
   );
 
@@ -171,7 +194,7 @@ function validateFeeRange(min: number | null, max: number | null) {
 
 export async function GET(request: NextRequest) {
   try {
-    if (!SUPABASE_URL || !SUPABASE_KEY) {
+    if (!SUPABASE_URL || !SUPABASE_KEY || !SUPABASE_SERVICE_ROLE_KEY) {
       return errorResponse("Server configuration is missing.", 500);
     }
 
@@ -190,7 +213,10 @@ export async function GET(request: NextRequest) {
     const isOwner = await verifyInstitutionOwnership(auth, institutionId);
 
     if (!isOwner) {
-      return errorResponse("You are not authorized to access this institution.", 403);
+      return errorResponse(
+        "You are not authorized to access this institution.",
+        403
+      );
     }
 
     const response = await fetch(
@@ -200,6 +226,7 @@ export async function GET(request: NextRequest) {
       {
         headers: supabaseHeaders(auth),
         cache: "no-store",
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
       }
     );
 
@@ -220,7 +247,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    if (!SUPABASE_URL || !SUPABASE_KEY) {
+    if (!SUPABASE_URL || !SUPABASE_KEY || !SUPABASE_SERVICE_ROLE_KEY) {
       return errorResponse("Server configuration is missing.", 500);
     }
 
@@ -265,7 +292,9 @@ export async function POST(request: NextRequest) {
     const cleanName = optionalText(program_name, 200);
 
     if (!cleanName) {
-      return errorResponse("Program name is required (maximum 200 characters).");
+      return errorResponse(
+        "Program name is required (maximum 200 characters)."
+      );
     }
 
     const cleanDescription = optionalText(description, 5000);
@@ -277,18 +306,24 @@ export async function POST(request: NextRequest) {
       cleanEligibility === undefined ||
       cleanDuration === undefined
     ) {
-      return errorResponse("One or more text fields are invalid or too long.");
+      return errorResponse(
+        "One or more text fields are invalid or too long."
+      );
     }
 
     const minFee = parseFee(fee_min);
     const maxFee = parseFee(fee_max);
 
     if (minFee === undefined || maxFee === undefined) {
-      return errorResponse("Please enter valid, non-negative fee amounts.");
+      return errorResponse(
+        "Please enter valid, non-negative fee amounts."
+      );
     }
 
     if (validateFeeRange(minFee, maxFee)) {
-      return errorResponse("Maximum fee cannot be less than minimum fee.");
+      return errorResponse(
+        "Maximum fee cannot be less than minimum fee."
+      );
     }
 
     if (
@@ -301,7 +336,10 @@ export async function POST(request: NextRequest) {
     const isOwner = await verifyInstitutionOwnership(auth, institution_id);
 
     if (!isOwner) {
-      return errorResponse("You are not authorized to manage this institution.", 403);
+      return errorResponse(
+        "You are not authorized to manage this institution.",
+        403
+      );
     }
 
     let verifiedCampusId: string | null = null;
@@ -314,7 +352,9 @@ export async function POST(request: NextRequest) {
       );
 
       if (!validCampus) {
-        return errorResponse("Selected campus does not belong to this institution.");
+        return errorResponse(
+          "Selected campus does not belong to this institution."
+        );
       }
 
       verifiedCampusId = campus_id;
@@ -343,6 +383,7 @@ export async function POST(request: NextRequest) {
         }),
         body: JSON.stringify(payload),
         cache: "no-store",
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
       }
     );
 
@@ -356,7 +397,10 @@ export async function POST(request: NextRequest) {
     }
 
     if (!Array.isArray(data) || !data[0]) {
-      return errorResponse("Program was not returned after creation.", 500);
+      return errorResponse(
+        "Program was not returned after creation.",
+        500
+      );
     }
 
     return NextResponse.json(
@@ -373,7 +417,7 @@ export async function POST(request: NextRequest) {
 
 export async function PATCH(request: NextRequest) {
   try {
-    if (!SUPABASE_URL || !SUPABASE_KEY) {
+    if (!SUPABASE_URL || !SUPABASE_KEY || !SUPABASE_SERVICE_ROLE_KEY) {
       return errorResponse("Server configuration is missing.", 500);
     }
 
@@ -388,16 +432,25 @@ export async function PATCH(request: NextRequest) {
     const { program_id, institution_id } = body;
 
     if (!isUuid(program_id) || !isUuid(institution_id)) {
-      return errorResponse("Valid program and institution IDs are required.");
+      return errorResponse(
+        "Valid program and institution IDs are required."
+      );
     }
 
     const isOwner = await verifyInstitutionOwnership(auth, institution_id);
 
     if (!isOwner) {
-      return errorResponse("You are not authorized to manage this institution.", 403);
+      return errorResponse(
+        "You are not authorized to manage this institution.",
+        403
+      );
     }
 
-    const existing = await getExistingProgram(auth, institution_id, program_id);
+    const existing = await getExistingProgram(
+      auth,
+      institution_id,
+      program_id
+    );
 
     if (!existing) {
       return errorResponse("Program not found.", 404);
@@ -416,7 +469,9 @@ export async function PATCH(request: NextRequest) {
       const name = optionalText(body.program_name, 200);
 
       if (!name) {
-        return errorResponse("Program name is required (maximum 200 characters).");
+        return errorResponse(
+          "Program name is required (maximum 200 characters)."
+        );
       }
 
       payload.program_name = name;
@@ -424,31 +479,41 @@ export async function PATCH(request: NextRequest) {
 
     if ("description" in body) {
       const value = optionalText(body.description, 5000);
-      if (value === undefined) return errorResponse("Invalid description.");
+      if (value === undefined) {
+        return errorResponse("Invalid description.");
+      }
       payload.description = value;
     }
 
     if ("eligibility" in body) {
       const value = optionalText(body.eligibility, 2000);
-      if (value === undefined) return errorResponse("Invalid eligibility details.");
+      if (value === undefined) {
+        return errorResponse("Invalid eligibility details.");
+      }
       payload.eligibility = value;
     }
 
     if ("duration" in body) {
       const value = optionalText(body.duration, 100);
-      if (value === undefined) return errorResponse("Invalid duration.");
+      if (value === undefined) {
+        return errorResponse("Invalid duration.");
+      }
       payload.duration = value;
     }
 
     if ("fee_min" in body) {
       const value = parseFee(body.fee_min);
-      if (value === undefined) return errorResponse("Invalid minimum fee.");
+      if (value === undefined) {
+        return errorResponse("Invalid minimum fee.");
+      }
       payload.fee_min = value;
     }
 
     if ("fee_max" in body) {
       const value = parseFee(body.fee_max);
-      if (value === undefined) return errorResponse("Invalid maximum fee.");
+      if (value === undefined) {
+        return errorResponse("Invalid maximum fee.");
+      }
       payload.fee_max = value;
     }
 
@@ -481,7 +546,9 @@ export async function PATCH(request: NextRequest) {
         );
 
         if (!validCampus) {
-          return errorResponse("Selected campus does not belong to this institution.");
+          return errorResponse(
+            "Selected campus does not belong to this institution."
+          );
         }
 
         payload.campus_id = body.campus_id;
@@ -493,12 +560,19 @@ export async function PATCH(request: NextRequest) {
     }
 
     const finalMin =
-      "fee_min" in payload ? (payload.fee_min as number | null) : existing.fee_min;
+      "fee_min" in payload
+        ? (payload.fee_min as number | null)
+        : existing.fee_min;
+
     const finalMax =
-      "fee_max" in payload ? (payload.fee_max as number | null) : existing.fee_max;
+      "fee_max" in payload
+        ? (payload.fee_max as number | null)
+        : existing.fee_max;
 
     if (validateFeeRange(finalMin, finalMax)) {
-      return errorResponse("Maximum fee cannot be less than minimum fee.");
+      return errorResponse(
+        "Maximum fee cannot be less than minimum fee."
+      );
     }
 
     const response = await fetch(
@@ -512,6 +586,7 @@ export async function PATCH(request: NextRequest) {
         }),
         body: JSON.stringify(payload),
         cache: "no-store",
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
       }
     );
 
@@ -525,7 +600,10 @@ export async function PATCH(request: NextRequest) {
     }
 
     if (!Array.isArray(data) || !data[0]) {
-      return errorResponse("Program update could not be confirmed.", 404);
+      return errorResponse(
+        "Program update could not be confirmed.",
+        404
+      );
     }
 
     return NextResponse.json({
@@ -539,7 +617,7 @@ export async function PATCH(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
-    if (!SUPABASE_URL || !SUPABASE_KEY) {
+    if (!SUPABASE_URL || !SUPABASE_KEY || !SUPABASE_SERVICE_ROLE_KEY) {
       return errorResponse("Server configuration is missing.", 500);
     }
 
@@ -553,16 +631,25 @@ export async function DELETE(request: NextRequest) {
     const { program_id, institution_id } = body;
 
     if (!isUuid(program_id) || !isUuid(institution_id)) {
-      return errorResponse("Valid program and institution IDs are required.");
+      return errorResponse(
+        "Valid program and institution IDs are required."
+      );
     }
 
     const isOwner = await verifyInstitutionOwnership(auth, institution_id);
 
     if (!isOwner) {
-      return errorResponse("You are not authorized to manage this institution.", 403);
+      return errorResponse(
+        "You are not authorized to manage this institution.",
+        403
+      );
     }
 
-    const existing = await getExistingProgram(auth, institution_id, program_id);
+    const existing = await getExistingProgram(
+      auth,
+      institution_id,
+      program_id
+    );
 
     if (!existing) {
       return errorResponse("Program not found.", 404);
@@ -578,6 +665,7 @@ export async function DELETE(request: NextRequest) {
           Prefer: "return=representation",
         }),
         cache: "no-store",
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
       }
     );
 
@@ -591,7 +679,10 @@ export async function DELETE(request: NextRequest) {
     }
 
     if (!Array.isArray(data) || data.length === 0) {
-      return errorResponse("Program deletion could not be confirmed.", 404);
+      return errorResponse(
+        "Program deletion could not be confirmed.",
+        404
+      );
     }
 
     return NextResponse.json({
