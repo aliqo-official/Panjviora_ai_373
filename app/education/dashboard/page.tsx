@@ -547,6 +547,60 @@ export default function EducationOwnerDashboard(): ReactElement {
     }
   }
 
+  async function handleDeleteProgram(program: Program) {
+    if (!institution) return;
+
+    const confirmed = window.confirm(
+      `Are you sure you want to permanently delete "${program.program_name}"? This action cannot be undone.`
+    );
+
+    if (!confirmed) return;
+
+    const token = localStorage.getItem("aliqo_education_token");
+    if (!token) {
+      handleLogout();
+      return;
+    }
+
+    setSavingProgram(true);
+    setProgramMessage("");
+
+    try {
+      const response = await fetch("/api/education/programs", {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          program_id: program.id,
+          institution_id: institution.id,
+        }),
+        cache: "no-store",
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(getErrorMessage(data, "Unable to delete program."));
+      }
+
+      if (editingProgramId === program.id) {
+        setEditingProgramId(null);
+        setProgramDraft(EMPTY_PROGRAM);
+      }
+
+      await loadProgramsAndCampuses(token, institution.id);
+      setProgramMessage("Program deleted successfully.");
+    } catch (error) {
+      setProgramMessage(
+        error instanceof Error ? error.message : "Unable to delete program."
+      );
+    } finally {
+      setSavingProgram(false);
+    }
+  }
+
   // Owner institutions are loaded through the protected server API.
   async function fetchOwnerInstitutions(token: string) {
     const response = await fetch("/api/education/institutions/my", {
@@ -1569,6 +1623,14 @@ export default function EducationOwnerDashboard(): ReactElement {
                                 className="rounded-lg border border-[#064B38]/20 px-4 py-2 text-sm font-bold text-[#064B38] hover:bg-[#F7F3E8] disabled:opacity-50"
                               >
                                 {program.is_active ? "Deactivate" : "Activate"}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteProgram(program)}
+                                disabled={savingProgram}
+                                className="rounded-lg border border-red-200 px-4 py-2 text-sm font-bold text-red-700 hover:bg-red-50 disabled:opacity-50"
+                              >
+                                Delete
                               </button>
                             </div>
                           </div>
