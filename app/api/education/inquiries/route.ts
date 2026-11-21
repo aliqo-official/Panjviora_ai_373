@@ -3,6 +3,8 @@ import { NextRequest, NextResponse } from "next/server";
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+const SUPABASE_SERVICE_ROLE_KEY =
+  process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 const REQUEST_TIMEOUT_MS = 15000;
 const MAX_BODY_BYTES = 16 * 1024;
@@ -179,6 +181,53 @@ async function dbRequest(
   );
 }
 
+// Verify institution ownership using the server-only service role key.
+// The service role key must never be exposed to the browser.
+async function verifyInstitutionOwnership(
+  institutionId: string,
+  userId: string
+): Promise<{ ok: boolean; ownsInstitution: boolean }> {
+  if (!SUPABASE_SERVICE_ROLE_KEY) {
+    return {
+      ok: false,
+      ownsInstitution: false,
+    };
+  }
+
+  const query = new URLSearchParams({
+    id: `eq.${institutionId}`,
+    owner_user_id: `eq.${userId}`,
+    select: "id",
+  });
+
+  const result = await fetch(
+    `${SUPABASE_URL}/rest/v1/institutions?${query.toString()}`,
+    {
+      headers: {
+        apikey: SUPABASE_SERVICE_ROLE_KEY,
+        Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+      },
+      cache: "no-store",
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+    }
+  );
+
+  if (!result.ok) {
+    return {
+      ok: false,
+      ownsInstitution: false,
+    };
+  }
+
+  const institutions = await result.json();
+
+  return {
+    ok: true,
+    ownsInstitution:
+      Array.isArray(institutions) && institutions.length > 0,
+  };
+}
+
 // GET: Institution owners can view only their own inquiries.
 export async function GET(request: NextRequest) {
   try {
@@ -210,21 +259,19 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const institutionResult = await dbRequest(
-      `institutions?id=eq.${institutionId}&owner_user_id=eq.${user.id}&select=id`,
-      token
+    const ownership = await verifyInstitutionOwnership(
+      institutionId,
+      user.id
     );
 
-    if (!institutionResult.ok) {
+    if (!ownership.ok) {
       return response(
         { error: "Unable to verify institution ownership." },
         502
       );
     }
 
-    const institutions = await institutionResult.json();
-
-    if (!Array.isArray(institutions) || !institutions.length) {
+    if (!ownership.ownsInstitution) {
       return response(
         { error: "Institution not found or access denied." },
         403
@@ -701,21 +748,19 @@ export async function PATCH(request: NextRequest) {
       }
     }
 
-    const institutionResult = await dbRequest(
-      `institutions?id=eq.${institutionId}&owner_user_id=eq.${user.id}&select=id`,
-      token
+    const ownership = await verifyInstitutionOwnership(
+      institutionId,
+      user.id
     );
 
-    if (!institutionResult.ok) {
+    if (!ownership.ok) {
       return response(
         { error: "Unable to verify institution ownership." },
         502
       );
     }
 
-    const institutions = await institutionResult.json();
-
-    if (!Array.isArray(institutions) || !institutions.length) {
+    if (!ownership.ownsInstitution) {
       return response(
         { error: "Institution not found or access denied." },
         403
