@@ -582,31 +582,68 @@ export async function POST(request: NextRequest) {
       }
     );
 
-    if (!insertResult.ok) {
-      const insertErrorText = await insertResult.text();
+    
+if (!insertResult.ok) {
+  const insertErrorText = await insertResult.text();
 
-      if (insertErrorText.includes("DUPLICATE_INQUIRY")) {
-        return response(
-          {
-            error:
-              "You have already submitted an inquiry to this institution within the last 24 hours. Please wait for the institution to respond.",
-          },
-          409
-        );
-      }
+  let postgresErrorCode = "";
+  let structuredErrorText = "";
 
-      console.error(
-        "Education inquiry insert failed:",
-        insertErrorText
-      );
+  try {
+    const parsedError: unknown = JSON.parse(insertErrorText);
 
-      return response(
-        {
-          error: "Unable to submit inquiry. Please try again.",
-        },
-        400
-      );
+    if (isObject(parsedError)) {
+      postgresErrorCode =
+        typeof parsedError.code === "string"
+          ? parsedError.code
+          : "";
+
+      structuredErrorText = [
+        parsedError.message,
+        parsedError.details,
+        parsedError.hint,
+      ]
+        .filter((value): value is string => typeof value === "string")
+        .join(" ");
     }
+  } catch {
+    // Keep the original error text as fallback.
+  }
+
+  const hasDuplicateMarker =
+    /DUPLICATE_INQUIRY/i.test(insertErrorText) ||
+    /DUPLICATE_INQUIRY/i.test(structuredErrorText);
+
+  const isDuplicateInquiry =
+    hasDuplicateMarker && postgresErrorCode === "23505";
+
+  // Fallback if the database response contains the trigger marker
+  // but does not provide a structured PostgreSQL error code.
+  const isDuplicateFallback =
+    hasDuplicateMarker && !postgresErrorCode;
+
+  if (isDuplicateInquiry || isDuplicateFallback) {
+    return response(
+      {
+        error:
+          "You have already submitted an inquiry to this institution within the last 24 hours. Please wait for the institution to respond.",
+      },
+      409
+    );
+  }
+
+  console.error(
+    "Education inquiry insert failed:",
+    insertErrorText
+  );
+
+  return response(
+    {
+      error: "Unable to submit inquiry. Please try again.",
+    },
+    400
+  );
+}
 
     return response(
       {
