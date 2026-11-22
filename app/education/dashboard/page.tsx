@@ -41,6 +41,24 @@ type Campus = {
   is_active?: boolean;
 };
 
+type CampusDraft = {
+  campus_name: string;
+  province: string;
+  city: string;
+  address: string;
+  phone: string;
+  email: string;
+};
+
+const EMPTY_CAMPUS: CampusDraft = {
+  campus_name: "",
+  province: "",
+  city: "",
+  address: "",
+  phone: "",
+  email: "",
+};
+
 type Program = {
   id: string;
   institution_id: string;
@@ -251,6 +269,10 @@ export default function EducationOwnerDashboard(): ReactElement {
   const [drafts, setDrafts] = useState<Record<string, InquiryDraft>>({});
 
   const [campuses, setCampuses] = useState<Campus[]>([]);
+  const [campusDraft, setCampusDraft] = useState<CampusDraft>(EMPTY_CAMPUS);
+  const [editingCampusId, setEditingCampusId] = useState<string | null>(null);
+  const [savingCampus, setSavingCampus] = useState(false);
+  const [campusMessage, setCampusMessage] = useState("");
   const [programs, setPrograms] = useState<Program[]>([]);
   const [loadingPrograms, setLoadingPrograms] = useState(false);
   const [savingProgram, setSavingProgram] = useState(false);
@@ -383,6 +405,223 @@ export default function EducationOwnerDashboard(): ReactElement {
       );
     } finally {
       setLoadingPrograms(false);
+    }
+  }
+
+  function resetCampusForm() {
+    setEditingCampusId(null);
+    setCampusDraft(EMPTY_CAMPUS);
+    setCampusMessage("");
+  }
+
+  function updateCampusDraft(field: keyof CampusDraft, value: string) {
+    setCampusDraft((previous) => ({ ...previous, [field]: value }));
+  }
+
+  function handleEditCampus(campus: Campus) {
+    setEditingCampusId(campus.id);
+    setCampusDraft({
+      campus_name: campus.campus_name || "",
+      province: campus.province || "",
+      city: campus.city || "",
+      address: campus.address || "",
+      phone: campus.phone || "",
+      email: campus.email || "",
+    });
+    setCampusMessage("");
+  }
+
+  async function handleSaveCampus(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+
+    if (!institution) return;
+
+    const token = localStorage.getItem("aliqo_education_token");
+    if (!token) {
+      handleLogout();
+      return;
+    }
+
+    const campusName = campusDraft.campus_name.trim();
+    const city = campusDraft.city.trim();
+    const emailValue = campusDraft.email.trim();
+
+    if (!campusName || !city) {
+      setCampusMessage("Campus name and city are required.");
+      return;
+    }
+
+    if (emailValue && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailValue)) {
+      setCampusMessage("Please enter a valid campus email.");
+      return;
+    }
+
+    setSavingCampus(true);
+    setCampusMessage("");
+
+    try {
+      const payload = {
+        institution_id: institution.id,
+        ...(editingCampusId ? { campus_id: editingCampusId } : {}),
+        campus_name: campusName,
+        province: campusDraft.province.trim() || null,
+        city,
+        address: campusDraft.address.trim() || null,
+        phone: campusDraft.phone.trim() || null,
+        email: emailValue || null,
+      };
+
+      const response = await fetch("/api/education/campuses", {
+        method: editingCampusId ? "PATCH" : "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(payload),
+        cache: "no-store",
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(getErrorMessage(data, "Unable to save campus."));
+      }
+
+      const wasEditing = Boolean(editingCampusId);
+      await loadProgramsAndCampuses(token, institution.id);
+      setEditingCampusId(null);
+      setCampusDraft(EMPTY_CAMPUS);
+      setCampusMessage(
+        wasEditing
+          ? "Campus updated successfully."
+          : "Campus added successfully."
+      );
+    } catch (error) {
+      setCampusMessage(
+        error instanceof Error ? error.message : "Unable to save campus."
+      );
+    } finally {
+      setSavingCampus(false);
+    }
+  }
+
+  async function handleToggleCampus(campus: Campus) {
+    if (!institution) return;
+
+    const token = localStorage.getItem("aliqo_education_token");
+    if (!token) {
+      handleLogout();
+      return;
+    }
+
+    const nextActive = campus.is_active === false;
+    const confirmed = window.confirm(
+      nextActive
+        ? `Activate "${campus.campus_name}"?`
+        : `Deactivate "${campus.campus_name}"? Existing records will be preserved.`
+    );
+    if (!confirmed) return;
+
+    setSavingCampus(true);
+    setCampusMessage("");
+
+    try {
+      const response = await fetch("/api/education/campuses", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          campus_id: campus.id,
+          institution_id: institution.id,
+          is_active: nextActive,
+        }),
+        cache: "no-store",
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(
+          getErrorMessage(data, "Unable to update campus status.")
+        );
+      }
+
+      await loadProgramsAndCampuses(token, institution.id);
+      setCampusMessage(
+        nextActive
+          ? "Campus activated successfully."
+          : "Campus deactivated successfully."
+      );
+    } catch (error) {
+      setCampusMessage(
+        error instanceof Error
+          ? error.message
+          : "Unable to update campus status."
+      );
+    } finally {
+      setSavingCampus(false);
+    }
+  }
+
+  async function handleDeleteCampus(campus: Campus) {
+    if (!institution) return;
+
+    const hasPrograms = programs.some(
+      (program) => program.campus_id === campus.id
+    );
+    const hasInquiries = inquiries.some(
+      (inquiry) => inquiry.campus_id === campus.id
+    );
+
+    if (hasPrograms || hasInquiries) {
+      setCampusMessage(
+        "This campus has linked programs or admission inquiries. Deactivate it instead to protect existing records."
+      );
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Permanently delete "${campus.campus_name}"? This action cannot be undone.`
+    );
+    if (!confirmed) return;
+
+    const token = localStorage.getItem("aliqo_education_token");
+    if (!token) {
+      handleLogout();
+      return;
+    }
+
+    setSavingCampus(true);
+    setCampusMessage("");
+
+    try {
+      const response = await fetch("/api/education/campuses", {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          campus_id: campus.id,
+          institution_id: institution.id,
+        }),
+        cache: "no-store",
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(getErrorMessage(data, "Unable to delete campus."));
+      }
+
+      if (editingCampusId === campus.id) resetCampusForm();
+      await loadProgramsAndCampuses(token, institution.id);
+      setCampusMessage("Campus deleted successfully.");
+    } catch (error) {
+      setCampusMessage(
+        error instanceof Error ? error.message : "Unable to delete campus."
+      );
+    } finally {
+      setSavingCampus(false);
     }
   }
 
@@ -779,6 +1018,7 @@ export default function EducationOwnerDashboard(): ReactElement {
     setProfileDraft(createProfileDraft(selected));
     setEditingProfile(false);
     setProfileMessage("");
+    resetCampusForm();
     setFilterStatus("all");
 
     await Promise.all([
@@ -796,6 +1036,8 @@ export default function EducationOwnerDashboard(): ReactElement {
     setDrafts({});
     setCampuses([]);
     setPrograms([]);
+    resetCampusForm();
+    setCampusMessage("");
     resetProgramForm();
     setPassword("");
     setEditingProfile(false);
@@ -1392,6 +1634,248 @@ export default function EducationOwnerDashboard(): ReactElement {
                     Academic Management
                   </p>
                   <h2 className="mt-2 text-2xl font-black text-[#064B38]">
+                    Campus Management
+                  </h2>
+                  <p className="mt-2 text-sm text-[#68766D]">
+                    Add, update and manage the campuses of your institution.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const token = localStorage.getItem("aliqo_education_token");
+                    if (token && institution) {
+                      loadProgramsAndCampuses(token, institution.id);
+                    }
+                  }}
+                  disabled={loadingPrograms || savingCampus}
+                  className="rounded-xl border border-[#D6B45B] px-5 py-3 text-sm font-bold text-[#064B38] transition hover:bg-[#FFF4D6] disabled:opacity-50"
+                >
+                  {loadingPrograms ? "Refreshing..." : "↻ Refresh Campuses"}
+                </button>
+              </div>
+
+              {campusMessage && (
+                <div className="mt-5 rounded-xl border border-[#E8C95B] bg-[#FFF4D6] p-4 text-sm leading-6 text-[#765707">
+                  {campusMessage}
+                </div>
+              )}
+
+              <form
+                onSubmit={handleSaveCampus}
+                className="mt-6 rounded-2xl border border-[#DED5C2] bg-[#F7F3E8] p-5"
+              >
+                <h3 className="text-lg font-black text-[#064B38]">
+                  {editingCampusId ? "Edit Campus" : "Add New Campus"}
+                </h3>
+
+                <div className="mt-5 grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <label className="mb-2 block text-sm font-bold text-[#064B38]">
+                      Campus Name *
+                    </label>
+                    <input
+                      required
+                      maxLength={200}
+                      value={campusDraft.campus_name}
+                      onChange={(e) => updateCampusDraft("campus_name", e.target.value)}
+                      placeholder="e.g. Main Campus"
+                      className={inputClass}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="mb-2 block text-sm font-bold text-[#064B38]">
+                      City *
+                    </label>
+                    <input
+                      required
+                      maxLength={100}
+                      value={campusDraft.city}
+                      onChange={(e) => updateCampusDraft("city", e.target.value)}
+                      placeholder="e.g. Karachi"
+                      className={inputClass}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="mb-2 block text-sm font-bold text-[#064B38]">
+                      Province / State
+                    </label>
+                    <input
+                      maxLength={100}
+                      value={campusDraft.province}
+                      onChange={(e) => updateCampusDraft("province", e.target.value)}
+                      placeholder="e.g. Sindh"
+                      className={inputClass}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="mb-2 block text-sm font-bold text-[#064B38]">
+                      Phone Number
+                    </label>
+                    <input
+                      maxLength={30}
+                      value={campusDraft.phone}
+                      onChange={(e) => updateCampusDraft("phone", e.target.value)}
+                      placeholder="Campus contact number"
+                      className={inputClass}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="mb-2 block text-sm font-bold text-[#064B38]">
+                      Email Address
+                    </label>
+                    <input
+                      type="email"
+                      maxLength={254}
+                      value={campusDraft.email}
+                      onChange={(e) => updateCampusDraft("email", e.target.value)}
+                      placeholder="campus@example.com"
+                      className={inputClass}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="mb-2 block text-sm font-bold text-[#064B38]">
+                      Full Address
+                    </label>
+                    <input
+                      maxLength={500}
+                      value={campusDraft.address}
+                      onChange={(e) => updateCampusDraft("address", e.target.value)}
+                      placeholder="Campus street address"
+                      className={inputClass}
+                    />
+                  </div>
+                </div>
+
+                <div className="mt-6 flex flex-wrap justify-end gap-3">
+                  {editingCampusId && (
+                    <button
+                      type="button"
+                      onClick={resetCampusForm}
+                      disabled={savingCampus}
+                      className="rounded-xl border border-[#DED5C2] px-6 py-3 text-sm font-bold text-[#064B38] hover:bg-white disabled:opacity-50"
+                    >
+                      Cancel Edit
+                    </button>
+                  )}
+                  <button
+                    type="submit"
+                    disabled={savingCampus}
+                    className="rounded-xl bg-[#064B38] px-7 py-3 text-sm font-bold text-white transition hover:bg-[#0B6048] hover:text-[#E8C95B] disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {savingCampus
+                      ? "Saving..."
+                      : editingCampusId
+                        ? "Save Campus Changes →"
+                        : "Add Campus →"}
+                  </button>
+                </div>
+              </form>
+
+              <div className="mt-7">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <h3 className="text-lg font-black text-[#064B38]">
+                    Existing Campuses
+                  </h3>
+                  <span className="rounded-full bg-[#F7F3E8] px-4 py-2 text-xs font-bold text-[#064B38]">
+                    {campuses.length} {campuses.length === 1 ? "Campus" : "Campuses"}
+                  </span>
+                </div>
+
+                {loadingPrograms ? (
+                  <div className="mt-5 rounded-2xl bg-[#F7F3E8] p-7 text-center text-sm text-[#68766D]">
+                    Loading campuses...
+                  </div>
+                ) : campuses.length === 0 ? (
+                  <div className="mt-5 rounded-2xl border border-dashed border-[#DED5C2] bg-[#F7F3E8] p-7 text-center">
+                    <p className="font-bold text-[#064B38]">No campuses added yet</p>
+                    <p className="mt-2 text-sm text-[#68766D]">
+                      Add your first campus using the form above.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="mt-5 space-y-4">
+                    {campuses.map((campus) => (
+                      <article
+                        key={campus.id}
+                        className="rounded-2xl border border-[#DED5C2] bg-white p-5"
+                      >
+                        <div className="flex flex-wrap items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <span className={`rounded-full border px-3 py-1 text-xs font-bold ${
+                              campus.is_active === false
+                                ? "border-gray-200 bg-gray-100 text-gray-700"
+                                : "border-[#9CC6A8] bg-[#E4F1E8] text-[#123D2B]"
+                            }`}>
+                              {campus.is_active === false ? "Inactive" : "Active"}
+                            </span>
+                            <h4 className="mt-3 text-lg font-black text-[#064B38]">
+                              {campus.campus_name}
+                            </h4>
+                            <p className="mt-1 text-sm text-[#68766D]">
+                              {[campus.city, campus.province].filter(Boolean).join(", ")}
+                            </p>
+                            {campus.address && (
+                              <p className="mt-2 text-sm text-[#68766D]">{campus.address}</p>
+                            )}
+                            {campus.phone && (
+                              <p className="mt-2 text-sm text-[#064B38]">Phone: {campus.phone}</p>
+                            )}
+                            {campus.email && (
+                              <p className="mt-1 break-all text-sm text-[#064B38]">Email: {campus.email}</p>
+                            )}
+                          </div>
+
+                          <div className="flex flex-wrap gap-2">
+                            <button
+                              type="button"
+                              onClick={() => handleEditCampus(campus)}
+                              disabled={savingCampus}
+                              className="rounded-lg border border-[#D6B45B] px-4 py-2 text-sm font-bold text-[#064B38] hover:bg-[#FFF4D6] disabled:opacity-50"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleToggleCampus(campus)}
+                              disabled={savingCampus}
+                              className="rounded-lg border border-[#064B38]/20 px-4 py-2 text-sm font-bold text-[#064B38] hover:bg-[#F7F3E8] disabled:opacity-50"
+                            >
+                              {campus.is_active === false ? "Activate" : "Deactivate"}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteCampus(campus)}
+                              disabled={savingCampus}
+                              className="rounded-lg border border-red-200 px-4 py-2 text-sm font-bold text-red-700 hover:bg-red-50 disabled:opacity-50"
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <p className="mt-5 rounded-xl border border-[#E8C95B] bg-[#FFF4D6] p-4 text-xs leading-6 text-[#765707]">
+                Safety note: If a campus is linked to programs or admission inquiries, deactivate it instead of deleting it so existing records remain protected.
+              </p>
+            </section>
+
+            <section className="mt-7 rounded-3xl border border-[#DED5C2] bg-white p-6 shadow-sm md:p-8">
+              <div className="flex flex-wrap items-center justify-between gap-4">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-widest text-[#B18B20]">
+                    Academic Management
+                  </p>
+                  <h2 className="mt-2 text-2xl font-black text-[#064B38]">
                     Program Management
                   </h2>
                   <p className="mt-2 text-sm text-[#68766D]">
@@ -1456,11 +1940,18 @@ export default function EducationOwnerDashboard(): ReactElement {
                       className={inputClass}
                     >
                       <option value="">Institution-wide / No specific campus</option>
-                      {campuses.map((campus) => (
-                        <option key={campus.id} value={campus.id}>
-                          {campus.campus_name} — {campus.city}
-                        </option>
-                      ))}
+                      {campuses
+                        .filter(
+                          (campus) =>
+                            campus.is_active !== false ||
+                            campus.id === programDraft.campus_id
+                        )
+                        .map((campus) => (
+                          <option key={campus.id} value={campus.id}>
+                            {campus.campus_name} — {campus.city}
+                            {campus.is_active === false ? " (Inactive)" : ""}
+                          </option>
+                        ))}
                     </select>
                     {campuses.length === 0 && (
                       <p className="mt-2 text-xs text-[#68766D]">
