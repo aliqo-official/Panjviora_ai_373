@@ -100,7 +100,10 @@ async function verifyUser(
   }
 }
 
-function supabaseHeaders(auth: AuthContext, extra?: Record<string, string>) {
+function supabaseHeaders(
+  auth: AuthContext,
+  extra?: Record<string, string>
+) {
   return {
     apikey: SUPABASE_KEY!,
     Authorization: `Bearer ${auth.accessToken}`,
@@ -114,11 +117,10 @@ async function verifyInstitutionOwnership(
   auth: AuthContext,
   institutionId: string
 ): Promise<boolean> {
-  if (
-    !SUPABASE_URL ||
-    !SUPABASE_SERVICE_ROLE_KEY
-  ) {
-    throw new Error("Institution ownership verification is not configured.");
+  if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+    throw new Error(
+      "Institution ownership verification is not configured."
+    );
   }
 
   const response = await fetch(
@@ -188,7 +190,61 @@ async function getExistingProgram(
   return Array.isArray(data) && data.length ? data[0] : null;
 }
 
-function validateFeeRange(min: number | null, max: number | null) {
+// Checks duplicate names within the same institution,
+// program type and campus. Returns null if verification fails.
+async function checkDuplicateProgramName(
+  institutionId: string,
+  programType: string,
+  campusId: string | null,
+  programName: string,
+  excludeProgramId?: string
+): Promise<boolean | null> {
+  if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+    return null;
+  }
+
+  try {
+    const response = await fetch(
+      `${SUPABASE_URL}/rest/v1/institution_programs?select=id,program_type,program_name,campus_id&institution_id=eq.${encodeURIComponent(
+        institutionId
+      )}`,
+      {
+        headers: {
+          apikey: SUPABASE_SERVICE_ROLE_KEY,
+          Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+        },
+        cache: "no-store",
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      }
+    );
+
+    if (!response.ok) return null;
+
+    const programs = await response.json();
+
+    if (!Array.isArray(programs)) return null;
+
+    const normalizedName = programName.trim().toLowerCase();
+
+    return programs.some((program) => {
+      if (program.id === excludeProgramId) return false;
+
+      return (
+        program.program_type === programType &&
+        program.campus_id === campusId &&
+        typeof program.program_name === "string" &&
+        program.program_name.trim().toLowerCase() === normalizedName
+      );
+    });
+  } catch {
+    return null;
+  }
+}
+
+function validateFeeRange(
+  min: number | null,
+  max: number | null
+) {
   return min !== null && max !== null && max < min;
 }
 
@@ -204,13 +260,17 @@ export async function GET(request: NextRequest) {
       return errorResponse("Please log in again.", 401);
     }
 
-    const institutionId = request.nextUrl.searchParams.get("institution_id");
+    const institutionId =
+      request.nextUrl.searchParams.get("institution_id");
 
     if (!isUuid(institutionId)) {
       return errorResponse("Valid institution ID is required.");
     }
 
-    const isOwner = await verifyInstitutionOwnership(auth, institutionId);
+    const isOwner = await verifyInstitutionOwnership(
+      auth,
+      institutionId
+    );
 
     if (!isOwner) {
       return errorResponse(
@@ -333,7 +393,10 @@ export async function POST(request: NextRequest) {
       return errorResponse("Invalid admission status.");
     }
 
-    const isOwner = await verifyInstitutionOwnership(auth, institution_id);
+    const isOwner = await verifyInstitutionOwnership(
+      auth,
+      institution_id
+    );
 
     if (!isOwner) {
       return errorResponse(
@@ -358,6 +421,28 @@ export async function POST(request: NextRequest) {
       }
 
       verifiedCampusId = campus_id;
+    }
+
+    // Duplicate program protection.
+    const duplicateProgram = await checkDuplicateProgramName(
+      institution_id,
+      program_type,
+      verifiedCampusId,
+      cleanName
+    );
+
+    if (duplicateProgram === null) {
+      return errorResponse(
+        "Unable to verify duplicate program name. Please try again.",
+        500
+      );
+    }
+
+    if (duplicateProgram) {
+      return errorResponse(
+        "A program with this name already exists for this campus and program type.",
+        409
+      );
     }
 
     const payload = {
@@ -437,7 +522,10 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
-    const isOwner = await verifyInstitutionOwnership(auth, institution_id);
+    const isOwner = await verifyInstitutionOwnership(
+      auth,
+      institution_id
+    );
 
     if (!isOwner) {
       return errorResponse(
@@ -462,6 +550,7 @@ export async function PATCH(request: NextRequest) {
       if (!PROGRAM_TYPES.includes(body.program_type)) {
         return errorResponse("Select a valid program type.");
       }
+
       payload.program_type = body.program_type;
     }
 
@@ -479,41 +568,51 @@ export async function PATCH(request: NextRequest) {
 
     if ("description" in body) {
       const value = optionalText(body.description, 5000);
+
       if (value === undefined) {
         return errorResponse("Invalid description.");
       }
+
       payload.description = value;
     }
 
     if ("eligibility" in body) {
       const value = optionalText(body.eligibility, 2000);
+
       if (value === undefined) {
         return errorResponse("Invalid eligibility details.");
       }
+
       payload.eligibility = value;
     }
 
     if ("duration" in body) {
       const value = optionalText(body.duration, 100);
+
       if (value === undefined) {
         return errorResponse("Invalid duration.");
       }
+
       payload.duration = value;
     }
 
     if ("fee_min" in body) {
       const value = parseFee(body.fee_min);
+
       if (value === undefined) {
         return errorResponse("Invalid minimum fee.");
       }
+
       payload.fee_min = value;
     }
 
     if ("fee_max" in body) {
       const value = parseFee(body.fee_max);
+
       if (value === undefined) {
         return errorResponse("Invalid maximum fee.");
       }
+
       payload.fee_max = value;
     }
 
@@ -521,6 +620,7 @@ export async function PATCH(request: NextRequest) {
       if (typeof body.admission_open !== "boolean") {
         return errorResponse("Invalid admission status.");
       }
+
       payload.admission_open = body.admission_open;
     }
 
@@ -528,6 +628,7 @@ export async function PATCH(request: NextRequest) {
       if (typeof body.is_active !== "boolean") {
         return errorResponse("Invalid program status.");
       }
+
       payload.is_active = body.is_active;
     }
 
@@ -573,6 +674,48 @@ export async function PATCH(request: NextRequest) {
       return errorResponse(
         "Maximum fee cannot be less than minimum fee."
       );
+    }
+
+    // Duplicate protection when name, type or campus changes.
+    if (
+      "program_name" in payload ||
+      "program_type" in payload ||
+      "campus_id" in payload
+    ) {
+      const finalName =
+        (payload.program_name as string | undefined) ??
+        existing.program_name;
+
+      const finalType =
+        (payload.program_type as string | undefined) ??
+        existing.program_type;
+
+      const finalCampusId =
+        "campus_id" in payload
+          ? (payload.campus_id as string | null)
+          : existing.campus_id;
+
+      const duplicateProgram = await checkDuplicateProgramName(
+        institution_id,
+        finalType,
+        finalCampusId,
+        finalName,
+        program_id
+      );
+
+      if (duplicateProgram === null) {
+        return errorResponse(
+          "Unable to verify duplicate program name. Please try again.",
+          500
+        );
+      }
+
+      if (duplicateProgram) {
+        return errorResponse(
+          "A program with this name already exists for this campus and program type.",
+          409
+        );
+      }
     }
 
     const response = await fetch(
@@ -636,7 +779,10 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    const isOwner = await verifyInstitutionOwnership(auth, institution_id);
+    const isOwner = await verifyInstitutionOwnership(
+      auth,
+      institution_id
+    );
 
     if (!isOwner) {
       return errorResponse(
