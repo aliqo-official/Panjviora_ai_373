@@ -241,6 +241,43 @@ async function checkDuplicateProgramName(
   }
 }
 
+// Checks whether any admission inquiry is linked to this program.
+// Returns null if the check cannot be completed.
+async function checkLinkedInquiries(
+  institutionId: string,
+  programId: string
+): Promise<boolean | null> {
+  if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+    return null;
+  }
+
+  try {
+    const response = await fetch(
+      `${SUPABASE_URL}/rest/v1/institution_inquiries?select=id&institution_id=eq.${encodeURIComponent(
+        institutionId
+      )}&program_id=eq.${encodeURIComponent(programId)}&limit=1`,
+      {
+        headers: {
+          apikey: SUPABASE_SERVICE_ROLE_KEY,
+          Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+        },
+        cache: "no-store",
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      }
+    );
+
+    if (!response.ok) return null;
+
+    const inquiries = await response.json();
+
+    if (!Array.isArray(inquiries)) return null;
+
+    return inquiries.length > 0;
+  } catch {
+    return null;
+  }
+}
+
 function validateFeeRange(
   min: number | null,
   max: number | null
@@ -423,7 +460,6 @@ export async function POST(request: NextRequest) {
       verifiedCampusId = campus_id;
     }
 
-    // Duplicate program protection.
     const duplicateProgram = await checkDuplicateProgramName(
       institution_id,
       program_type,
@@ -676,7 +712,6 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
-    // Duplicate protection when name, type or campus changes.
     if (
       "program_name" in payload ||
       "program_type" in payload ||
@@ -799,6 +834,26 @@ export async function DELETE(request: NextRequest) {
 
     if (!existing) {
       return errorResponse("Program not found.", 404);
+    }
+
+    // Protect programs that have admission inquiries.
+    const hasLinkedInquiries = await checkLinkedInquiries(
+      institution_id,
+      program_id
+    );
+
+    if (hasLinkedInquiries === null) {
+      return errorResponse(
+        "Unable to verify linked admission inquiries. Program was not deleted. Please try again.",
+        500
+      );
+    }
+
+    if (hasLinkedInquiries) {
+      return errorResponse(
+        "This program cannot be deleted because admission inquiries are linked to it. Deactivate the program instead to preserve student records.",
+        409
+      );
     }
 
     const response = await fetch(
