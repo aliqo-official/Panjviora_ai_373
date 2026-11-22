@@ -87,6 +87,46 @@ function validEmail(email: string | null) {
   return !email || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
 
+// Check whether a campus name already exists in the same institution.
+// Comparison ignores uppercase/lowercase and surrounding spaces.
+// Returns null if the database check fails.
+async function campusNameExists(
+  auth: NonNullable<Awaited<ReturnType<typeof verifyUser>>>,
+  institutionId: string,
+  campusName: string,
+  excludeCampusId?: string
+): Promise<boolean | null> {
+  const response = await fetch(
+    `${auth.supabaseUrl}/rest/v1/institution_campuses?select=id,campus_name&institution_id=eq.${encodeURIComponent(institutionId)}`,
+    {
+      headers: {
+        apikey: auth.serviceRoleKey,
+        Authorization: `Bearer ${auth.serviceRoleKey}`,
+      },
+      cache: "no-store",
+    }
+  );
+
+  if (!response.ok) return null;
+
+  const campuses = await response.json();
+
+  if (!Array.isArray(campuses)) return null;
+
+  const normalizedName = campusName.trim().toLowerCase();
+
+  return campuses.some((campus) => {
+    if (excludeCampusId && campus.id === excludeCampusId) {
+      return false;
+    }
+
+    return (
+      typeof campus.campus_name === "string" &&
+      campus.campus_name.trim().toLowerCase() === normalizedName
+    );
+  });
+}
+
 // GET: List campuses belonging to the owner's institution
 export async function GET(request: NextRequest) {
   try {
@@ -207,6 +247,30 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Prevent duplicate campus names within the same institution.
+    const duplicate = await campusNameExists(
+      auth,
+      institutionId.trim(),
+      campusName.trim()
+    );
+
+    if (duplicate === null) {
+      return NextResponse.json(
+        { error: "Unable to verify campus name. Please try again." },
+        { status: 500 }
+      );
+    }
+
+    if (duplicate) {
+      return NextResponse.json(
+        {
+          error:
+            "A campus with this name already exists in your institution.",
+        },
+        { status: 409 }
+      );
+    }
+
     const campus = {
       institution_id: institutionId.trim(),
       campus_name: campusName.trim(),
@@ -322,7 +386,10 @@ export async function PATCH(request: NextRequest) {
         body.campus_name.trim().length > 200
       ) {
         return NextResponse.json(
-          { error: "Please enter a valid campus name (maximum 200 characters)" },
+          {
+            error:
+              "Please enter a valid campus name (maximum 200 characters)",
+          },
           { status: 400 }
         );
       }
@@ -389,6 +456,34 @@ export async function PATCH(request: NextRequest) {
       }
 
       updates.is_active = body.is_active;
+    }
+
+    // Prevent renaming a campus to another campus's name.
+    // The current campus is excluded from the duplicate check.
+    if (typeof updates.campus_name === "string") {
+      const duplicate = await campusNameExists(
+        auth,
+        institutionId.trim(),
+        updates.campus_name,
+        campusId.trim()
+      );
+
+      if (duplicate === null) {
+        return NextResponse.json(
+          { error: "Unable to verify campus name. Please try again." },
+          { status: 500 }
+        );
+      }
+
+      if (duplicate) {
+        return NextResponse.json(
+          {
+            error:
+              "A campus with this name already exists in your institution.",
+          },
+          { status: 409 }
+        );
+      }
     }
 
     if (Object.keys(updates).length === 0) {
