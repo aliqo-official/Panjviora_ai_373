@@ -31,8 +31,6 @@ const ALLOWED_INSTITUTION_TYPES = [
   "college",
   "university",
   "academy",
-  "institute",
-  "other",
 ] as const;
 
 const FIELD_LIMITS: Record<AllowedField, number> = {
@@ -72,7 +70,7 @@ function validUrl(value: string) {
     const url = new URL(value);
 
     return (
-      (url.protocol === "http:" || url.protocol === "https:") &&
+      ["http:", "https:"].includes(url.protocol) &&
       !url.username &&
       !url.password
     );
@@ -81,16 +79,68 @@ function validUrl(value: string) {
   }
 }
 
+async function readLimitedBody(request: NextRequest) {
+  const reader = request.body?.getReader();
+
+  if (!reader) {
+    throw new Error("EMPTY_BODY");
+  }
+
+  const chunks: Uint8Array[] = [];
+  let totalBytes = 0;
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+
+      if (done) break;
+
+      totalBytes += value.byteLength;
+
+      if (totalBytes > MAX_BODY_BYTES) {
+        await reader.cancel();
+        throw new Error("BODY_TOO_LARGE");
+      }
+
+      chunks.push(value);
+    }
+  } finally {
+    reader.releaseLock();
+  }
+
+  const combined = new Uint8Array(totalBytes);
+  let offset = 0;
+
+  for (const chunk of chunks) {
+    combined.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+
+  return new TextDecoder("utf-8", {
+    fatal: true,
+  }).decode(combined);
+}
+
 async function verifyUser(request: NextRequest) {
-  const authorization = request.headers.get("authorization") || "";
+  const authorization =
+    request.headers.get("authorization") || "";
+
   const token = authorization.startsWith("Bearer ")
     ? authorization.slice(7).trim()
     : "";
 
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const supabaseUrl =
+    process.env.NEXT_PUBLIC_SUPABASE_URL;
 
-  if (!supabaseUrl || !anonKey || !token || token.length > 4096) {
+  const anonKey =
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  if (
+    !supabaseUrl ||
+    !anonKey ||
+    !token ||
+    token.length > 4096
+  ) {
     return {
       error: "Authentication required.",
       status: 401,
@@ -107,6 +157,7 @@ async function verifyUser(request: NextRequest) {
           Authorization: `Bearer ${token}`,
         },
         cache: "no-store",
+        signal: AbortSignal.timeout(10000),
       }
     );
 
@@ -147,16 +198,20 @@ export async function PATCH(
 
     if ("error" in auth) {
       return json(
-        { success: false, message: auth.error },
+        {
+          success: false,
+          message: auth.error,
+        },
         auth.status
       );
     }
 
-    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    const serviceRoleKey =
+      process.env.SUPABASE_SERVICE_ROLE_KEY;
 
     if (!serviceRoleKey) {
       console.error(
-        "Education institution update: service role key is missing."
+        "Institution update: service role key missing."
       );
 
       return json(
@@ -172,29 +227,46 @@ export async function PATCH(
 
     if (!validUuid(id)) {
       return json(
-        { success: false, message: "Invalid institution ID." },
+        {
+          success: false,
+          message: "Invalid institution ID.",
+        },
         400
       );
     }
 
-    const contentType = request.headers.get("content-type") || "";
+    const contentType =
+      request.headers.get("content-type") || "";
 
-    if (!contentType.toLowerCase().includes("application/json")) {
+    if (
+      !contentType
+        .toLowerCase()
+        .includes("application/json")
+    ) {
       return json(
-        { success: false, message: "Content-Type must be application/json." },
+        {
+          success: false,
+          message: "Content-Type must be application/json.",
+        },
         415
       );
     }
 
-    const contentLength = request.headers.get("content-length");
+    const contentLength =
+      request.headers.get("content-length");
 
     if (
       contentLength &&
-      (!/^\d+$/.test(contentLength) ||
-        Number(contentLength) > MAX_BODY_BYTES)
+      (
+        !/^\d+$/.test(contentLength) ||
+        Number(contentLength) > MAX_BODY_BYTES
+      )
     ) {
       return json(
-        { success: false, message: "Request body is too large." },
+        {
+          success: false,
+          message: "Request body is too large.",
+        },
         413
       );
     }
@@ -202,21 +274,37 @@ export async function PATCH(
     let rawBody: string;
 
     try {
-      rawBody = await request.text();
-    } catch {
+      rawBody = await readLimitedBody(request);
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        error.message === "BODY_TOO_LARGE"
+      ) {
+        return json(
+          {
+            success: false,
+            message: "Request body is too large.",
+          },
+          413
+        );
+      }
+
       return json(
-        { success: false, message: "Unable to read request body." },
+        {
+          success: false,
+          message: "Unable to read request body.",
+        },
         400
       );
     }
 
-    if (
-      !rawBody ||
-      new TextEncoder().encode(rawBody).byteLength > MAX_BODY_BYTES
-    ) {
+    if (!rawBody.trim()) {
       return json(
-        { success: false, message: "Invalid or oversized request body." },
-        413
+        {
+          success: false,
+          message: "Request body cannot be empty.",
+        },
+        400
       );
     }
 
@@ -226,7 +314,10 @@ export async function PATCH(
       body = JSON.parse(rawBody);
     } catch {
       return json(
-        { success: false, message: "Invalid JSON body." },
+        {
+          success: false,
+          message: "Invalid JSON body.",
+        },
         400
       );
     }
@@ -237,7 +328,10 @@ export async function PATCH(
       Array.isArray(body)
     ) {
       return json(
-        { success: false, message: "Request body must be an object." },
+        {
+          success: false,
+          message: "Request body must be an object.",
+        },
         400
       );
     }
@@ -247,7 +341,10 @@ export async function PATCH(
 
     if (keys.length === 0) {
       return json(
-        { success: false, message: "No update fields provided." },
+        {
+          success: false,
+          message: "No update fields provided.",
+        },
         400
       );
     }
@@ -269,13 +366,18 @@ export async function PATCH(
       );
     }
 
-    const updateData: Partial<Record<AllowedField, string | null>> = {};
+    const updateData: Partial<
+      Record<AllowedField, string | null>
+    > = {};
 
     for (const key of keys) {
       const field = key as AllowedField;
       const value = input[key];
 
-      if (value !== null && typeof value !== "string") {
+      if (
+        value !== null &&
+        typeof value !== "string"
+      ) {
         return json(
           {
             success: false,
@@ -286,7 +388,9 @@ export async function PATCH(
       }
 
       const normalized =
-        typeof value === "string" ? value.trim() : "";
+        typeof value === "string"
+          ? value.trim()
+          : "";
 
       if (
         REQUIRED_FIELDS.includes(
@@ -303,7 +407,9 @@ export async function PATCH(
         );
       }
 
-      if (normalized.length > FIELD_LIMITS[field]) {
+      if (
+        normalized.length > FIELD_LIMITS[field]
+      ) {
         return json(
           {
             success: false,
@@ -316,7 +422,8 @@ export async function PATCH(
       if (
         field === "institution_type" &&
         !ALLOWED_INSTITUTION_TYPES.includes(
-          normalized as (typeof ALLOWED_INSTITUTION_TYPES)[number]
+          normalized as
+            (typeof ALLOWED_INSTITUTION_TYPES)[number]
         )
       ) {
         return json(
@@ -329,14 +436,19 @@ export async function PATCH(
       }
 
       if (
-        ["website_url", "logo_url", "cover_image_url"].includes(field) &&
+        [
+          "website_url",
+          "logo_url",
+          "cover_image_url",
+        ].includes(field) &&
         normalized &&
         !validUrl(normalized)
       ) {
         return json(
           {
             success: false,
-            message: `${field} must be a valid HTTP or HTTPS URL without credentials.`,
+            message:
+              `${field} must be a valid HTTP or HTTPS URL without credentials.`,
           },
           400
         );
@@ -348,11 +460,12 @@ export async function PATCH(
     const params = new URLSearchParams({
       id: `eq.${id}`,
       owner_user_id: `eq.${auth.user.id}`,
-      select: "id,institution_name,verification_status,is_active,updated_at",
+      select:
+        "id,institution_name,institution_type,verification_status,is_active,updated_at",
     });
 
     const endpoint =
-      `${auth.supabaseUrl}/rest/v1/institutions?${params.toString()}`;
+      `${auth.supabaseUrl}/rest/v1/institutions?${params}`;
 
     const updateResponse = await fetch(endpoint, {
       method: "PATCH",
@@ -364,9 +477,12 @@ export async function PATCH(
       },
       body: JSON.stringify(updateData),
       cache: "no-store",
+      signal: AbortSignal.timeout(15000),
     });
 
-    const result = await updateResponse.json().catch(() => null);
+    const result = await updateResponse
+      .json()
+      .catch(() => null);
 
     if (!updateResponse.ok) {
       console.error("Institution update failed:", {
@@ -384,11 +500,15 @@ export async function PATCH(
       );
     }
 
-    if (!Array.isArray(result) || result.length === 0) {
+    if (
+      !Array.isArray(result) ||
+      result.length === 0
+    ) {
       return json(
         {
           success: false,
-          message: "Institution not found or you do not own it.",
+          message:
+            "Institution not found or you do not own it.",
         },
         404
       );
@@ -396,7 +516,8 @@ export async function PATCH(
 
     return json({
       success: true,
-      message: "Institution information updated successfully.",
+      message:
+        "Institution information updated successfully.",
       institution: result[0],
     });
   } catch (error) {
