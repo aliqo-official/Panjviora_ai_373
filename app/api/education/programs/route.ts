@@ -242,9 +242,9 @@ async function checkDuplicateProgramName(
 }
 
 // Checks whether any admission inquiry is linked to this program.
+// Uses program_id directly to match the database foreign key.
 // Returns null if the check cannot be completed.
 async function checkLinkedInquiries(
-  institutionId: string,
   programId: string
 ): Promise<boolean | null> {
   if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
@@ -253,9 +253,9 @@ async function checkLinkedInquiries(
 
   try {
     const response = await fetch(
-      `${SUPABASE_URL}/rest/v1/institution_inquiries?select=id&institution_id=eq.${encodeURIComponent(
-        institutionId
-      )}&program_id=eq.${encodeURIComponent(programId)}&limit=1`,
+      `${SUPABASE_URL}/rest/v1/institution_inquiries?select=id&program_id=eq.${encodeURIComponent(
+        programId
+      )}&limit=1`,
       {
         headers: {
           apikey: SUPABASE_SERVICE_ROLE_KEY,
@@ -838,7 +838,6 @@ export async function DELETE(request: NextRequest) {
 
     // Protect programs that have admission inquiries.
     const hasLinkedInquiries = await checkLinkedInquiries(
-      institution_id,
       program_id
     );
 
@@ -870,9 +869,25 @@ export async function DELETE(request: NextRequest) {
       }
     );
 
-    const data = await response.json();
+    let data: any = null;
+
+    try {
+      data = await response.json();
+    } catch {
+      data = null;
+    }
 
     if (!response.ok) {
+      // PostgreSQL foreign-key violation.
+      // This is an additional protection if an inquiry is linked
+      // after the application-level check.
+      if (data?.code === "23503") {
+        return errorResponse(
+          "This program cannot be deleted because admission inquiries are linked to it. Deactivate the program instead to preserve student records.",
+          409
+        );
+      }
+
       return NextResponse.json(
         { error: data?.message || "Unable to delete program." },
         { status: response.status }
