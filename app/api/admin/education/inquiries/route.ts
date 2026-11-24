@@ -1,6 +1,8 @@
 
 import { NextRequest, NextResponse } from "next/server";
 
+export const dynamic = "force-dynamic";
+
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 const SUPABASE_SERVICE_ROLE_KEY =
@@ -31,15 +33,17 @@ const INQUIRY_FIELDS =
 function response(data: unknown, status = 200) {
   return NextResponse.json(data, {
     status,
-    headers: { "Cache-Control": "no-store" },
+    headers: {
+      "Cache-Control": "no-store",
+    },
   });
 }
 
 function isConfigured() {
   return Boolean(
     SUPABASE_URL &&
-    SUPABASE_ANON_KEY &&
-    SUPABASE_SERVICE_ROLE_KEY
+      SUPABASE_ANON_KEY &&
+      SUPABASE_SERVICE_ROLE_KEY
   );
 }
 
@@ -88,7 +92,8 @@ async function verifyAdmin(request: NextRequest) {
       typeof user.email === "string" &&
       user.email.toLowerCase() === ADMIN_EMAIL
     );
-  } catch {
+  } catch (error) {
+    console.error("Admin verification error:", error);
     return false;
   }
 }
@@ -142,11 +147,47 @@ async function adminDbRequest(
   });
 }
 
+// Read safe diagnostic information from a Supabase error.
+async function getDatabaseError(result: Response) {
+  const raw = await result.text();
+
+  try {
+    const parsed: unknown = JSON.parse(raw);
+
+    if (isObject(parsed)) {
+      return {
+        status: result.status,
+        code:
+          typeof parsed.code === "string"
+            ? parsed.code.slice(0, 50)
+            : "UNKNOWN",
+        message:
+          typeof parsed.message === "string"
+            ? parsed.message.slice(0, 300)
+            : "Database request failed.",
+      };
+    }
+  } catch {
+    // Ignore invalid JSON error responses.
+  }
+
+  return {
+    status: result.status,
+    code: "UNKNOWN",
+    message: "Supabase returned an unreadable error response.",
+  };
+}
+
 // GET: Admin can view admission inquiries across institutions.
 export async function GET(request: NextRequest) {
   try {
     if (!isConfigured()) {
-      return response({ error: "Server configuration error." }, 500);
+      console.error("Admin Education API configuration is incomplete.");
+
+      return response(
+        { error: "Server configuration error." },
+        500
+      );
     }
 
     if (!(await verifyAdmin(request))) {
@@ -155,7 +196,11 @@ export async function GET(request: NextRequest) {
 
     const params = request.nextUrl.searchParams;
 
-    const institutionId = clean(params.get("institution_id"), 36);
+    const institutionId = clean(
+      params.get("institution_id"),
+      36
+    );
+
     const campusId = clean(params.get("campus_id"), 36);
     const programId = clean(params.get("program_id"), 36);
 
@@ -186,21 +231,40 @@ export async function GET(request: NextRequest) {
     }
 
     const [inquiryResult, institutionResult] = await Promise.all([
-      adminDbRequest(`institution_inquiries?${query.toString()}`),
+      adminDbRequest(
+        `institution_inquiries?${query.toString()}`
+      ),
+
       adminDbRequest(
         "institutions?select=id,institution_name,institution_type,verification_status&order=institution_name.asc"
       ),
     ]);
 
     if (!inquiryResult.ok || !institutionResult.ok) {
+      const diagnostics: Record<string, unknown> = {};
+
+      if (!inquiryResult.ok) {
+        diagnostics.institution_inquiries =
+          await getDatabaseError(inquiryResult);
+      }
+
+      if (!institutionResult.ok) {
+        diagnostics.institutions =
+          await getDatabaseError(institutionResult);
+      }
+
       console.error(
-        "Admin education inquiry GET failed:",
-        !inquiryResult.ok
-          ? await inquiryResult.text()
-          : await institutionResult.text()
+        "Admin Education inquiry GET database failure:",
+        diagnostics
       );
 
-      return response({ error: "Unable to load Education data." }, 502);
+      return response(
+        {
+          error: "Unable to load Education data.",
+          diagnostics,
+        },
+        502
+      );
     }
 
     const [inquiries, institutions] = await Promise.all([
@@ -208,8 +272,18 @@ export async function GET(request: NextRequest) {
       institutionResult.json(),
     ]);
 
-    if (!Array.isArray(inquiries) || !Array.isArray(institutions)) {
-      return response({ error: "Invalid database response." }, 502);
+    if (
+      !Array.isArray(inquiries) ||
+      !Array.isArray(institutions)
+    ) {
+      console.error(
+        "Admin Education API received invalid database response."
+      );
+
+      return response(
+        { error: "Invalid database response." },
+        502
+      );
     }
 
     return response({
@@ -224,7 +298,10 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error("Admin education inquiry GET error:", error);
 
-    return response({ error: "Unable to load inquiries." }, 500);
+    return response(
+      { error: "Unable to load inquiries." },
+      500
+    );
   }
 }
 
@@ -232,7 +309,10 @@ export async function GET(request: NextRequest) {
 export async function PATCH(request: NextRequest) {
   try {
     if (!isConfigured()) {
-      return response({ error: "Server configuration error." }, 500);
+      return response(
+        { error: "Server configuration error." },
+        500
+      );
     }
 
     if (!(await verifyAdmin(request))) {
@@ -242,7 +322,10 @@ export async function PATCH(request: NextRequest) {
     const body = await readBody(request);
 
     if (!body) {
-      return response({ error: "Invalid JSON request." }, 400);
+      return response(
+        { error: "Invalid JSON request." },
+        400
+      );
     }
 
     const allowedKeys = [
@@ -251,14 +334,24 @@ export async function PATCH(request: NextRequest) {
       "admin_private_notes",
     ];
 
-    if (Object.keys(body).some((key) => !allowedKeys.includes(key))) {
-      return response({ error: "Unsupported request fields." }, 400);
+    if (
+      Object.keys(body).some(
+        (key) => !allowedKeys.includes(key)
+      )
+    ) {
+      return response(
+        { error: "Unsupported request fields." },
+        400
+      );
     }
 
     const inquiryId = clean(body.inquiry_id, 36);
 
     if (!UUID_REGEX.test(inquiryId)) {
-      return response({ error: "Valid inquiry_id is required." }, 400);
+      return response(
+        { error: "Valid inquiry_id is required." },
+        400
+      );
     }
 
     const hasStatus = Object.prototype.hasOwnProperty.call(
@@ -272,7 +365,10 @@ export async function PATCH(request: NextRequest) {
     );
 
     if (!hasStatus && !hasNotes) {
-      return response({ error: "No update fields provided." }, 400);
+      return response(
+        { error: "No update fields provided." },
+        400
+      );
     }
 
     const updates: Record<string, unknown> = {};
@@ -280,9 +376,14 @@ export async function PATCH(request: NextRequest) {
     if (hasStatus) {
       if (
         typeof body.status !== "string" ||
-        !ALLOWED_STATUSES.includes(body.status as InquiryStatus)
+        !ALLOWED_STATUSES.includes(
+          body.status as InquiryStatus
+        )
       ) {
-        return response({ error: "Invalid inquiry status." }, 400);
+        return response(
+          { error: "Invalid inquiry status." },
+          400
+        );
       }
 
       updates.status = body.status;
@@ -304,7 +405,9 @@ export async function PATCH(request: NextRequest) {
         body.admin_private_notes.length > 2000
       ) {
         return response(
-          { error: "Admin notes cannot exceed 2000 characters." },
+          {
+            error: "Admin notes cannot exceed 2000 characters.",
+          },
           400
         );
       }
@@ -334,18 +437,29 @@ export async function PATCH(request: NextRequest) {
     );
 
     if (!result.ok) {
+      const diagnostic = await getDatabaseError(result);
+
       console.error(
-        "Admin inquiry PATCH failed:",
-        await result.text()
+        "Admin inquiry PATCH database failure:",
+        diagnostic
       );
 
-      return response({ error: "Unable to update inquiry." }, 502);
+      return response(
+        {
+          error: "Unable to update inquiry.",
+          diagnostic,
+        },
+        502
+      );
     }
 
     const updated = await result.json();
 
     if (!Array.isArray(updated) || updated.length === 0) {
-      return response({ error: "Inquiry not found." }, 404);
+      return response(
+        { error: "Inquiry not found." },
+        404
+      );
     }
 
     return response({
@@ -353,8 +467,14 @@ export async function PATCH(request: NextRequest) {
       inquiry: updated[0],
     });
   } catch (error) {
-    console.error("Admin education inquiry PATCH error:", error);
+    console.error(
+      "Admin education inquiry PATCH error:",
+      error
+    );
 
-    return response({ error: "Unable to update inquiry." }, 500);
+    return response(
+      { error: "Unable to update inquiry." },
+      500
+    );
   }
 }
