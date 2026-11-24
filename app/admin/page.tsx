@@ -275,17 +275,14 @@ export default function AdminPage() {
 
       setAdmissionInquiries(data.inquiries);
 
-      setInquiryNotesDrafts((current) => {
-        const next = { ...current };
-
-        for (const inquiry of data.inquiries as AdmissionInquiry[]) {
-          if (!(inquiry.id in next)) {
-            next[inquiry.id] = inquiry.admin_private_notes || "";
-          }
-        }
-
-        return next;
-      });
+      setInquiryNotesDrafts(
+  Object.fromEntries(
+    (data.inquiries as AdmissionInquiry[]).map((inquiry) => [
+      inquiry.id,
+      inquiry.admin_private_notes || "",
+    ])
+  )
+);
     } catch (err) {
       setAdmissionInquiryError(
         err instanceof Error
