@@ -1970,7 +1970,7 @@ const [authChecking, setAuthChecking] = useState(true);
                               }))
                             }
                             rows={3}
-                            maxLength={5000}
+                            maxLength={2000}
                             placeholder="Write private Admin notes..."
                             className="w-full resize-y rounded-xl border border-[#DED5C2] bg-white p-3 text-sm text-[#123D2B] outline-none focus:border-[#D4AF37]"
                           />
@@ -1979,7 +1979,7 @@ const [authChecking, setAuthChecking] = useState(true);
                             <span className="text-xs text-[#68766D]">
                               {(inquiryNotesDrafts[inquiry.id] ??
                                 inquiry.admin_private_notes ??
-                                "").length}/5000 characters
+                              "").length}/2000 characters
                             </span>
 
                             <button
