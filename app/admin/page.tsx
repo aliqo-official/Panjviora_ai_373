@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import Link from "next/link";
 
 type Request = {
@@ -88,9 +88,9 @@ export default function AdminPage() {
   // ==========================================
 
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [authenticated, setAuthenticated] = useState(false);
-
+const [password, setPassword] = useState("");
+const [authenticated, setAuthenticated] = useState(false);
+const [authChecking, setAuthChecking] = useState(true);
   // ==========================================
   // ADVERTISING REQUESTS
   // ==========================================
