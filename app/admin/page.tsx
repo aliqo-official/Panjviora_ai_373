@@ -1045,7 +1045,17 @@ const [authChecking, setAuthChecking] = useState(true);
 
         {/* LOGIN */}
 
-        {!authenticated ? (
+       {authChecking ? (
+  <div className="mx-auto max-w-md rounded-3xl border border-[#DED5C2] bg-white p-10 text-center shadow-xl">
+    <div className="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-4 border-[#DED5C2] border-t-[#123D2B]" />
+    <h2 className="text-xl font-bold text-[#123D2B]">
+      Verifying Admin Session
+    </h2>
+    <p className="mt-2 text-sm text-[#68766D]">
+      Please wait while we securely restore your session.
+    </p>
+  </div>
+) : !authenticated ? (
           <form
             onSubmit={handleLogin}
             className="mx-auto max-w-md space-y-5 rounded-3xl border border-[#DED5C2] bg-white p-8 shadow-xl"
