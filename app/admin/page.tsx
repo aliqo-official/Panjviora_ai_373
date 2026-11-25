@@ -293,6 +293,70 @@ const [authChecking, setAuthChecking] = useState(true);
       setAdmissionInquiryLoading(false);
     }
   }
+    // ==========================================
+  // RESTORE ADMIN SESSION ON PAGE REFRESH
+  // ==========================================
+
+  useEffect(() => {
+    let active = true;
+
+    async function restoreAdminSession() {
+      try {
+        const response = await fetch("/api/admin/requests", {
+          method: "GET",
+          credentials: "same-origin",
+          cache: "no-store",
+        });
+
+        if (!active) return;
+
+        if (response.status === 401) {
+          setAuthenticated(false);
+          return;
+        }
+
+        if (!response.ok) {
+          throw new Error("Unable to verify Admin session.");
+        }
+
+        const data = await response.json();
+
+        if (!Array.isArray(data)) {
+          throw new Error("Invalid Admin session response.");
+        }
+
+        if (!active) return;
+
+        setRequests(data);
+        setAuthenticated(true);
+
+        await Promise.all([
+          loadEducationInstitutions(),
+          loadAdmissionInquiries(),
+        ]);
+      } catch (err) {
+        if (!active) return;
+
+        setAuthenticated(false);
+        setError(
+          err instanceof Error
+            ? err.message
+            : "Unable to restore Admin session."
+        );
+      } finally {
+        if (active) {
+          setAuthChecking(false);
+        }
+      }
+    }
+
+    restoreAdminSession();
+
+    return () => {
+      active = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ==========================================
   // ADMIN LOGIN
