@@ -288,14 +288,30 @@ export async function GET(request: NextRequest) {
       }
     );
 
-    const data = await response.json();
+   if (!response.ok) {
+  return NextResponse.json(
+    { error: "Unable to load campuses" },
+    { status: response.status }
+  );
+}
 
-    if (!response.ok) {
-      return NextResponse.json(
-        { error: "Unable to load campuses" },
-        { status: response.status }
-      );
-    }
+let data: unknown;
+
+try {
+  data = await response.json();
+} catch {
+  return NextResponse.json(
+    { error: "Invalid response received from database" },
+    { status: 502 }
+  );
+}
+
+if (!Array.isArray(data)) {
+  return NextResponse.json(
+    { error: "Invalid campus data received" },
+    { status: 502 }
+  );
+}
 
     return NextResponse.json({ campuses: data });
   } catch {
