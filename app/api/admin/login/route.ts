@@ -20,12 +20,83 @@ function response(
   });
 }
 
+
 async function readBody(request: NextRequest) {
   const contentType = request.headers.get("content-type") || "";
 
   if (!/^application\/json(?:\s*;|$)/i.test(contentType.trim())) {
     return null;
   }
+
+  const contentLength = request.headers.get("content-length");
+
+  if (
+    contentLength &&
+    (!/^\d+$/.test(contentLength) ||
+      Number(contentLength) > MAX_BODY_BYTES)
+  ) {
+    return null;
+  }
+
+  if (!request.body) {
+    return null;
+  }
+
+  const reader = request.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let totalBytes = 0;
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+
+      if (done) break;
+
+      totalBytes += value.byteLength;
+
+      if (totalBytes > MAX_BODY_BYTES) {
+        await reader.cancel();
+        return null;
+      }
+
+      chunks.push(value);
+    }
+
+    const bodyBytes = new Uint8Array(totalBytes);
+    let offset = 0;
+
+    for (const chunk of chunks) {
+      bodyBytes.set(chunk, offset);
+      offset += chunk.byteLength;
+    }
+
+    const raw = new TextDecoder("utf-8", {
+      fatal: true,
+    }).decode(bodyBytes);
+
+    const parsed: unknown = JSON.parse(raw);
+
+    if (
+      typeof parsed !== "object" ||
+      parsed === null ||
+      Array.isArray(parsed)
+    ) {
+      return null;
+    }
+
+    return parsed as Record<string, unknown>;
+  } catch {
+    try {
+      await reader.cancel();
+    } catch {
+      // Ignore cancellation errors.
+    }
+
+    return null;
+  } finally {
+    reader.releaseLock();
+  }
+}
 
   const contentLength = request.headers.get("content-length");
 
