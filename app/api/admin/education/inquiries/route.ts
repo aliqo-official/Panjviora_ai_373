@@ -51,7 +51,9 @@ function clean(value: unknown, max = 1000): string {
     : "";
 }
 
-function isObject(value: unknown): value is Record<string, unknown> {
+function isObject(
+  value: unknown
+): value is Record<string, unknown> {
   return (
     typeof value === "object" &&
     value !== null &&
@@ -73,20 +75,24 @@ async function verifyAdmin(request: NextRequest) {
   }
 
   try {
-    const result = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
-      headers: {
-        apikey: SUPABASE_ANON_KEY!,
-        Authorization: `Bearer ${token}`,
-      },
-      cache: "no-store",
-      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-    });
+    const result = await fetch(
+      `${SUPABASE_URL}/auth/v1/user`,
+      {
+        headers: {
+          apikey: SUPABASE_ANON_KEY!,
+          Authorization: `Bearer ${token}`,
+        },
+        cache: "no-store",
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      }
+    );
 
     if (!result.ok) return false;
 
-    const user = await result.json();
+    const user: unknown = await result.json();
 
     return (
+      isObject(user) &&
       typeof user.email === "string" &&
       user.email.toLowerCase() === ADMIN_EMAIL
     );
@@ -96,14 +102,22 @@ async function verifyAdmin(request: NextRequest) {
   }
 }
 
-async function readBody(request: NextRequest) {
-  const contentType = request.headers.get("content-type") || "";
+async function readBody(
+  request: NextRequest
+): Promise<Record<string, unknown> | null> {
+  const contentType =
+    request.headers.get("content-type") || "";
 
-  if (!/^application\/json(?:\s*;|$)/i.test(contentType.trim())) {
+  if (
+    !/^application\/json(?:\s*;|$)/i.test(
+      contentType.trim()
+    )
+  ) {
     return null;
   }
 
-  const contentLength = request.headers.get("content-length");
+  const contentLength =
+    request.headers.get("content-length");
 
   if (
     contentLength &&
@@ -113,18 +127,53 @@ async function readBody(request: NextRequest) {
     return null;
   }
 
-  try {
-    const raw = await request.text();
+  if (!request.body) return null;
 
-    if (new TextEncoder().encode(raw).byteLength > MAX_BODY_BYTES) {
-      return null;
+  const reader = request.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let totalBytes = 0;
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+
+      if (done) break;
+
+      totalBytes += value.byteLength;
+
+      if (totalBytes > MAX_BODY_BYTES) {
+        await reader.cancel();
+        return null;
+      }
+
+      chunks.push(value);
     }
+
+    const bodyBytes = new Uint8Array(totalBytes);
+    let offset = 0;
+
+    for (const chunk of chunks) {
+      bodyBytes.set(chunk, offset);
+      offset += chunk.byteLength;
+    }
+
+    const raw = new TextDecoder("utf-8", {
+      fatal: true,
+    }).decode(bodyBytes);
 
     const parsed: unknown = JSON.parse(raw);
 
     return isObject(parsed) ? parsed : null;
   } catch {
+    try {
+      await reader.cancel();
+    } catch {
+      // Ignore cancellation errors.
+    }
+
     return null;
+  } finally {
+    reader.releaseLock();
   }
 }
 
@@ -145,7 +194,6 @@ async function adminDbRequest(
   });
 }
 
-// Read safe diagnostic information from a Supabase error.
 async function getDatabaseError(result: Response) {
   const raw = await result.text();
 
@@ -180,7 +228,9 @@ async function getDatabaseError(result: Response) {
 export async function GET(request: NextRequest) {
   try {
     if (!isConfigured()) {
-      console.error("Admin Education API configuration is incomplete.");
+      console.error(
+        "Admin Education API configuration is incomplete."
+      );
 
       return response(
         { error: "Server configuration error." },
@@ -199,15 +249,25 @@ export async function GET(request: NextRequest) {
       36
     );
 
-    const campusId = clean(params.get("campus_id"), 36);
-    const programId = clean(params.get("program_id"), 36);
+    const campusId = clean(
+      params.get("campus_id"),
+      36
+    );
+
+    const programId = clean(
+      params.get("program_id"),
+      36
+    );
 
     if (
       (institutionId && !UUID_REGEX.test(institutionId)) ||
       (campusId && !UUID_REGEX.test(campusId)) ||
       (programId && !UUID_REGEX.test(programId))
     ) {
-      return response({ error: "Invalid filter ID." }, 400);
+      return response(
+        { error: "Invalid filter ID." },
+        400
+      );
     }
 
     const query = new URLSearchParams({
@@ -228,15 +288,15 @@ export async function GET(request: NextRequest) {
       query.set("program_id", `eq.${programId}`);
     }
 
-    const [inquiryResult, institutionResult] = await Promise.all([
-      adminDbRequest(
-        `institution_inquiries?${query.toString()}`
-      ),
-
-      adminDbRequest(
-        "institutions?select=id,institution_name,institution_type,verification_status&order=institution_name.asc"
-      ),
-    ]);
+    const [inquiryResult, institutionResult] =
+      await Promise.all([
+        adminDbRequest(
+          `institution_inquiries?${query.toString()}`
+        ),
+        adminDbRequest(
+          "institutions?select=id,institution_name,institution_type,verification_status&order=institution_name.asc"
+        ),
+      ]);
 
     if (!inquiryResult.ok || !institutionResult.ok) {
       const diagnostics: Record<string, unknown> = {};
@@ -257,10 +317,7 @@ export async function GET(request: NextRequest) {
       );
 
       return response(
-        {
-          error: "Unable to load Education data.",
-          diagnostics,
-        },
+        { error: "Unable to load Education data." },
         502
       );
     }
@@ -284,30 +341,35 @@ export async function GET(request: NextRequest) {
       );
     }
 
-   const inquiriesWithNames = inquiries.map(
-  (inquiry: {
-    program_id: string | null;
-    program_name: string | null;
-    [key: string]: unknown;
-  }) => ({
-    ...inquiry,
-    program_name:
-      inquiry.program_name ||
-      (inquiry.program_id ? null : "General Inquiry"),
-  })
-);
+    const inquiriesWithNames = inquiries.map(
+      (inquiry: {
+        program_id: string | null;
+        program_name: string | null;
+        [key: string]: unknown;
+      }) => ({
+        ...inquiry,
+        program_name:
+          inquiry.program_name ||
+          (inquiry.program_id
+            ? null
+            : "General Inquiry"),
+      })
+    );
 
-return response({
-  inquiries: inquiriesWithNames,
-  institutions,
-  filters: {
-    institution_id: institutionId || null,
-    campus_id: campusId || null,
-    program_id: programId || null,
-  },
-});
+    return response({
+      inquiries: inquiriesWithNames,
+      institutions,
+      filters: {
+        institution_id: institutionId || null,
+        campus_id: campusId || null,
+        program_id: programId || null,
+      },
+    });
   } catch (error) {
-    console.error("Admin education inquiry GET error:", error);
+    console.error(
+      "Admin education inquiry GET error:",
+      error
+    );
 
     return response(
       { error: "Unable to load inquiries." },
@@ -365,15 +427,17 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
-    const hasStatus = Object.prototype.hasOwnProperty.call(
-      body,
-      "status"
-    );
+    const hasStatus =
+      Object.prototype.hasOwnProperty.call(
+        body,
+        "status"
+      );
 
-    const hasNotes = Object.prototype.hasOwnProperty.call(
-      body,
-      "admin_private_notes"
-    );
+    const hasNotes =
+      Object.prototype.hasOwnProperty.call(
+        body,
+        "admin_private_notes"
+      );
 
     if (!hasStatus && !hasNotes) {
       return response(
@@ -417,7 +481,8 @@ export async function PATCH(request: NextRequest) {
       ) {
         return response(
           {
-            error: "Admin notes cannot exceed 2000 characters.",
+            error:
+              "Admin notes cannot exceed 2000 characters.",
           },
           400
         );
@@ -456,10 +521,7 @@ export async function PATCH(request: NextRequest) {
       );
 
       return response(
-        {
-          error: "Unable to update inquiry.",
-          diagnostic,
-        },
+        { error: "Unable to update inquiry." },
         502
       );
     }
