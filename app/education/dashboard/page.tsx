@@ -1132,21 +1132,20 @@ export default function EducationOwnerDashboard(): ReactElement {
     }
   }
 
-  function updateDraft(
-    inquiryId: string,
-    field: keyof InquiryDraft,
-    value: string
-  ) {
-    setDrafts((previous) => ({
-      ...previous,
-      [inquiryId]: {
-        status: previous[inquiryId]?.status || "new",
-        admin_notes: previous[inquiryId]?.admin_notes || "",
-        [field]: value,
-      },
-    }));
-  }
-
+ function updateDraft(
+  inquiryId: string,
+  field: keyof InquiryDraft,
+  value: string
+) {
+  setDrafts((previous) => ({
+    ...previous,
+    [inquiryId]: {
+      status: previous[inquiryId]?.status || "new",
+      owner_notes: previous[inquiryId]?.owner_notes || "",
+      [field]: value,
+    },
+  }));
+}
   async function handleSaveInquiry(inquiryId: string) {
     if (!institution) return;
 
@@ -1178,7 +1177,7 @@ export default function EducationOwnerDashboard(): ReactElement {
           inquiry_id: inquiryId,
           institution_id: institution.id,
           status: draft.status,
-          admin_notes: draft.admin_notes,
+          owner_notes: draft.owner_notes,
         }),
       });
 
@@ -1201,10 +1200,10 @@ export default function EducationOwnerDashboard(): ReactElement {
 
         setDrafts((previous) => ({
           ...previous,
-          [inquiryId]: {
-            status: data.inquiry.status,
-            admin_notes: data.inquiry.admin_notes || "",
-          },
+         [inquiryId]: {
+  status: data.inquiry.status,
+  owner_notes: data.inquiry.owner_notes || "",
+},
         }));
       }
 
@@ -2253,9 +2252,9 @@ export default function EducationOwnerDashboard(): ReactElement {
                 <div className="mt-6 space-y-5">
                   {filteredInquiries.map((item) => {
                     const draft = drafts[item.id] || {
-                      status: item.status,
-                      admin_notes: item.admin_notes || "",
-                    };
+  status: item.status,
+  owner_notes: item.owner_notes || "",
+};
 
                     return (
                       <article
@@ -2389,17 +2388,17 @@ export default function EducationOwnerDashboard(): ReactElement {
 
                           <div>
                             <label className="mb-2 block text-sm font-bold text-[#064B38]">
-                              Internal Admin Notes
+                              Private Institution Notes
                             </label>
 
                             <textarea
                               rows={3}
                               maxLength={2000}
-                              value={draft.admin_notes}
+                              value={draft.owner_notes}
                               onChange={(e) =>
                                 updateDraft(
                                   item.id,
-                                  "admin_notes",
+                                  "owner_notes",
                                   e.target.value
                                 )
                               }
@@ -2408,7 +2407,7 @@ export default function EducationOwnerDashboard(): ReactElement {
                             />
 
                             <p className="mt-1 text-right text-xs text-[#68766D]">
-                              {draft.admin_notes.length}/2000
+                              {draft.owner_notes.length}/2000
                             </p>
                           </div>
                         </div>
