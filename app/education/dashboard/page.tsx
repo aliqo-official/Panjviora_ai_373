@@ -339,7 +339,7 @@ export default function EducationOwnerDashboard(): ReactElement {
       inquiryList.forEach((item) => {
         nextDrafts[item.id] = {
           status: item.status,
-          admin_notes: item.admin_notes || "",
+        owner_notes: item.owner_notes || "",
         };
       });
 
