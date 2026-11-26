@@ -3,9 +3,78 @@ import { NextRequest, NextResponse } from "next/server";
 
 const ADMIN_EMAIL = "aliqo37311011@gmail.com";
 
+const REQUEST_TIMEOUT_MS = 15000;
+const MAX_BODY_BYTES = 16 * 1024;
+const MAX_EMAIL_LENGTH = 254;
+const MAX_PASSWORD_LENGTH = 1024;
+
+function response(
+  data: Record<string, unknown>,
+  status = 200
+) {
+  return NextResponse.json(data, {
+    status,
+    headers: {
+      "Cache-Control": "no-store",
+    },
+  });
+}
+
+async function readBody(request: NextRequest) {
+  const contentType = request.headers.get("content-type") || "";
+
+  if (!/^application\/json(?:\s*;|$)/i.test(contentType.trim())) {
+    return null;
+  }
+
+  const contentLength = request.headers.get("content-length");
+
+  if (
+    contentLength &&
+    (!/^\d+$/.test(contentLength) ||
+      Number(contentLength) > MAX_BODY_BYTES)
+  ) {
+    return null;
+  }
+
+  try {
+    const raw = await request.text();
+
+    if (
+      new TextEncoder().encode(raw).byteLength >
+      MAX_BODY_BYTES
+    ) {
+      return null;
+    }
+
+    const parsed: unknown = JSON.parse(raw);
+
+    if (
+      typeof parsed !== "object" ||
+      parsed === null ||
+      Array.isArray(parsed)
+    ) {
+      return null;
+    }
+
+    return parsed as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
-    const { email, password } = await request.json();
+    const body = await readBody(request);
+
+    if (!body) {
+      return response(
+        { error: "Invalid JSON request." },
+        400
+      );
+    }
+
+    const { email, password } = body;
 
     if (
       typeof email !== "string" ||
@@ -13,26 +82,41 @@ export async function POST(request: NextRequest) {
       !email.trim() ||
       !password
     ) {
-      return NextResponse.json(
+      return response(
         { error: "Email and password are required." },
-        { status: 400 }
+        400
+      );
+    }
+
+    if (
+      email.length > MAX_EMAIL_LENGTH ||
+      password.length > MAX_PASSWORD_LENGTH
+    ) {
+      return response(
+        { error: "Email or password exceeds allowed length." },
+        400
       );
     }
 
     if (email.trim().toLowerCase() !== ADMIN_EMAIL) {
-      return NextResponse.json(
+      return response(
         { error: "Unauthorized admin account." },
-        { status: 403 }
+        403
       );
     }
 
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    const supabaseUrl =
+      process.env.NEXT_PUBLIC_SUPABASE_URL;
+
+    const supabaseKey =
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
     if (!supabaseUrl || !supabaseKey) {
-      return NextResponse.json(
+      console.error("Admin login configuration is incomplete.");
+
+      return response(
         { error: "Server configuration error." },
-        { status: 500 }
+        500
       );
     }
 
@@ -49,45 +133,89 @@ export async function POST(request: NextRequest) {
           password,
         }),
         cache: "no-store",
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
       }
     );
 
-    const authData = await authResponse.json();
+    let authData: {
+      access_token?: string;
+      expires_in?: number;
+      user?: {
+        email?: string;
+      };
+    };
 
-    if (!authResponse.ok || !authData.access_token) {
-      return NextResponse.json(
-        { error: "Invalid email or password." },
-        { status: 401 }
+    try {
+      authData = await authResponse.json();
+    } catch {
+      console.error("Supabase returned an invalid login response.");
+
+      return response(
+        { error: "Authentication service unavailable." },
+        502
       );
     }
 
     if (
-      authData.user?.email?.toLowerCase() !== ADMIN_EMAIL
+      !authResponse.ok ||
+      typeof authData.access_token !== "string" ||
+      !authData.access_token ||
+      authData.access_token.length > 8192
     ) {
-      return NextResponse.json(
-        { error: "Unauthorized admin account." },
-        { status: 403 }
+      return response(
+        { error: "Invalid email or password." },
+        401
       );
     }
 
-    const response = NextResponse.json({
-      success: true,
-      message: "Admin login successful.",
-    });
+    if (
+      typeof authData.user?.email !== "string" ||
+      authData.user.email.toLowerCase() !== ADMIN_EMAIL
+    ) {
+      return response(
+        { error: "Unauthorized admin account." },
+        403
+      );
+    }
 
-    response.cookies.set("aliqo_admin_session", authData.access_token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
-      path: "/",
-      maxAge: Math.min(authData.expires_in || 3600, 3600),
-    });
+    const responseData = NextResponse.json(
+      {
+        success: true,
+        message: "Admin login successful.",
+      },
+      {
+        headers: {
+          "Cache-Control": "no-store",
+        },
+      }
+    );
 
-    return response;
-  } catch {
-    return NextResponse.json(
+    const expiresIn =
+      typeof authData.expires_in === "number" &&
+      Number.isFinite(authData.expires_in) &&
+      authData.expires_in > 0
+        ? Math.min(authData.expires_in, 3600)
+        : 3600;
+
+    responseData.cookies.set(
+      "aliqo_admin_session",
+      authData.access_token,
+      {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "strict",
+        path: "/",
+        maxAge: expiresIn,
+      }
+    );
+
+    return responseData;
+  } catch (error) {
+    console.error("Admin login request failed:", error);
+
+    return response(
       { error: "Login request failed." },
-      { status: 500 }
+      500
     );
   }
 }
