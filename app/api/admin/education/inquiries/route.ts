@@ -284,15 +284,28 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    return response({
-      inquiries,
-      institutions,
-      filters: {
-        institution_id: institutionId || null,
-        campus_id: campusId || null,
-        program_id: programId || null,
-      },
-    });
+   const inquiriesWithNames = inquiries.map(
+  (inquiry: {
+    program_id: string | null;
+    program_name: string | null;
+    [key: string]: unknown;
+  }) => ({
+    ...inquiry,
+    program_name:
+      inquiry.program_name ||
+      (inquiry.program_id ? null : "General Inquiry"),
+  })
+);
+
+return response({
+  inquiries: inquiriesWithNames,
+  institutions,
+  filters: {
+    institution_id: institutionId || null,
+    campus_id: campusId || null,
+    program_id: programId || null,
+  },
+});
   } catch (error) {
     console.error("Admin education inquiry GET error:", error);
 
