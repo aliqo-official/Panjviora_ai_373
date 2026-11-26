@@ -25,7 +25,7 @@ const ALLOWED_STATUSES = [
 type InquiryStatus = (typeof ALLOWED_STATUSES)[number];
 
 const INQUIRY_FIELDS =
-  "id,institution_id,campus_id,program_id,campus_name,program_name,student_user_id,student_name,student_email,student_phone,message,status,admin_notes,created_at,updated_at";
+  "id,institution_id,campus_id,program_id,campus_name,program_name,student_user_id,student_name,student_email,student_phone,message,status,owner_notes,created_at,updated_at";
 
 function response(data: unknown, status = 200) {
   return NextResponse.json(data, {
@@ -109,7 +109,6 @@ async function readRequestBody(
 
   try {
     const rawBody = await request.text();
-
     const bodySize = new TextEncoder().encode(rawBody).byteLength;
 
     if (bodySize > MAX_BODY_BYTES) {
@@ -225,6 +224,7 @@ async function verifyInstitutionOwnership(
 }
 
 // GET: Institution owners can view only their own inquiries.
+// Admin private notes are deliberately excluded.
 export async function GET(request: NextRequest) {
   try {
     if (!isConfigured()) {
@@ -578,7 +578,7 @@ export async function POST(request: NextRequest) {
       student_phone: studentPhone,
       message,
       status: "new",
-      admin_notes: null,
+      owner_notes: null,
     };
 
     const insertResult = await dbRequest(
@@ -671,7 +671,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// PATCH: Institution owners can update inquiry status and admin notes.
+// PATCH: Institution owners can update inquiry status and owner notes only.
 export async function PATCH(request: NextRequest) {
   try {
     if (!isConfigured()) {
@@ -712,7 +712,7 @@ export async function PATCH(request: NextRequest) {
       "inquiry_id",
       "institution_id",
       "status",
-      "admin_notes",
+      "owner_notes",
     ];
 
     if (Object.keys(body).some((key) => !allowedKeys.includes(key))) {
@@ -742,12 +742,12 @@ export async function PATCH(request: NextRequest) {
 
     const hasNotes = Object.prototype.hasOwnProperty.call(
       body,
-      "admin_notes"
+      "owner_notes"
     );
 
     if (!hasStatus && !hasNotes) {
       return response(
-        { error: "Provide a status or admin_notes update." },
+        { error: "Provide a status or owner_notes update." },
         400
       );
     }
@@ -772,26 +772,26 @@ export async function PATCH(request: NextRequest) {
 
     if (hasNotes) {
       if (
-        body.admin_notes !== null &&
-        typeof body.admin_notes !== "string"
+        body.owner_notes !== null &&
+        typeof body.owner_notes !== "string"
       ) {
         return response(
-          { error: "admin_notes must be text or null." },
+          { error: "owner_notes must be text or null." },
           400
         );
       }
 
-      if (typeof body.admin_notes === "string") {
-        if (body.admin_notes.length > 2000) {
+      if (typeof body.owner_notes === "string") {
+        if (body.owner_notes.length > 2000) {
           return response(
-            { error: "Admin notes cannot exceed 2000 characters." },
+            { error: "Owner notes cannot exceed 2000 characters." },
             400
           );
         }
 
-        updates.admin_notes = body.admin_notes.trim() || null;
+        updates.owner_notes = body.owner_notes.trim() || null;
       } else {
-        updates.admin_notes = null;
+        updates.owner_notes = null;
       }
     }
 
