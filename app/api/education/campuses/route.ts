@@ -40,25 +40,97 @@ function optionalText(value: unknown, maxLength: number) {
   return result ? result.slice(0, maxLength) : null;
 }
 
+
 async function readBody(request: NextRequest) {
-  const raw = await request.text();
+  const MAX_BODY_BYTES = 10_000;
 
-  if (!raw || raw.length > 10000) {
-    return { error: "Request body is empty or too large" };
-  }
+  const contentLength = request.headers.get("content-length");
 
-  try {
-    const parsed = JSON.parse(raw);
+  if (contentLength !== null) {
+    const declaredLength = Number(contentLength);
 
-    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-      return { error: "Invalid request data" };
+    if (
+      !Number.isSafeInteger(declaredLength) ||
+      declaredLength < 0
+    ) {
+      return { error: "Invalid request body size" };
     }
 
-    return { body: parsed as Record<string, unknown> };
+    if (declaredLength > MAX_BODY_BYTES) {
+      return { error: "Request body is too large" };
+    }
+  }
+
+  if (!request.body) {
+    return { error: "Request body is empty" };
+  }
+
+  const reader = request.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let totalBytes = 0;
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+
+      if (done) break;
+
+      totalBytes += value.byteLength;
+
+      if (totalBytes > MAX_BODY_BYTES) {
+        await reader.cancel();
+        return { error: "Request body is too large" };
+      }
+
+      chunks.push(value);
+    }
+
+    if (totalBytes === 0) {
+      return { error: "Request body is empty" };
+    }
+
+    const combined = new Uint8Array(totalBytes);
+    let offset = 0;
+
+    for (const chunk of chunks) {
+      combined.set(chunk, offset);
+      offset += chunk.byteLength;
+    }
+
+    let raw: string;
+
+    try {
+      raw = new TextDecoder("utf-8", {
+        fatal: true,
+      }).decode(combined);
+    } catch {
+      return { error: "Invalid request encoding" };
+    }
+
+    try {
+      const parsed: unknown = JSON.parse(raw);
+
+      if (
+        !parsed ||
+        typeof parsed !== "object" ||
+        Array.isArray(parsed)
+      ) {
+        return { error: "Invalid request data" };
+      }
+
+      return {
+        body: parsed as Record<string, unknown>,
+      };
+    } catch {
+      return { error: "Invalid JSON request" };
+    }
   } catch {
-    return { error: "Invalid JSON request" };
+    return { error: "Unable to read request body" };
+  } finally {
+    reader.releaseLock();
   }
 }
+
 
 // Verify institution ownership using server-side service role.
 // User identity is independently verified through Supabase Auth.
