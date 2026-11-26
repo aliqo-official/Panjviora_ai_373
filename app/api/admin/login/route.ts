@@ -2,26 +2,14 @@
 import { NextRequest, NextResponse } from "next/server";
 
 const ADMIN_EMAIL = "aliqo37311011@gmail.com";
-
-const REQUEST_TIMEOUT_MS = 15000;
 const MAX_BODY_BYTES = 16 * 1024;
 const MAX_EMAIL_LENGTH = 254;
 const MAX_PASSWORD_LENGTH = 1024;
+const AUTH_TIMEOUT_MS = 15000;
 
-function response(
-  data: Record<string, unknown>,
-  status = 200
-) {
-  return NextResponse.json(data, {
-    status,
-    headers: {
-      "Cache-Control": "no-store",
-    },
-  });
-}
-
-
-async function readBody(request: NextRequest) {
+async function readBody(
+  request: NextRequest
+): Promise<Record<string, unknown> | null> {
   const contentType = request.headers.get("content-type") || "";
 
   if (!/^application\/json(?:\s*;|$)/i.test(contentType.trim())) {
@@ -98,50 +86,14 @@ async function readBody(request: NextRequest) {
   }
 }
 
-  const contentLength = request.headers.get("content-length");
-
-  if (
-    contentLength &&
-    (!/^\d+$/.test(contentLength) ||
-      Number(contentLength) > MAX_BODY_BYTES)
-  ) {
-    return null;
-  }
-
-  try {
-    const raw = await request.text();
-
-    if (
-      new TextEncoder().encode(raw).byteLength >
-      MAX_BODY_BYTES
-    ) {
-      return null;
-    }
-
-    const parsed: unknown = JSON.parse(raw);
-
-    if (
-      typeof parsed !== "object" ||
-      parsed === null ||
-      Array.isArray(parsed)
-    ) {
-      return null;
-    }
-
-    return parsed as Record<string, unknown>;
-  } catch {
-    return null;
-  }
-}
-
 export async function POST(request: NextRequest) {
   try {
     const body = await readBody(request);
 
     if (!body) {
-      return response(
-        { error: "Invalid JSON request." },
-        400
+      return NextResponse.json(
+        { error: "Invalid request body." },
+        { status: 400 }
       );
     }
 
@@ -153,122 +105,112 @@ export async function POST(request: NextRequest) {
       !email.trim() ||
       !password
     ) {
-      return response(
+      return NextResponse.json(
         { error: "Email and password are required." },
-        400
+        { status: 400 }
       );
     }
+
+    const normalizedEmail = email.trim().toLowerCase();
 
     if (
-      email.length > MAX_EMAIL_LENGTH ||
+      normalizedEmail.length > MAX_EMAIL_LENGTH ||
       password.length > MAX_PASSWORD_LENGTH
     ) {
-      return response(
-        { error: "Email or password exceeds allowed length." },
-        400
+      return NextResponse.json(
+        { error: "Invalid email or password length." },
+        { status: 400 }
       );
     }
 
-    if (email.trim().toLowerCase() !== ADMIN_EMAIL) {
-      return response(
-        { error: "Unauthorized admin account." },
-        403
+    if (normalizedEmail !== ADMIN_EMAIL) {
+      return NextResponse.json(
+        { error: "Invalid admin credentials." },
+        { status: 401 }
       );
     }
 
-    const supabaseUrl =
-      process.env.NEXT_PUBLIC_SUPABASE_URL;
-
-    const supabaseKey =
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseAnonKey =
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-    if (!supabaseUrl || !supabaseKey) {
-      console.error("Admin login configuration is incomplete.");
+    if (!supabaseUrl || !supabaseAnonKey) {
+      console.error("Supabase authentication environment is missing.");
 
-      return response(
-        { error: "Server configuration error." },
-        500
+      return NextResponse.json(
+        { error: "Authentication service is not configured." },
+        { status: 500 }
       );
     }
 
-    const authResponse = await fetch(
-      `${supabaseUrl}/auth/v1/token?grant_type=password`,
-      {
+    const authUrl =
+      `${supabaseUrl.replace(/\/+$/, "")}/auth/v1/token?grant_type=password`;
+
+    const controller = new AbortController();
+    const timeout = setTimeout(
+      () => controller.abort(),
+      AUTH_TIMEOUT_MS
+    );
+
+    let authResponse: Response;
+
+    try {
+      authResponse = await fetch(authUrl, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          apikey: supabaseKey,
+          apikey: supabaseAnonKey,
         },
         body: JSON.stringify({
-          email: email.trim(),
+          email: normalizedEmail,
           password,
         }),
+        signal: controller.signal,
         cache: "no-store",
-        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-      }
-    );
+      });
+    } finally {
+      clearTimeout(timeout);
+    }
 
-    let authData: {
-      access_token?: string;
-      expires_in?: number;
-      user?: {
-        email?: string;
-      };
-    };
-
-    try {
-      authData = await authResponse.json();
-    } catch {
-      console.error("Supabase returned an invalid login response.");
-
-      return response(
-        { error: "Authentication service unavailable." },
-        502
+    if (!authResponse.ok) {
+      return NextResponse.json(
+        { error: "Invalid admin credentials." },
+        { status: 401 }
       );
     }
 
+    const authData: unknown = await authResponse.json();
+
     if (
-      !authResponse.ok ||
+      typeof authData !== "object" ||
+      authData === null ||
+      !("access_token" in authData) ||
       typeof authData.access_token !== "string" ||
       !authData.access_token ||
-      authData.access_token.length > 8192
+      authData.access_token.length > 10000 ||
+      !("user" in authData) ||
+      typeof authData.user !== "object" ||
+      authData.user === null ||
+      !("email" in authData.user) ||
+      typeof authData.user.email !== "string" ||
+      authData.user.email.toLowerCase() !== ADMIN_EMAIL ||
+      !("expires_in" in authData) ||
+      typeof authData.expires_in !== "number" ||
+      !Number.isFinite(authData.expires_in) ||
+      authData.expires_in <= 0
     ) {
-      return response(
-        { error: "Invalid email or password." },
-        401
+      return NextResponse.json(
+        { error: "Admin authentication failed." },
+        { status: 401 }
       );
     }
 
-    if (
-      typeof authData.user?.email !== "string" ||
-      authData.user.email.toLowerCase() !== ADMIN_EMAIL
-    ) {
-      return response(
-        { error: "Unauthorized admin account." },
-        403
-      );
-    }
+    const response = NextResponse.json({
+      success: true,
+      message: "Admin login successful.",
+    });
 
-    const responseData = NextResponse.json(
-      {
-        success: true,
-        message: "Admin login successful.",
-      },
-      {
-        headers: {
-          "Cache-Control": "no-store",
-        },
-      }
-    );
-
-    const expiresIn =
-      typeof authData.expires_in === "number" &&
-      Number.isFinite(authData.expires_in) &&
-      authData.expires_in > 0
-        ? Math.min(authData.expires_in, 3600)
-        : 3600;
-
-    responseData.cookies.set(
+    response.cookies.set(
       "aliqo_admin_session",
       authData.access_token,
       {
@@ -276,17 +218,20 @@ export async function POST(request: NextRequest) {
         secure: process.env.NODE_ENV === "production",
         sameSite: "strict",
         path: "/",
-        maxAge: expiresIn,
+        maxAge: Math.min(
+          Math.floor(authData.expires_in),
+          3600
+        ),
       }
     );
 
-    return responseData;
+    return response;
   } catch (error) {
-    console.error("Admin login request failed:", error);
+    console.error("Admin login error:", error);
 
-    return response(
-      { error: "Login request failed." },
-      500
+    return NextResponse.json(
+      { error: "Unable to process admin login." },
+      { status: 500 }
     );
   }
 }
