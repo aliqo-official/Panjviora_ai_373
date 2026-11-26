@@ -19,6 +19,7 @@ async function verifyUser(request: NextRequest) {
       Authorization: `Bearer ${token}`,
     },
     cache: "no-store",
+    signal: AbortSignal.timeout(15_000),
   });
 
   if (!response.ok) return null;
