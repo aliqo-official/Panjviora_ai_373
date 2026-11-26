@@ -828,35 +828,24 @@ export async function PATCH(request: NextRequest) {
       }
     );
 
-   if (!updateResult.ok) {
-  const errorText = await updateResult.text();
+  
+   
+    if (!updateResult.ok) {
+      const errorText = await updateResult.text();
 
-  console.error("Education inquiry update failed:", errorText);
+      // Keep database details in server logs only.
+      // Never expose internal database errors to the client.
+      console.error(
+        "Education inquiry update failed:",
+        errorText
+      );
 
-  let databaseError = "Unknown database error";
+      return response(
+        { error: "Unable to update inquiry. Please try again." },
+        400
+      );
+    }
 
-  try {
-    const parsed = JSON.parse(errorText);
-    databaseError = [
-      parsed.code,
-      parsed.message,
-      parsed.details,
-      parsed.hint,
-    ]
-      .filter(Boolean)
-      .join(" | ");
-  } catch {
-    databaseError = errorText.slice(0, 1000);
-  }
-
-  return response(
-    {
-      error: "Database update failed.",
-      details: databaseError,
-    },
-    400
-  );
-}
 
     const updatedInquiries = await updateResult.json();
 
