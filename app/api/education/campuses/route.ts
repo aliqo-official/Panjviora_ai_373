@@ -24,7 +24,18 @@ async function parseJson(response: Response): Promise<unknown | null> {
     return null;
   }
 }
+async function isUniqueViolation(
+  response: Response
+): Promise<boolean> {
+  const error = await parseJson(response);
 
+  return (
+    error !== null &&
+    typeof error === "object" &&
+    "code" in error &&
+    error.code === "23505"
+  );
+}
 async function verifyUser(
   request: NextRequest
 ): Promise<AuthData | null> {
@@ -51,7 +62,7 @@ async function verifyUser(
 
     if (!response.ok) return null;
 
-    const user: unknown = await parseJson(response);
+  const user: unknown = await parseJson(response);
 
     if (
       !user ||
@@ -350,12 +361,12 @@ export async function GET(request: NextRequest) {
       }
     );
 
-    if (!response.ok) {
-      return NextResponse.json(
-        { error: "Unable to load campuses" },
-        { status: 502 }
-      );
-    }
+ if (!response.ok) {
+  return NextResponse.json(
+    { error: "Unable to load campuses" },
+    { status: 502 }
+  );
+}
 
     const data = await parseJson(response);
 
@@ -721,11 +732,21 @@ export async function PATCH(request: NextRequest) {
     );
 
     if (!response.ok) {
-      return NextResponse.json(
-        { error: "Unable to update campus" },
-        { status: 502 }
-      );
-    }
+  if (await isUniqueViolation(response)) {
+    return NextResponse.json(
+      {
+        error:
+          "A campus with this name already exists in your institution.",
+      },
+      { status: 409 }
+    );
+  }
+
+  return NextResponse.json(
+    { error: "Unable to update campus" },
+    { status: 502 }
+  );
+}
 
     const data = await parseJson(response);
 
