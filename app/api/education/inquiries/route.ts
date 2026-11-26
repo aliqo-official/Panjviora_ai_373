@@ -379,11 +379,11 @@ export async function GET(request: NextRequest) {
           (item.campus_id
             ? campusNames.get(item.campus_id) || null
             : null),
-        program_name:
-          item.program_name ||
-          (item.program_id
-            ? programNames.get(item.program_id) || null
-            : null),
+       program_name:
+  item.program_name ||
+  (item.program_id
+    ? programNames.get(item.program_id) || null
+    : "General Inquiry"),
       })
     );
 
@@ -508,7 +508,9 @@ export async function POST(request: NextRequest) {
     }
 
     let campusName: string | null = null;
-    let programName: string | null = null;
+let programName: string | null = programId
+  ? null
+  : "General Inquiry";
 
     if (campusId) {
       const campusResult = await dbRequest(
