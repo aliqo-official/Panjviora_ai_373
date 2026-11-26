@@ -1,37 +1,79 @@
 
 import { NextRequest, NextResponse } from "next/server";
 
-async function verifyUser(request: NextRequest) {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  const authorization = request.headers.get("authorization");
-
-  if (!supabaseUrl || !supabaseKey || !serviceRoleKey) return null;
-  if (!authorization?.startsWith("Bearer ")) return null;
-
-  const token = authorization.slice(7).trim();
-  if (!token) return null;
-
-  const response = await fetch(`${supabaseUrl}/auth/v1/user`, {
-    headers: {
-      apikey: supabaseKey,
-      Authorization: `Bearer ${token}`,
-    },
-    cache: "no-store",
-    signal: AbortSignal.timeout(15_000),
-  });
-
-  if (!response.ok) return null;
-
-  const user = await response.json();
-  if (!user?.id) return null;
-
-  return { supabaseUrl, supabaseKey, serviceRoleKey, token, user };
-}
+const REQUEST_TIMEOUT = 15_000;
+const MAX_BODY_BYTES = 10_000;
 
 const uuidPattern =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+type AuthData = {
+  supabaseUrl: string;
+  supabaseKey: string;
+  serviceRoleKey: string;
+  token: string;
+  user: {
+    id: string;
+  };
+};
+
+async function parseJson(response: Response): Promise<unknown | null> {
+  try {
+    return await response.json();
+  } catch {
+    return null;
+  }
+}
+
+async function verifyUser(
+  request: NextRequest
+): Promise<AuthData | null> {
+  try {
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    const authorization = request.headers.get("authorization");
+
+    if (!supabaseUrl || !supabaseKey || !serviceRoleKey) return null;
+    if (!authorization?.startsWith("Bearer ")) return null;
+
+    const token = authorization.slice(7).trim();
+    if (!token) return null;
+
+    const response = await fetch(`${supabaseUrl}/auth/v1/user`, {
+      headers: {
+        apikey: supabaseKey,
+        Authorization: `Bearer ${token}`,
+      },
+      cache: "no-store",
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT),
+    });
+
+    if (!response.ok) return null;
+
+    const user: unknown = await parseJson(response);
+
+    if (
+      !user ||
+      typeof user !== "object" ||
+      !("id" in user) ||
+      typeof user.id !== "string" ||
+      !user.id
+    ) {
+      return null;
+    }
+
+    return {
+      supabaseUrl,
+      supabaseKey,
+      serviceRoleKey,
+      token,
+      user: { id: user.id },
+    };
+  } catch {
+    return null;
+  }
+}
 
 function optionalText(value: unknown, maxLength: number) {
   if (value === undefined || value === null) return null;
@@ -41,10 +83,11 @@ function optionalText(value: unknown, maxLength: number) {
   return result ? result.slice(0, maxLength) : null;
 }
 
+function validEmail(email: string | null) {
+  return !email || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
 
 async function readBody(request: NextRequest) {
-  const MAX_BODY_BYTES = 10_000;
-
   const contentLength = request.headers.get("content-length");
 
   if (contentLength !== null) {
@@ -132,120 +175,138 @@ async function readBody(request: NextRequest) {
   }
 }
 
-
-// Verify institution ownership using server-side service role.
+// Verify institution ownership using the server-side service role.
 // User identity is independently verified through Supabase Auth.
+
 async function verifyInstitutionOwnership(
-  auth: NonNullable<Awaited<ReturnType<typeof verifyUser>>>,
+  auth: AuthData,
   institutionId: string
-) {
-  const response = await fetch(
-    `${auth.supabaseUrl}/rest/v1/institutions?select=id&id=eq.${encodeURIComponent(institutionId)}&owner_user_id=eq.${encodeURIComponent(auth.user.id)}&limit=1`,
-    {
-      headers: {
-        apikey: auth.serviceRoleKey,
-        Authorization: `Bearer ${auth.serviceRoleKey}`,
-      },
-      cache: "no-store",
-    }
-  );
+): Promise<boolean> {
+  try {
+    const response = await fetch(
+      `${auth.supabaseUrl}/rest/v1/institutions?select=id&id=eq.${encodeURIComponent(institutionId)}&owner_user_id=eq.${encodeURIComponent(auth.user.id)}&limit=1`,
+      {
+        headers: {
+          apikey: auth.serviceRoleKey,
+          Authorization: `Bearer ${auth.serviceRoleKey}`,
+        },
+        cache: "no-store",
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT),
+      }
+    );
 
-  if (!response.ok) return false;
+    if (!response.ok) return false;
 
-  const data = await response.json();
-  return Array.isArray(data) && data.length > 0;
-}
+    const data = await parseJson(response);
 
-function validEmail(email: string | null) {
-  return !email || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+    return Array.isArray(data) && data.length > 0;
+  } catch {
+    return false;
+  }
 }
 
 // Check duplicate campus names within the same institution.
 // Returns null if the database check fails.
+
 async function campusNameExists(
-  auth: NonNullable<Awaited<ReturnType<typeof verifyUser>>>,
+  auth: AuthData,
   institutionId: string,
   campusName: string,
   excludeCampusId?: string
 ): Promise<boolean | null> {
-  const response = await fetch(
-    `${auth.supabaseUrl}/rest/v1/institution_campuses?select=id,campus_name&institution_id=eq.${encodeURIComponent(institutionId)}`,
-    {
-      headers: {
-        apikey: auth.serviceRoleKey,
-        Authorization: `Bearer ${auth.serviceRoleKey}`,
-      },
-      cache: "no-store",
-    }
-  );
-
-  if (!response.ok) return null;
-
-  const campuses = await response.json();
-
-  if (!Array.isArray(campuses)) return null;
-
-  const normalizedName = campusName.trim().toLowerCase();
-
-  return campuses.some((campus) => {
-    if (excludeCampusId && campus.id === excludeCampusId) {
-      return false;
-    }
-
-    return (
-      typeof campus.campus_name === "string" &&
-      campus.campus_name.trim().toLowerCase() === normalizedName
+  try {
+    const response = await fetch(
+      `${auth.supabaseUrl}/rest/v1/institution_campuses?select=id,campus_name&institution_id=eq.${encodeURIComponent(institutionId)}`,
+      {
+        headers: {
+          apikey: auth.serviceRoleKey,
+          Authorization: `Bearer ${auth.serviceRoleKey}`,
+        },
+        cache: "no-store",
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT),
+      }
     );
-  });
+
+    if (!response.ok) return null;
+
+    const campuses = await parseJson(response);
+
+    if (!Array.isArray(campuses)) return null;
+
+    const normalizedName = campusName.trim().toLowerCase();
+
+    return campuses.some((campus) => {
+      if (!campus || typeof campus !== "object") return false;
+
+      if (excludeCampusId && campus.id === excludeCampusId) {
+        return false;
+      }
+
+      return (
+        typeof campus.campus_name === "string" &&
+        campus.campus_name.trim().toLowerCase() === normalizedName
+      );
+    });
+  } catch {
+    return null;
+  }
 }
 
-// Check if programs or admission inquiries are linked to a campus.
+// Check whether programs or admission inquiries are linked to a campus.
 // Returns null if either database query fails.
+
 async function campusHasLinkedRecords(
-  auth: NonNullable<Awaited<ReturnType<typeof verifyUser>>>,
+  auth: AuthData,
   campusId: string
 ): Promise<boolean | null> {
-  const encodedCampusId = encodeURIComponent(campusId);
+  try {
+    const encodedCampusId = encodeURIComponent(campusId);
 
-  const headers = {
-    apikey: auth.serviceRoleKey,
-    Authorization: `Bearer ${auth.serviceRoleKey}`,
-  };
+    const headers = {
+      apikey: auth.serviceRoleKey,
+      Authorization: `Bearer ${auth.serviceRoleKey}`,
+    };
 
-  const [programsResponse, inquiriesResponse] = await Promise.all([
-    fetch(
-      `${auth.supabaseUrl}/rest/v1/institution_programs?select=id&campus_id=eq.${encodedCampusId}&limit=1`,
-      {
-        headers,
-        cache: "no-store",
-      }
-    ),
-    fetch(
-      `${auth.supabaseUrl}/rest/v1/institution_inquiries?select=id&campus_id=eq.${encodedCampusId}&limit=1`,
-      {
-        headers,
-        cache: "no-store",
-      }
-    ),
-  ]);
+    const [programsResponse, inquiriesResponse] = await Promise.all([
+      fetch(
+        `${auth.supabaseUrl}/rest/v1/institution_programs?select=id&campus_id=eq.${encodedCampusId}&limit=1`,
+        {
+          headers,
+          cache: "no-store",
+          signal: AbortSignal.timeout(REQUEST_TIMEOUT),
+        }
+      ),
+      fetch(
+        `${auth.supabaseUrl}/rest/v1/institution_inquiries?select=id&campus_id=eq.${encodedCampusId}&limit=1`,
+        {
+          headers,
+          cache: "no-store",
+          signal: AbortSignal.timeout(REQUEST_TIMEOUT),
+        }
+      ),
+    ]);
 
-  if (!programsResponse.ok || !inquiriesResponse.ok) {
+    if (!programsResponse.ok || !inquiriesResponse.ok) {
+      return null;
+    }
+
+    const [programs, inquiries] = await Promise.all([
+      parseJson(programsResponse),
+      parseJson(inquiriesResponse),
+    ]);
+
+    if (!Array.isArray(programs) || !Array.isArray(inquiries)) {
+      return null;
+    }
+
+    return programs.length > 0 || inquiries.length > 0;
+  } catch {
     return null;
   }
-
-  const [programs, inquiries] = await Promise.all([
-    programsResponse.json(),
-    inquiriesResponse.json(),
-  ]);
-
-  if (!Array.isArray(programs) || !Array.isArray(inquiries)) {
-    return null;
-  }
-
-  return programs.length > 0 || inquiries.length > 0;
 }
 
-// GET: List campuses belonging to the owner's institution
+// GET: List campuses belonging to the owner's institution.
+
 export async function GET(request: NextRequest) {
   try {
     const auth = await verifyUser(request);
@@ -285,33 +346,25 @@ export async function GET(request: NextRequest) {
           Authorization: `Bearer ${auth.token}`,
         },
         cache: "no-store",
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT),
       }
     );
 
-   if (!response.ok) {
-  return NextResponse.json(
-    { error: "Unable to load campuses" },
-    { status: response.status }
-  );
-}
+    if (!response.ok) {
+      return NextResponse.json(
+        { error: "Unable to load campuses" },
+        { status: 502 }
+      );
+    }
 
-let data: unknown;
+    const data = await parseJson(response);
 
-try {
-  data = await response.json();
-} catch {
-  return NextResponse.json(
-    { error: "Invalid response received from database" },
-    { status: 502 }
-  );
-}
-
-if (!Array.isArray(data)) {
-  return NextResponse.json(
-    { error: "Invalid campus data received" },
-    { status: 502 }
-  );
-}
+    if (!Array.isArray(data)) {
+      return NextResponse.json(
+        { error: "Invalid campus data received" },
+        { status: 502 }
+      );
+    }
 
     return NextResponse.json({ campuses: data });
   } catch {
@@ -322,7 +375,8 @@ if (!Array.isArray(data)) {
   }
 }
 
-// POST: Add a campus
+// POST: Add a campus.
+
 export async function POST(request: NextRequest) {
   try {
     const auth = await verifyUser(request);
@@ -369,9 +423,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const normalizedInstitutionId = institutionId.trim();
+
     const isOwner = await verifyInstitutionOwnership(
       auth,
-      institutionId.trim()
+      normalizedInstitutionId
     );
 
     if (!isOwner) {
@@ -383,7 +439,7 @@ export async function POST(request: NextRequest) {
 
     const duplicate = await campusNameExists(
       auth,
-      institutionId.trim(),
+      normalizedInstitutionId,
       campusName.trim()
     );
 
@@ -405,7 +461,7 @@ export async function POST(request: NextRequest) {
     }
 
     const campus = {
-      institution_id: institutionId.trim(),
+      institution_id: normalizedInstitutionId,
       campus_name: campusName.trim(),
       province: optionalText(body.province, 100),
       city: city.trim(),
@@ -434,15 +490,23 @@ export async function POST(request: NextRequest) {
         },
         body: JSON.stringify(campus),
         cache: "no-store",
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT),
       }
     );
-
-    const data = await response.json();
 
     if (!response.ok) {
       return NextResponse.json(
         { error: "Campus registration failed" },
-        { status: response.status }
+        { status: 502 }
+      );
+    }
+
+    const data = await parseJson(response);
+
+    if (!Array.isArray(data) || !data[0]) {
+      return NextResponse.json(
+        { error: "Invalid response received after campus registration" },
+        { status: 502 }
       );
     }
 
@@ -461,7 +525,8 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// PATCH: Update an existing campus
+// PATCH: Update an existing campus.
+
 export async function PATCH(request: NextRequest) {
   try {
     const auth = await verifyUser(request);
@@ -498,9 +563,12 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
+    const normalizedCampusId = campusId.trim();
+    const normalizedInstitutionId = institutionId.trim();
+
     const isOwner = await verifyInstitutionOwnership(
       auth,
-      institutionId.trim()
+      normalizedInstitutionId
     );
 
     if (!isOwner) {
@@ -553,9 +621,7 @@ export async function PATCH(request: NextRequest) {
     ] as const;
 
     for (const [field, maxLength] of optionalFields) {
-      if (
-        field in body
-      ) {
+      if (field in body) {
         if (
           body[field] !== null &&
           typeof body[field] !== "string"
@@ -596,9 +662,9 @@ export async function PATCH(request: NextRequest) {
     if (typeof updates.campus_name === "string") {
       const duplicate = await campusNameExists(
         auth,
-        institutionId.trim(),
+        normalizedInstitutionId,
         updates.campus_name,
-        campusId.trim()
+        normalizedCampusId
       );
 
       if (duplicate === null) {
@@ -639,7 +705,7 @@ export async function PATCH(request: NextRequest) {
     updates.updated_at = new Date().toISOString();
 
     const response = await fetch(
-      `${auth.supabaseUrl}/rest/v1/institution_campuses?id=eq.${encodeURIComponent(campusId.trim())}&institution_id=eq.${encodeURIComponent(institutionId.trim())}`,
+      `${auth.supabaseUrl}/rest/v1/institution_campuses?id=eq.${encodeURIComponent(normalizedCampusId)}&institution_id=eq.${encodeURIComponent(normalizedInstitutionId)}`,
       {
         method: "PATCH",
         headers: {
@@ -650,17 +716,18 @@ export async function PATCH(request: NextRequest) {
         },
         body: JSON.stringify(updates),
         cache: "no-store",
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT),
       }
     );
-
-    const data = await response.json();
 
     if (!response.ok) {
       return NextResponse.json(
         { error: "Unable to update campus" },
-        { status: response.status }
+        { status: 502 }
       );
     }
+
+    const data = await parseJson(response);
 
     if (!Array.isArray(data) || data.length === 0) {
       return NextResponse.json(
@@ -682,6 +749,7 @@ export async function PATCH(request: NextRequest) {
 }
 
 // DELETE: Block deletion if programs or inquiries are linked to the campus.
+
 export async function DELETE(request: NextRequest) {
   try {
     const auth = await verifyUser(request);
@@ -733,6 +801,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     // Confirm that this campus belongs to the supplied institution.
+
     const campusResponse = await fetch(
       `${auth.supabaseUrl}/rest/v1/institution_campuses?select=id&id=eq.${encodeURIComponent(normalizedCampusId)}&institution_id=eq.${encodeURIComponent(normalizedInstitutionId)}&limit=1`,
       {
@@ -741,17 +810,18 @@ export async function DELETE(request: NextRequest) {
           Authorization: `Bearer ${auth.serviceRoleKey}`,
         },
         cache: "no-store",
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT),
       }
     );
 
     if (!campusResponse.ok) {
       return NextResponse.json(
         { error: "Unable to verify campus ownership. Please try again." },
-        { status: 500 }
+        { status: 502 }
       );
     }
 
-    const campusData = await campusResponse.json();
+    const campusData = await parseJson(campusResponse);
 
     if (!Array.isArray(campusData) || campusData.length === 0) {
       return NextResponse.json(
@@ -795,17 +865,18 @@ export async function DELETE(request: NextRequest) {
           Prefer: "return=representation",
         },
         cache: "no-store",
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT),
       }
     );
-
-    const data = await response.json();
 
     if (!response.ok) {
       return NextResponse.json(
         { error: "Unable to delete campus" },
-        { status: response.status }
+        { status: 502 }
       );
     }
+
+    const data = await parseJson(response);
 
     if (!Array.isArray(data) || data.length === 0) {
       return NextResponse.json(
