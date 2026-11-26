@@ -135,14 +135,14 @@ type Inquiry = {
   student_phone: string;
   message: string;
   status: InquiryStatus;
-  admin_notes: string | null;
+  owner_notes: string | null;
   created_at: string;
   updated_at: string;
 };
 
 type InquiryDraft = {
   status: InquiryStatus;
-  admin_notes: string;
+  owner_notes: string;
 };
 
 const ALLOWED_STATUSES: InquiryStatus[] = [
