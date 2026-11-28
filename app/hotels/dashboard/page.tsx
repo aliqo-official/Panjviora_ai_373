@@ -83,6 +83,7 @@ export default function HotelOwnerDashboard() {
   const [saving, setSaving] = useState(false);
   const [editingRoomId, setEditingRoomId] = useState<string | null>(null);
   const [deletingRoomId, setDeletingRoomId] = useState<string | null>(null);
+  const [processingBookingId, setProcessingBookingId] = useState<string | null>(null);
   const [form, setForm] = useState<RoomForm>(emptyForm);
 
   const loadDashboard = useCallback(async () => {
@@ -304,6 +305,70 @@ export default function HotelOwnerDashboard() {
       );
     } finally {
       setDeletingRoomId(null);
+    }
+  };
+
+  const updateBookingStatus = async (
+    booking: Booking,
+    nextStatus: "confirmed" | "rejected"
+  ) => {
+    const actionLabel = nextStatus === "confirmed" ? "confirm" : "reject";
+    const confirmed = window.confirm(
+      `Are you sure you want to ${actionLabel} booking ${booking.booking_reference}?`
+    );
+
+    if (!confirmed) return;
+
+    setProcessingBookingId(booking.id);
+    setError("");
+    setSuccess("");
+
+    try {
+      const {
+        data: { session },
+        error: sessionError,
+      } = await supabase.auth.getSession();
+
+      if (sessionError || !session?.access_token) {
+        throw new Error("Your login session has expired. Please login again.");
+      }
+
+      const response = await fetch("/api/hotels/bookings/status", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          booking_id: booking.id,
+          status: nextStatus,
+        }),
+        cache: "no-store",
+      });
+
+      const result = await response.json().catch(() => null);
+
+      if (!response.ok || !result?.success) {
+        throw new Error(
+          result?.message || `Unable to ${actionLabel} this booking.`
+        );
+      }
+
+      setSuccess(
+        nextStatus === "confirmed"
+          ? "Booking confirmed successfully."
+          : "Booking rejected successfully."
+      );
+
+      await loadDashboard();
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : `Unable to ${actionLabel} this booking.`
+      );
+    } finally {
+      setProcessingBookingId(null);
     }
   };
 
@@ -845,6 +910,35 @@ export default function HotelOwnerDashboard() {
                           </p>
                           <p>Payment: {booking.payment_status}</p>
                         </div>
+
+                        {booking.status === "pending" && (
+                          <div className="mt-5 flex flex-wrap gap-3 border-t border-[#D9BD72]/30 pt-4">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                updateBookingStatus(booking, "confirmed")
+                              }
+                              disabled={processingBookingId === booking.id}
+                              className="rounded-lg bg-[#173B2B] px-5 py-2.5 text-sm font-bold text-white transition hover:bg-[#24513D] disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                              {processingBookingId === booking.id
+                                ? "Updating..."
+                                : "✓ Confirm Booking"}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                updateBookingStatus(booking, "rejected")
+                              }
+                              disabled={processingBookingId === booking.id}
+                              className="rounded-lg border border-red-200 bg-red-50 px-5 py-2.5 text-sm font-bold text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                              {processingBookingId === booking.id
+                                ? "Updating..."
+                                : "✕ Reject Booking"}
+                            </button>
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
