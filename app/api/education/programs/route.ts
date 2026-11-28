@@ -9,6 +9,7 @@ const SUPABASE_SERVICE_ROLE_KEY =
 const PROGRAM_TYPES = ["school_class", "course", "degree"];
 
 const REQUEST_TIMEOUT_MS = 15000;
+const MAX_BODY_BYTES = 10_000;
 
 type AuthUser = {
   id: string;
@@ -20,8 +21,30 @@ type AuthContext = {
   user: AuthUser;
 };
 
+type JsonObject = Record<string, unknown>;
+
+type BodyResult =
+  | { ok: true; data: JsonObject }
+  | { ok: false; message: string };
+
 function errorResponse(message: string, status = 400) {
   return NextResponse.json({ error: message }, { status });
+}
+
+function isObject(value: unknown): value is JsonObject {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    !Array.isArray(value)
+  );
+}
+
+async function parseJson(response: Response): Promise<unknown> {
+  try {
+    return await response.json();
+  } catch {
+    return null;
+  }
 }
 
 function isUuid(value: unknown): value is string {
@@ -38,6 +61,7 @@ function optionalText(value: unknown, maxLength: number) {
   if (typeof value !== "string") return undefined;
 
   const cleaned = value.trim();
+
   if (!cleaned) return null;
   if (cleaned.length > maxLength) return undefined;
 
@@ -45,7 +69,20 @@ function optionalText(value: unknown, maxLength: number) {
 }
 
 function parseFee(value: unknown): number | null | undefined {
-  if (value === null || value === undefined || value === "") return null;
+  if (value === null || value === undefined || value === "") {
+    return null;
+  }
+
+  if (
+    typeof value !== "number" &&
+    typeof value !== "string"
+  ) {
+    return undefined;
+  }
+
+  if (typeof value === "string" && !value.trim()) {
+    return null;
+  }
 
   const numberValue = Number(value);
 
@@ -60,39 +97,176 @@ function parseFee(value: unknown): number | null | undefined {
   return numberValue;
 }
 
+function validateFeeRange(
+  min: number | null,
+  max: number | null
+) {
+  return min !== null && max !== null && max < min;
+}
+
+// Reads JSON safely and enforces the body limit while streaming.
+async function readJsonBody(
+  request: NextRequest
+): Promise<BodyResult> {
+  const contentType = request.headers.get("content-type") || "";
+
+  if (!/^application\/(json|[a-z0-9.+-]+\+json)(?:\s*;|$)/i.test(contentType)) {
+    return {
+      ok: false,
+      message: "A valid JSON request is required.",
+    };
+  }
+
+  const contentLength = request.headers.get("content-length");
+
+  if (contentLength !== null) {
+    if (!/^\d+$/.test(contentLength)) {
+      return {
+        ok: false,
+        message: "Invalid request size.",
+      };
+    }
+
+    if (Number(contentLength) > MAX_BODY_BYTES) {
+      return {
+        ok: false,
+        message: "Request body is too large.",
+      };
+    }
+  }
+
+  if (!request.body) {
+    return {
+      ok: false,
+      message: "Request body is required.",
+    };
+  }
+
+  const reader = request.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let totalBytes = 0;
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+
+      if (done) break;
+
+      totalBytes += value.byteLength;
+
+      if (totalBytes > MAX_BODY_BYTES) {
+        await reader.cancel();
+
+        return {
+          ok: false,
+          message: "Request body is too large.",
+        };
+      }
+
+      chunks.push(value);
+    }
+
+    const combined = new Uint8Array(totalBytes);
+    let offset = 0;
+
+    for (const chunk of chunks) {
+      combined.set(chunk, offset);
+      offset += chunk.byteLength;
+    }
+
+    const decoder = new TextDecoder("utf-8", {
+      fatal: true,
+    });
+
+    const text = decoder.decode(combined);
+
+    let parsed: unknown;
+
+    try {
+      parsed = JSON.parse(text);
+    } catch {
+      return {
+        ok: false,
+        message: "Invalid JSON request body.",
+      };
+    }
+
+    if (!isObject(parsed)) {
+      return {
+        ok: false,
+        message: "Invalid request data.",
+      };
+    }
+
+    return {
+      ok: true,
+      data: parsed,
+    };
+  } catch {
+    return {
+      ok: false,
+      message: "Unable to read request body.",
+    };
+  } finally {
+    reader.releaseLock();
+  }
+}
+
+// Identifies PostgreSQL/PostgREST database error codes.
+function hasDatabaseErrorCode(
+  value: unknown,
+  code: string
+): boolean {
+  return (
+    isObject(value) &&
+    value.code === code
+  );
+}
+
 async function verifyUser(
   request: NextRequest
 ): Promise<AuthContext | null> {
   if (!SUPABASE_URL || !SUPABASE_KEY) return null;
 
   const authorization = request.headers.get("authorization");
+
   if (!authorization?.startsWith("Bearer ")) return null;
 
   const accessToken = authorization.slice(7).trim();
 
-  if (!accessToken || accessToken.length > 8192) return null;
+  if (!accessToken || accessToken.length > 8192) {
+    return null;
+  }
 
   try {
-    const response = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
-      headers: {
-        apikey: SUPABASE_KEY,
-        Authorization: `Bearer ${accessToken}`,
-      },
-      cache: "no-store",
-      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-    });
+    const response = await fetch(
+      `${SUPABASE_URL}/auth/v1/user`,
+      {
+        headers: {
+          apikey: SUPABASE_KEY,
+          Authorization: `Bearer ${accessToken}`,
+        },
+        cache: "no-store",
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      }
+    );
 
     if (!response.ok) return null;
 
-    const user = await response.json();
+    const user = await parseJson(response);
 
-    if (!user?.id || !isUuid(user.id)) return null;
+    if (!isObject(user) || !isUuid(user.id)) {
+      return null;
+    }
 
     return {
       accessToken,
       user: {
         id: user.id,
-        email: user.email,
+        email:
+          typeof user.email === "string"
+            ? user.email
+            : undefined,
       },
     };
   } catch {
@@ -112,15 +286,13 @@ function supabaseHeaders(
   };
 }
 
-// Server-side ownership verification using service_role.
+// Server-side institution ownership verification.
 async function verifyInstitutionOwnership(
   auth: AuthContext,
   institutionId: string
 ): Promise<boolean> {
   if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
-    throw new Error(
-      "Institution ownership verification is not configured."
-    );
+    throw new Error("Ownership verification unavailable.");
   }
 
   const response = await fetch(
@@ -138,21 +310,22 @@ async function verifyInstitutionOwnership(
   );
 
   if (!response.ok) {
-    throw new Error("Institution ownership verification failed.");
+    throw new Error("Ownership verification failed.");
   }
 
-  const data = await response.json();
+  const data = await parseJson(response);
 
   return Array.isArray(data) && data.length > 0;
 }
 
-async function verifyCampusBelongsToInstitution(
+// A campus must belong to the institution AND be active.
+async function verifyActiveCampusBelongsToInstitution(
   auth: AuthContext,
   campusId: string,
   institutionId: string
-) {
+): Promise<boolean> {
   const response = await fetch(
-    `${SUPABASE_URL}/rest/v1/institution_campuses?select=id&institution_id=eq.${encodeURIComponent(
+    `${SUPABASE_URL}/rest/v1/institution_campuses?select=id,is_active&institution_id=eq.${encodeURIComponent(
       institutionId
     )}&id=eq.${encodeURIComponent(campusId)}&limit=1`,
     {
@@ -162,17 +335,25 @@ async function verifyCampusBelongsToInstitution(
     }
   );
 
-  if (!response.ok) return false;
+  if (!response.ok) {
+    throw new Error("Campus verification failed.");
+  }
 
-  const data = await response.json();
-  return Array.isArray(data) && data.length > 0;
+  const data = await parseJson(response);
+
+  return (
+    Array.isArray(data) &&
+    data.length > 0 &&
+    isObject(data[0]) &&
+    data[0].is_active === true
+  );
 }
 
 async function getExistingProgram(
   auth: AuthContext,
   institutionId: string,
   programId: string
-) {
+): Promise<JsonObject | null> {
   const response = await fetch(
     `${SUPABASE_URL}/rest/v1/institution_programs?select=*&institution_id=eq.${encodeURIComponent(
       institutionId
@@ -184,111 +365,69 @@ async function getExistingProgram(
     }
   );
 
-  if (!response.ok) return null;
+  if (!response.ok) {
+    throw new Error("Program lookup failed.");
+  }
 
-  const data = await response.json();
-  return Array.isArray(data) && data.length ? data[0] : null;
-}
+  const data = await parseJson(response);
 
-// Checks duplicate names within the same institution,
-// program type and campus. Returns null if verification fails.
-async function checkDuplicateProgramName(
-  institutionId: string,
-  programType: string,
-  campusId: string | null,
-  programName: string,
-  excludeProgramId?: string
-): Promise<boolean | null> {
-  if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+  if (
+    !Array.isArray(data) ||
+    data.length === 0 ||
+    !isObject(data[0])
+  ) {
     return null;
   }
 
-  try {
-    const response = await fetch(
-      `${SUPABASE_URL}/rest/v1/institution_programs?select=id,program_type,program_name,campus_id&institution_id=eq.${encodeURIComponent(
-        institutionId
-      )}`,
-      {
-        headers: {
-          apikey: SUPABASE_SERVICE_ROLE_KEY,
-          Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
-        },
-        cache: "no-store",
-        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-      }
-    );
-
-    if (!response.ok) return null;
-
-    const programs = await response.json();
-
-    if (!Array.isArray(programs)) return null;
-
-    const normalizedName = programName.trim().toLowerCase();
-
-    return programs.some((program) => {
-      if (program.id === excludeProgramId) return false;
-
-      return (
-        program.program_type === programType &&
-        program.campus_id === campusId &&
-        typeof program.program_name === "string" &&
-        program.program_name.trim().toLowerCase() === normalizedName
-      );
-    });
-  } catch {
-    return null;
-  }
+  return data[0];
 }
 
-// Checks whether any admission inquiry is linked to this program.
-// Uses program_id directly to match the database foreign key.
-// Returns null if the check cannot be completed.
+// Checks whether an admission inquiry is linked to a program.
 async function checkLinkedInquiries(
   programId: string
-): Promise<boolean | null> {
+): Promise<boolean> {
   if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
-    return null;
+    throw new Error("Inquiry verification unavailable.");
   }
 
-  try {
-    const response = await fetch(
-      `${SUPABASE_URL}/rest/v1/institution_inquiries?select=id&program_id=eq.${encodeURIComponent(
-        programId
-      )}&limit=1`,
-      {
-        headers: {
-          apikey: SUPABASE_SERVICE_ROLE_KEY,
-          Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
-        },
-        cache: "no-store",
-        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-      }
-    );
+  const response = await fetch(
+    `${SUPABASE_URL}/rest/v1/institution_inquiries?select=id&program_id=eq.${encodeURIComponent(
+      programId
+    )}&limit=1`,
+    {
+      headers: {
+        apikey: SUPABASE_SERVICE_ROLE_KEY,
+        Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+      },
+      cache: "no-store",
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+    }
+  );
 
-    if (!response.ok) return null;
-
-    const inquiries = await response.json();
-
-    if (!Array.isArray(inquiries)) return null;
-
-    return inquiries.length > 0;
-  } catch {
-    return null;
+  if (!response.ok) {
+    throw new Error("Inquiry verification failed.");
   }
-}
 
-function validateFeeRange(
-  min: number | null,
-  max: number | null
-) {
-  return min !== null && max !== null && max < min;
+  const inquiries = await parseJson(response);
+
+  if (!Array.isArray(inquiries)) {
+    throw new Error("Invalid inquiry response.");
+  }
+
+  return inquiries.length > 0;
 }
 
 export async function GET(request: NextRequest) {
   try {
-    if (!SUPABASE_URL || !SUPABASE_KEY || !SUPABASE_SERVICE_ROLE_KEY) {
-      return errorResponse("Server configuration is missing.", 500);
+    if (
+      !SUPABASE_URL ||
+      !SUPABASE_KEY ||
+      !SUPABASE_SERVICE_ROLE_KEY
+    ) {
+      return errorResponse(
+        "Server configuration is missing.",
+        500
+      );
     }
 
     const auth = await verifyUser(request);
@@ -327,25 +466,36 @@ export async function GET(request: NextRequest) {
       }
     );
 
-    const data = await response.json();
-
     if (!response.ok) {
-      return NextResponse.json(
-        { error: data?.message || "Unable to load programs." },
-        { status: response.status }
-      );
+      return errorResponse("Unable to load programs.", 502);
+    }
+
+    const data = await parseJson(response);
+
+    if (!Array.isArray(data)) {
+      return errorResponse("Invalid programs response.", 502);
     }
 
     return NextResponse.json({ programs: data });
   } catch {
-    return errorResponse("An unexpected error occurred.", 500);
+    return errorResponse(
+      "Unable to load programs. Please try again.",
+      502
+    );
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
-    if (!SUPABASE_URL || !SUPABASE_KEY || !SUPABASE_SERVICE_ROLE_KEY) {
-      return errorResponse("Server configuration is missing.", 500);
+    if (
+      !SUPABASE_URL ||
+      !SUPABASE_KEY ||
+      !SUPABASE_SERVICE_ROLE_KEY
+    ) {
+      return errorResponse(
+        "Server configuration is missing.",
+        500
+      );
     }
 
     const auth = await verifyUser(request);
@@ -354,7 +504,13 @@ export async function POST(request: NextRequest) {
       return errorResponse("Please log in again.", 401);
     }
 
-    const body = await request.json();
+    const parsedBody = await readJsonBody(request);
+
+    if (!parsedBody.ok) {
+      return errorResponse(parsedBody.message, 400);
+    }
+
+    const body = parsedBody.data;
 
     const {
       institution_id,
@@ -382,7 +538,10 @@ export async function POST(request: NextRequest) {
       return errorResponse("Invalid campus selection.");
     }
 
-    if (!PROGRAM_TYPES.includes(program_type)) {
+    if (
+      typeof program_type !== "string" ||
+      !PROGRAM_TYPES.includes(program_type)
+    ) {
       return errorResponse("Select a valid program type.");
     }
 
@@ -445,40 +604,20 @@ export async function POST(request: NextRequest) {
     let verifiedCampusId: string | null = null;
 
     if (campus_id) {
-      const validCampus = await verifyCampusBelongsToInstitution(
-        auth,
-        campus_id,
-        institution_id
-      );
+      const validCampus =
+        await verifyActiveCampusBelongsToInstitution(
+          auth,
+          campus_id,
+          institution_id
+        );
 
       if (!validCampus) {
         return errorResponse(
-          "Selected campus does not belong to this institution."
+          "Selected campus must be active and belong to this institution."
         );
       }
 
       verifiedCampusId = campus_id;
-    }
-
-    const duplicateProgram = await checkDuplicateProgramName(
-      institution_id,
-      program_type,
-      verifiedCampusId,
-      cleanName
-    );
-
-    if (duplicateProgram === null) {
-      return errorResponse(
-        "Unable to verify duplicate program name. Please try again.",
-        500
-      );
-    }
-
-    if (duplicateProgram) {
-      return errorResponse(
-        "A program with this name already exists for this campus and program type.",
-        409
-      );
     }
 
     const payload = {
@@ -508,19 +647,27 @@ export async function POST(request: NextRequest) {
       }
     );
 
-    const data = await response.json();
+    const data = await parseJson(response);
 
     if (!response.ok) {
-      return NextResponse.json(
-        { error: data?.message || "Unable to create program." },
-        { status: response.status }
-      );
+      if (hasDatabaseErrorCode(data, "23505")) {
+        return errorResponse(
+          "A program with this name already exists for this campus and program type.",
+          409
+        );
+      }
+
+      return errorResponse("Unable to create program.", 502);
     }
 
-    if (!Array.isArray(data) || !data[0]) {
+    if (
+      !Array.isArray(data) ||
+      !data[0] ||
+      !isObject(data[0])
+    ) {
       return errorResponse(
-        "Program was not returned after creation.",
-        500
+        "Program creation could not be confirmed.",
+        502
       );
     }
 
@@ -532,14 +679,24 @@ export async function POST(request: NextRequest) {
       { status: 201 }
     );
   } catch {
-    return errorResponse("An unexpected error occurred.", 500);
+    return errorResponse(
+      "Unable to create program. Please try again.",
+      500
+    );
   }
 }
 
 export async function PATCH(request: NextRequest) {
   try {
-    if (!SUPABASE_URL || !SUPABASE_KEY || !SUPABASE_SERVICE_ROLE_KEY) {
-      return errorResponse("Server configuration is missing.", 500);
+    if (
+      !SUPABASE_URL ||
+      !SUPABASE_KEY ||
+      !SUPABASE_SERVICE_ROLE_KEY
+    ) {
+      return errorResponse(
+        "Server configuration is missing.",
+        500
+      );
     }
 
     const auth = await verifyUser(request);
@@ -548,7 +705,13 @@ export async function PATCH(request: NextRequest) {
       return errorResponse("Please log in again.", 401);
     }
 
-    const body = await request.json();
+    const parsedBody = await readJsonBody(request);
+
+    if (!parsedBody.ok) {
+      return errorResponse(parsedBody.message, 400);
+    }
+
+    const body = parsedBody.data;
 
     const { program_id, institution_id } = body;
 
@@ -580,10 +743,13 @@ export async function PATCH(request: NextRequest) {
       return errorResponse("Program not found.", 404);
     }
 
-    const payload: Record<string, unknown> = {};
+    const payload: JsonObject = {};
 
     if ("program_type" in body) {
-      if (!PROGRAM_TYPES.includes(body.program_type)) {
+      if (
+        typeof body.program_type !== "string" ||
+        !PROGRAM_TYPES.includes(body.program_type)
+      ) {
         return errorResponse("Select a valid program type.");
       }
 
@@ -676,15 +842,16 @@ export async function PATCH(request: NextRequest) {
           return errorResponse("Invalid campus selection.");
         }
 
-        const validCampus = await verifyCampusBelongsToInstitution(
-          auth,
-          body.campus_id,
-          institution_id
-        );
+        const validCampus =
+          await verifyActiveCampusBelongsToInstitution(
+            auth,
+            body.campus_id,
+            institution_id
+          );
 
         if (!validCampus) {
           return errorResponse(
-            "Selected campus does not belong to this institution."
+            "Selected campus must be active and belong to this institution."
           );
         }
 
@@ -699,58 +866,17 @@ export async function PATCH(request: NextRequest) {
     const finalMin =
       "fee_min" in payload
         ? (payload.fee_min as number | null)
-        : existing.fee_min;
+        : (existing.fee_min as number | null);
 
     const finalMax =
       "fee_max" in payload
         ? (payload.fee_max as number | null)
-        : existing.fee_max;
+        : (existing.fee_max as number | null);
 
     if (validateFeeRange(finalMin, finalMax)) {
       return errorResponse(
         "Maximum fee cannot be less than minimum fee."
       );
-    }
-
-    if (
-      "program_name" in payload ||
-      "program_type" in payload ||
-      "campus_id" in payload
-    ) {
-      const finalName =
-        (payload.program_name as string | undefined) ??
-        existing.program_name;
-
-      const finalType =
-        (payload.program_type as string | undefined) ??
-        existing.program_type;
-
-      const finalCampusId =
-        "campus_id" in payload
-          ? (payload.campus_id as string | null)
-          : existing.campus_id;
-
-      const duplicateProgram = await checkDuplicateProgramName(
-        institution_id,
-        finalType,
-        finalCampusId,
-        finalName,
-        program_id
-      );
-
-      if (duplicateProgram === null) {
-        return errorResponse(
-          "Unable to verify duplicate program name. Please try again.",
-          500
-        );
-      }
-
-      if (duplicateProgram) {
-        return errorResponse(
-          "A program with this name already exists for this campus and program type.",
-          409
-        );
-      }
     }
 
     const response = await fetch(
@@ -768,16 +894,24 @@ export async function PATCH(request: NextRequest) {
       }
     );
 
-    const data = await response.json();
+    const data = await parseJson(response);
 
     if (!response.ok) {
-      return NextResponse.json(
-        { error: data?.message || "Unable to update program." },
-        { status: response.status }
-      );
+      if (hasDatabaseErrorCode(data, "23505")) {
+        return errorResponse(
+          "A program with this name already exists for this campus and program type.",
+          409
+        );
+      }
+
+      return errorResponse("Unable to update program.", 502);
     }
 
-    if (!Array.isArray(data) || !data[0]) {
+    if (
+      !Array.isArray(data) ||
+      !data[0] ||
+      !isObject(data[0])
+    ) {
       return errorResponse(
         "Program update could not be confirmed.",
         404
@@ -789,14 +923,24 @@ export async function PATCH(request: NextRequest) {
       program: data[0],
     });
   } catch {
-    return errorResponse("An unexpected error occurred.", 500);
+    return errorResponse(
+      "Unable to update program. Please try again.",
+      500
+    );
   }
 }
 
 export async function DELETE(request: NextRequest) {
   try {
-    if (!SUPABASE_URL || !SUPABASE_KEY || !SUPABASE_SERVICE_ROLE_KEY) {
-      return errorResponse("Server configuration is missing.", 500);
+    if (
+      !SUPABASE_URL ||
+      !SUPABASE_KEY ||
+      !SUPABASE_SERVICE_ROLE_KEY
+    ) {
+      return errorResponse(
+        "Server configuration is missing.",
+        500
+      );
     }
 
     const auth = await verifyUser(request);
@@ -805,8 +949,13 @@ export async function DELETE(request: NextRequest) {
       return errorResponse("Please log in again.", 401);
     }
 
-    const body = await request.json();
-    const { program_id, institution_id } = body;
+    const parsedBody = await readJsonBody(request);
+
+    if (!parsedBody.ok) {
+      return errorResponse(parsedBody.message, 400);
+    }
+
+    const { program_id, institution_id } = parsedBody.data;
 
     if (!isUuid(program_id) || !isUuid(institution_id)) {
       return errorResponse(
@@ -836,17 +985,9 @@ export async function DELETE(request: NextRequest) {
       return errorResponse("Program not found.", 404);
     }
 
-    // Protect programs that have admission inquiries.
     const hasLinkedInquiries = await checkLinkedInquiries(
       program_id
     );
-
-    if (hasLinkedInquiries === null) {
-      return errorResponse(
-        "Unable to verify linked admission inquiries. Program was not deleted. Please try again.",
-        500
-      );
-    }
 
     if (hasLinkedInquiries) {
       return errorResponse(
@@ -869,29 +1010,17 @@ export async function DELETE(request: NextRequest) {
       }
     );
 
-    let data: any = null;
-
-    try {
-      data = await response.json();
-    } catch {
-      data = null;
-    }
+    const data = await parseJson(response);
 
     if (!response.ok) {
-      // PostgreSQL foreign-key violation.
-      // This is an additional protection if an inquiry is linked
-      // after the application-level check.
-      if (data?.code === "23503") {
+      if (hasDatabaseErrorCode(data, "23503")) {
         return errorResponse(
           "This program cannot be deleted because admission inquiries are linked to it. Deactivate the program instead to preserve student records.",
           409
         );
       }
 
-      return NextResponse.json(
-        { error: data?.message || "Unable to delete program." },
-        { status: response.status }
-      );
+      return errorResponse("Unable to delete program.", 502);
     }
 
     if (!Array.isArray(data) || data.length === 0) {
@@ -905,6 +1034,9 @@ export async function DELETE(request: NextRequest) {
       message: "Program deleted successfully.",
     });
   } catch {
-    return errorResponse("An unexpected error occurred.", 500);
+    return errorResponse(
+      "Unable to delete program. Please try again.",
+      500
+    );
   }
 }
