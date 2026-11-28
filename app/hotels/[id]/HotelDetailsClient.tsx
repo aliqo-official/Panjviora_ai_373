@@ -2,30 +2,31 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import { supabase } from "../../../lib/supabase";
 
 type Hotel = {
   id: string;
   hotel_name: string;
+  owner_name?: string | null;
   city: string;
   address: string;
-  description: string | null;
-  website_url: string | null;
-  image_url: string | null;
-  phone: string | null;
-  whatsapp_number: string | null;
+  description?: string | null;
+  website_url?: string | null;
+  image_url?: string | null;
+  phone?: string | null;
+  whatsapp_number?: string | null;
 };
 
 type HotelRoom = {
   id: string;
-  hotel_id: string;
   room_type: string;
-  description: string | null;
+  description?: string | null;
   price_per_night: number;
   capacity: number;
   total_rooms: number;
-  amenities: string[] | null;
-  image_url: string | null;
+  amenities?: string[] | null;
+  image_url?: string | null;
   is_active: boolean;
 };
 
@@ -53,7 +54,7 @@ export default function HotelDetailsClient({ hotelId }: Props) {
       const { data: hotelData, error: hotelError } = await supabase
         .from("hotel_profiles")
         .select(
-          "id, hotel_name, city, address, description, website_url, image_url, phone, whatsapp_number"
+          "id, hotel_name, owner_name, city, address, description, website_url, image_url, phone, whatsapp_number"
         )
         .eq("id", hotelId)
         .eq("status", "approved")
@@ -75,7 +76,7 @@ export default function HotelDetailsClient({ hotelId }: Props) {
       const { data: roomData, error: roomError } = await supabase
         .from("hotel_rooms")
         .select(
-          "id, hotel_id, room_type, description, price_per_night, capacity, total_rooms, amenities, image_url, is_active"
+          "id, room_type, description, price_per_night, capacity, total_rooms, amenities, image_url, is_active"
         )
         .eq("hotel_id", hotelId)
         .eq("is_active", true)
@@ -96,29 +97,25 @@ export default function HotelDetailsClient({ hotelId }: Props) {
   }, [hotelId]);
 
   useEffect(() => {
-    void loadHotelDetails();
+    loadHotelDetails();
   }, [loadHotelDetails]);
 
-  const cleanPhone = (value: string) => value.replace(/[^\d+]/g, "");
+  const whatsappNumber = (hotel?.whatsapp_number || "").replace(
+    /[^0-9]/g,
+    ""
+  );
 
-  const whatsappLink = hotel?.whatsapp_number
-    ? `https://wa.me/${hotel.whatsapp_number.replace(/\D/g, "")}`
-    : "";
-
-  const websiteLink = hotel?.website_url
-    ? /^https?:\/\//i.test(hotel.website_url)
-      ? hotel.website_url
-      : `https://${hotel.website_url}`
-    : "";
+  const phoneNumber = (hotel?.phone || "").replace(
+    /[^0-9+]/g,
+    ""
+  );
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-[#07130f] px-4 py-20 text-center text-white">
-        <div className="mx-auto max-w-xl rounded-2xl border border-[#D6B45B]/30 bg-[#10251c] p-10">
-          <div className="mx-auto mb-5 h-10 w-10 animate-spin rounded-full border-4 border-[#D6B45B]/30 border-t-[#D6B45B]" />
-          <p className="text-lg text-[#D6B45B]">
-            Loading hotel details...
-          </p>
+      <main className="min-h-screen bg-[#061b15] text-white flex items-center justify-center px-4">
+        <div className="text-center">
+          <div className="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-4 border-[#d6b45b] border-t-transparent" />
+          <p className="text-[#d6b45b]">Loading hotel details...</p>
         </div>
       </main>
     );
@@ -126,110 +123,97 @@ export default function HotelDetailsClient({ hotelId }: Props) {
 
   if (error || !hotel) {
     return (
-      <main className="min-h-screen bg-[#07130f] px-4 py-20 text-white">
-        <div className="mx-auto max-w-2xl rounded-2xl border border-red-500/30 bg-[#10251c] p-8 text-center">
-          <h1 className="mb-3 text-2xl font-bold text-[#D6B45B]">
+      <main className="min-h-screen bg-[#061b15] px-4 py-16 text-white">
+        <div className="mx-auto max-w-2xl rounded-2xl border border-[#d6b45b]/30 bg-[#0b2b20] p-8 text-center">
+          <h1 className="mb-3 text-2xl font-bold text-[#d6b45b]">
             Hotel Not Available
           </h1>
           <p className="mb-6 text-gray-300">
-            {error || "We could not find this hotel."}
+            {error || "This hotel could not be found."}
           </p>
-          <a
+          <Link
             href="/hotels"
-            className="inline-block rounded-lg bg-[#D6B45B] px-6 py-3 font-semibold text-[#07130f] transition hover:bg-[#e8ca78]"
+            className="inline-block rounded-lg bg-[#d6b45b] px-6 py-3 font-semibold text-[#061b15] hover:bg-[#e6c978]"
           >
             Back to Hotels
-          </a>
-          <button
-            type="button"
-            onClick={() => void loadHotelDetails()}
-            className="ml-3 rounded-lg border border-[#D6B45B] px-6 py-3 font-semibold text-[#D6B45B] transition hover:bg-[#D6B45B]/10"
-          >
-            Try Again
-          </button>
+          </Link>
         </div>
       </main>
     );
   }
 
   return (
-    <main className="min-h-screen bg-[#07130f] px-4 py-8 text-white sm:px-6 lg:px-8">
+    <main className="min-h-screen bg-[#061b15] px-4 py-8 text-white">
       <div className="mx-auto max-w-6xl">
-        <a
+        <Link
           href="/hotels"
-          className="mb-6 inline-flex items-center gap-2 text-sm font-medium text-[#D6B45B] hover:text-white"
+          className="mb-6 inline-block text-sm font-medium text-[#d6b45b] hover:underline"
         >
           ← Back to Hotels
-        </a>
+        </Link>
 
-        <section className="overflow-hidden rounded-2xl border border-[#D6B45B]/30 bg-[#10251c] shadow-xl">
+        <section className="overflow-hidden rounded-2xl border border-[#d6b45b]/30 bg-[#0b2b20] shadow-xl">
           {hotel.image_url ? (
-            <div className="h-64 w-full overflow-hidden bg-black sm:h-80">
-              <img
-                src={hotel.image_url}
-                alt={hotel.hotel_name}
-                className="h-full w-full object-cover"
-              />
-            </div>
+            <img
+              src={hotel.image_url}
+              alt={hotel.hotel_name}
+              className="h-64 w-full object-cover sm:h-80"
+            />
           ) : (
-            <div className="flex h-56 items-center justify-center bg-gradient-to-br from-[#173d2c] to-[#07130f] sm:h-72">
-              <span className="text-7xl" aria-hidden="true">
-                🏨
-              </span>
+            <div className="flex h-56 items-center justify-center bg-[#123b2c] text-7xl">
+              🏨
             </div>
           )}
 
           <div className="p-6 sm:p-8">
-            <div className="mb-4 flex flex-wrap items-center gap-3">
-              <span className="rounded-full border border-green-400/30 bg-green-500/10 px-3 py-1 text-xs font-semibold text-green-300">
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+              <span className="rounded-full border border-green-500/40 bg-green-500/10 px-4 py-1 text-sm text-green-300">
                 Approved Hotel
               </span>
-              <span className="text-sm text-gray-400">
+              <span className="text-sm text-[#d6b45b]">
                 {hotel.city}
               </span>
             </div>
 
-            <h1 className="mb-3 text-3xl font-bold text-[#D6B45B] sm:text-4xl">
+            <h1 className="mb-3 text-3xl font-bold text-[#d6b45b] sm:text-4xl">
               {hotel.hotel_name}
             </h1>
 
-            <p className="mb-4 text-gray-300">
-              📍 {hotel.address}, {hotel.city}
-            </p>
+            <p className="mb-4 text-gray-300">{hotel.address}</p>
 
             {hotel.description && (
-              <p className="max-w-4xl whitespace-pre-line leading-7 text-gray-300">
+              <p className="mb-6 whitespace-pre-line leading-7 text-gray-300">
                 {hotel.description}
               </p>
             )}
 
-            <div className="mt-7 flex flex-wrap gap-3">
-              {hotel.phone && (
+            <div className="flex flex-wrap gap-3">
+              {phoneNumber && (
                 <a
-                  href={`tel:${cleanPhone(hotel.phone)}`}
-                  className="rounded-lg bg-[#D6B45B] px-5 py-3 font-semibold text-[#07130f] transition hover:bg-[#e8ca78]"
+                  href={`tel:${phoneNumber}`}
+                  className="rounded-lg bg-[#d6b45b] px-5 py-3 font-semibold text-[#061b15] hover:bg-[#e6c978]"
                 >
-                  📞 Call Hotel
+                  Call Hotel
                 </a>
               )}
 
-              {whatsappLink && (
+              {whatsappNumber && (
                 <a
-                  href={whatsappLink}
+                  href={`https://wa.me/${whatsappNumber}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="rounded-lg border border-green-500 px-5 py-3 font-semibold text-green-400 transition hover:bg-green-500/10"
+                  className="rounded-lg border border-green-500 px-5 py-3 font-semibold text-green-300 hover:bg-green-500/10"
                 >
                   WhatsApp
                 </a>
               )}
 
-              {websiteLink && (
+              {hotel.website_url && (
                 <a
-                  href={websiteLink}
+                  href={hotel.website_url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="rounded-lg border border-[#D6B45B]/50 px-5 py-3 font-semibold text-[#D6B45B] transition hover:bg-[#D6B45B]/10"
+                  className="rounded-lg border border-[#d6b45b] px-5 py-3 font-semibold text-[#d6b45b] hover:bg-[#d6b45b]/10"
                 >
                   Visit Website
                 </a>
@@ -240,58 +224,44 @@ export default function HotelDetailsClient({ hotelId }: Props) {
 
         <section className="mt-10">
           <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <h2 className="text-2xl font-bold text-[#D6B45B] sm:text-3xl">
-                Available Rooms
-              </h2>
-              <p className="mt-2 text-sm text-gray-400">
-                Active rooms currently listed by this hotel.
-              </p>
-            </div>
-
-            <span className="rounded-full border border-[#D6B45B]/30 bg-[#10251c] px-4 py-2 text-sm text-[#D6B45B]">
-              {rooms.length} Room Types
+            <h2 className="text-2xl font-bold text-[#d6b45b]">
+              Available Rooms
+            </h2>
+            <span className="text-sm text-gray-400">
+              {rooms.length} room type(s) available
             </span>
           </div>
 
           {rooms.length === 0 ? (
-            <div className="rounded-2xl border border-[#D6B45B]/20 bg-[#10251c] p-8 text-center">
-              <p className="mb-2 text-4xl" aria-hidden="true">
-                🛏️
+            <div className="rounded-xl border border-[#d6b45b]/20 bg-[#0b2b20] p-8 text-center">
+              <p className="text-gray-300">
+                No active rooms are currently available.
               </p>
-              <h3 className="text-xl font-semibold text-[#D6B45B]">
-                No Rooms Available
-              </h3>
-              <p className="mt-2 text-gray-400">
-                This hotel has not listed any active rooms at the moment.
+              <p className="mt-2 text-sm text-gray-400">
                 Please contact the hotel for more information.
               </p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
               {rooms.map((room) => (
                 <article
                   key={room.id}
-                  className="overflow-hidden rounded-2xl border border-[#D6B45B]/25 bg-[#10251c] transition hover:border-[#D6B45B]/60"
+                  className="overflow-hidden rounded-xl border border-[#d6b45b]/25 bg-[#0b2b20]"
                 >
                   {room.image_url ? (
-                    <div className="h-48 overflow-hidden bg-black">
-                      <img
-                        src={room.image_url}
-                        alt={room.room_type}
-                        className="h-full w-full object-cover"
-                      />
-                    </div>
+                    <img
+                      src={room.image_url}
+                      alt={room.room_type}
+                      className="h-48 w-full object-cover"
+                    />
                   ) : (
-                    <div className="flex h-40 items-center justify-center bg-gradient-to-br from-[#173d2c] to-[#07130f]">
-                      <span className="text-5xl" aria-hidden="true">
-                        🛏️
-                      </span>
+                    <div className="flex h-40 items-center justify-center bg-[#123b2c] text-5xl">
+                      🛏️
                     </div>
                   )}
 
                   <div className="p-5">
-                    <h3 className="mb-2 text-xl font-bold text-[#D6B45B]">
+                    <h3 className="mb-2 text-xl font-bold text-[#d6b45b]">
                       {room.room_type}
                     </h3>
 
@@ -301,31 +271,39 @@ export default function HotelDetailsClient({ hotelId }: Props) {
                       </p>
                     )}
 
-                    <div className="space-y-2 text-sm text-gray-300">
-                      <p>
-                        <span className="text-[#D6B45B]">Price:</span>{" "}
-                        Rs. {Number(room.price_per_night).toLocaleString("en-PK")} / night
-                      </p>
-                      <p>
-                        <span className="text-[#D6B45B]">Capacity:</span>{" "}
-                        {room.capacity} guests
-                      </p>
-                      <p>
-                        <span className="text-[#D6B45B]">Rooms listed:</span>{" "}
-                        {room.total_rooms}
-                      </p>
+                    <div className="mb-4 grid grid-cols-2 gap-3 text-sm">
+                      <div className="rounded-lg bg-[#061b15] p-3">
+                        <p className="text-gray-400">Price per night</p>
+                        <p className="mt-1 font-bold text-[#d6b45b]">
+                          Rs. {Number(room.price_per_night).toLocaleString("en-PK")}
+                        </p>
+                      </div>
+
+                      <div className="rounded-lg bg-[#061b15] p-3">
+                        <p className="text-gray-400">Guest capacity</p>
+                        <p className="mt-1 font-bold text-white">
+                          {room.capacity} Guests
+                        </p>
+                      </div>
+
+                      <div className="rounded-lg bg-[#061b15] p-3">
+                        <p className="text-gray-400">Rooms available</p>
+                        <p className="mt-1 font-bold text-white">
+                          {room.total_rooms}
+                        </p>
+                      </div>
                     </div>
 
                     {room.amenities && room.amenities.length > 0 && (
-                      <div className="mt-4">
-                        <p className="mb-2 text-sm font-semibold text-[#D6B45B]">
+                      <div className="mb-4">
+                        <p className="mb-2 text-sm font-semibold text-[#d6b45b]">
                           Amenities
                         </p>
                         <div className="flex flex-wrap gap-2">
                           {room.amenities.map((amenity, index) => (
                             <span
                               key={`${room.id}-${index}`}
-                              className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-xs text-gray-300"
+                              className="rounded-full bg-[#061b15] px-3 py-1 text-xs text-gray-300"
                             >
                               {amenity}
                             </span>
@@ -334,9 +312,9 @@ export default function HotelDetailsClient({ hotelId }: Props) {
                       </div>
                     )}
 
-                    <div className="mt-5 rounded-lg border border-[#D6B45B]/20 bg-black/20 p-3 text-center text-sm text-gray-300">
-                      Contact hotel to enquire about this room.
-                    </div>
+                    <p className="text-sm text-gray-400">
+                      Contact the hotel to enquire about this room.
+                    </p>
                   </div>
                 </article>
               ))}
@@ -344,10 +322,14 @@ export default function HotelDetailsClient({ hotelId }: Props) {
           )}
         </section>
 
-        <div className="mt-10 rounded-xl border border-[#D6B45B]/20 bg-[#10251c] p-5 text-center">
-          <p className="text-sm text-gray-400">
-            ALIQO Hotel Directory — Discover accommodation across Pakistan.
-          </p>
+        <div className="mt-10 text-center">
+          <button
+            type="button"
+            onClick={loadHotelDetails}
+            className="rounded-lg border border-[#d6b45b] px-6 py-3 font-semibold text-[#d6b45b] hover:bg-[#d6b45b]/10"
+          >
+            Refresh Hotel Details
+          </button>
         </div>
       </div>
     </main>
