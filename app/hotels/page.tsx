@@ -2,6 +2,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { createClient } from "@supabase/supabase-js";
 
 const supabase = createClient(
@@ -106,7 +107,7 @@ export default function PublicHotelsPage() {
 
   return (
     <main className="min-h-screen bg-[#F5F0E6]">
-      {/* Premium Hero Section */}
+      {/* Hero Section */}
       <section className="relative overflow-hidden bg-[#123D2B] px-4 py-16 text-center text-white md:py-20">
         <div className="pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full border border-[#D4AF37]/20" />
         <div className="pointer-events-none absolute -bottom-32 -left-20 h-80 w-80 rounded-full border border-[#D4AF37]/20" />
@@ -236,31 +237,44 @@ export default function PublicHotelsPage() {
                   key={hotel.id}
                   className="group overflow-hidden rounded-2xl border border-[#DED5C2] bg-white shadow-sm transition duration-300 hover:-translate-y-1 hover:border-[#D4AF37] hover:shadow-xl"
                 >
-                  <div className="relative overflow-hidden">
-                    {hotel.image_url ? (
-                      <img
-                        src={hotel.image_url}
-                        alt={hotel.hotel_name}
-                        className="h-56 w-full object-cover transition duration-500 group-hover:scale-105"
-                      />
-                    ) : (
-                      <div className="flex h-56 items-center justify-center bg-[#F5F0E6] text-7xl">
-                        🏨
+                  <Link
+                    href={`/hotels/${hotel.id}`}
+                    aria-label={`View details for ${hotel.hotel_name}`}
+                    className="block"
+                  >
+                    <div className="relative overflow-hidden">
+                      {hotel.image_url ? (
+                        <img
+                          src={hotel.image_url}
+                          alt={hotel.hotel_name}
+                          className="h-56 w-full object-cover transition duration-500 group-hover:scale-105"
+                        />
+                      ) : (
+                        <div className="flex h-56 items-center justify-center bg-[#F5F0E6] text-7xl">
+                          🏨
+                        </div>
+                      )}
+
+                      <div className="absolute left-4 top-4 rounded-full border border-[#D4AF37]/50 bg-[#123D2B] px-3 py-1.5 text-xs font-bold text-[#D4AF37] shadow">
+                        ✓ Approved
                       </div>
-                    )}
-
-                    <div className="absolute left-4 top-4 rounded-full border border-[#D4AF37]/50 bg-[#123D2B] px-3 py-1.5 text-xs font-bold text-[#D4AF37] shadow">
-                      ✓ Approved
                     </div>
-                  </div>
 
-                  <div className="p-6">
-                    <h3 className="text-xl font-extrabold text-[#123D2B]">
-                      {hotel.hotel_name}
-                    </h3>
+                    <div className="px-6 pt-6">
+                      <h3 className="text-xl font-extrabold text-[#123D2B] transition group-hover:text-[#B08B22]">
+                        {hotel.hotel_name}
+                      </h3>
 
-                    <div className="mt-3 flex items-start gap-2">
+                      <p className="mt-2 text-sm font-semibold text-[#B08B22]">
+                        View hotel details →
+                      </p>
+                    </div>
+                  </Link>
+
+                  <div className="px-6 pb-6 pt-3">
+                    <div className="mt-1 flex items-start gap-2">
                       <span className="text-[#B08B22]">📍</span>
+
                       <div>
                         <p className="font-semibold text-[#123D2B]">
                           {hotel.city}
@@ -281,6 +295,13 @@ export default function PublicHotelsPage() {
                     <div className="my-5 border-t border-[#DED5C2]" />
 
                     <div className="flex flex-wrap gap-2">
+                      <Link
+                        href={`/hotels/${hotel.id}`}
+                        className="rounded-lg border border-[#D4AF37] bg-[#D4AF37] px-4 py-2.5 text-sm font-bold text-[#123D2B] transition hover:bg-[#B08B22]"
+                      >
+                        View Details →
+                      </Link>
+
                       {hotel.phone && (
                         <a
                           href={`tel:${hotel.phone}`}
