@@ -48,12 +48,6 @@ export default function RootLayout({
           name="mitgo-verification"
           content="5faa6741-a742-4059-9b90-98a3f416b642"
         />
-
-        <script
-          async
-          src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-2101414354041917"
-          crossOrigin="anonymous"
-        />
       </head>
 
       <body className="min-h-full flex flex-col bg-[#F5F0E6] text-[#123D2B]">
