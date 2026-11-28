@@ -233,9 +233,9 @@ export async function POST(request: NextRequest) {
       {
         p_room_id: body.room_id,
         p_customer_user_id: customer.userId,
-        p_guest_name: body.guest_name.trim(),
-        p_guest_email: body.guest_email.trim().toLowerCase(),
-        p_guest_phone: body.guest_phone.trim(),
+        p_guest_name: (body.guest_name as string).trim(),
+        p_guest_email: (body.guest_email as string).trim().toLowerCase(),
+        p_guest_phone: (body.guest_phone as string).trim(),
         p_check_in: body.check_in,
         p_check_out: body.check_out,
         p_guests: body.guests,
